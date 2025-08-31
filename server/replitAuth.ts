@@ -57,36 +57,23 @@ async function upsertUser(claims: any) {
 }
 
 export function getSession() {
-  if (isDevelopment) {
-    return session({
-      secret: process.env.SESSION_SECRET || 'dev-secret-change-in-production',
-      resave: false,
-      saveUninitialized: false,
-      cookie: {
-        httpOnly: true,
-        secure: false,
-        maxAge: 7 * 24 * 60 * 60 * 1000 // 1 week
-      }
-    });
-  }
-
   const sessionTtl = 7 * 24 * 60 * 60 * 1000; // 1 week
   const pgStore = connectPg(session);
   const sessionStore = new pgStore({
     conString: process.env.DATABASE_URL,
-    createTableIfMissing: false,
+    createTableIfMissing: true,
     ttl: sessionTtl,
     tableName: "sessions",
   });
   
   return session({
-    secret: process.env.SESSION_SECRET!,
+    secret: process.env.SESSION_SECRET || 'a-secure-secret-for-railway',
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === 'production',
       maxAge: sessionTtl,
     },
   });
