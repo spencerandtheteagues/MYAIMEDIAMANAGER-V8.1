@@ -1,0 +1,617 @@
+import { useState } from "react";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Switch } from "@/components/ui/switch";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Bot, Bold, Italic, Link as LinkIcon, Image, Wand2, Target, Palette, Building2, MessageSquare, Megaphone, Sparkles, FileText, Video, ImageIcon, Eye } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { apiRequest } from "@/lib/queryClient";
+import PlatformSelector from "../components/content/platform-selector";
+import AiSuggestions from "../components/content/ai-suggestions";
+import PlatformPreview from "../components/content/platform-preview";
+
+export default function CreateContent() {
+  const [content, setContent] = useState("");
+  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["Instagram", "Facebook"]);
+  const [scheduleOption, setScheduleOption] = useState("now");
+  const [showAiSuggestions, setShowAiSuggestions] = useState(false);
+  const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  
+  // Enhanced AI input fields
+  const [businessName, setBusinessName] = useState("");
+  const [productName, setProductName] = useState("");
+  const [targetAudience, setTargetAudience] = useState("");
+  const [brandTone, setBrandTone] = useState("professional");
+  const [keyMessages, setKeyMessages] = useState("");
+  const [callToAction, setCallToAction] = useState("");
+  const [isAdvertisement, setIsAdvertisement] = useState(true);
+  const [additionalContext, setAdditionalContext] = useState("");
+  
+  // Media type selection
+  const [mediaType, setMediaType] = useState<"text" | "image" | "video">("text");
+  
+  // Visual generation fields
+  const [generateVisuals, setGenerateVisuals] = useState(false);
+  const [visualStyle, setVisualStyle] = useState("modern");
+  const [colorScheme, setColorScheme] = useState("");
+  const [imagePrompt, setImagePrompt] = useState("");
+  const [videoDuration, setVideoDuration] = useState(15);
+  const [videoTextOverlay, setVideoTextOverlay] = useState("");
+  
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const createPostMutation = useMutation({
+    mutationFn: async (postData: any) => {
+      return apiRequest("POST", "/api/posts", postData);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Your post has been created successfully!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      // Reset form
+      setContent("");
+      setSelectedPlatforms(["Instagram", "Facebook"]);
+      setScheduleOption("now");
+      setShowAiSuggestions(false);
+      setAiSuggestions([]);
+      setBusinessName("");
+      setProductName("");
+      setTargetAudience("");
+      setKeyMessages("");
+      setCallToAction("");
+      setAdditionalContext("");
+      setImagePrompt("");
+      setColorScheme("");
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to create post. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const generateAiContentMutation = useMutation({
+    mutationFn: async (params: any) => {
+      const response = await apiRequest("POST", "/api/ai/generate", params);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      // Always set the text content
+      if (data.content) {
+        setContent(data.content);
+      }
+      
+      // Handle different media types
+      if (data.imageUrl) {
+        setImagePrompt(data.imagePrompt || "");
+      }
+      
+      let description = "AI has created ";
+      if (data.mediaType === "text") {
+        description += "text content";
+      } else if (data.mediaType === "image" && data.imageUrl) {
+        description += "text content with an image";
+      } else if (data.mediaType === "video" && data.videoUrl) {
+        description += "text content with a video";
+      } else {
+        description += "content";
+      }
+      
+      toast({
+        title: "✨ Content Generated Successfully",
+        description: `${description} optimized for ${selectedPlatforms[0] || 'your platform'}`,
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to generate AI content. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleSubmit = () => {
+    if (!content.trim() && !businessName.trim()) {
+      toast({
+        title: "Error",
+        description: "Please enter content or fill in business details for AI generation.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    if (selectedPlatforms.length === 0) {
+      toast({
+        title: "Error",
+        description: "Please select at least one platform.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const status = scheduleOption === "approval" ? "pending" : 
+                  scheduleOption === "later" ? "scheduled" : "published";
+
+    createPostMutation.mutate({
+      content,
+      platforms: selectedPlatforms,
+      status,
+      aiGenerated: true,
+      scheduledFor: scheduleOption === "later" ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null,
+      mediaType,
+      metadata: {
+        businessName,
+        productName,
+        targetAudience,
+        brandTone,
+        keyMessages,
+        callToAction,
+        isAdvertisement,
+        visualStyle,
+        colorScheme,
+        imagePrompt,
+        videoDuration,
+        videoTextOverlay,
+      }
+    });
+  };
+
+  const handleAiGenerate = () => {
+    if (!businessName.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter at least your business name to generate content.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const params: any = {
+      businessName,
+      productName,
+      targetAudience,
+      brandTone,
+      keyMessages: keyMessages.split(',').map(k => k.trim()).filter(k => k),
+      callToAction,
+      platform: selectedPlatforms[0] || 'Instagram',
+      isAdvertisement,
+      additionalContext,
+      mediaType,
+      visualStyle,
+      colorScheme,
+    };
+
+    if (mediaType === "image") {
+      params.generateImage = true;
+      params.imagePrompt = imagePrompt;
+    } else if (mediaType === "video") {
+      params.generateVideo = true;
+      params.videoDuration = videoDuration;
+      params.videoTextOverlay = videoTextOverlay;
+      params.videoPrompt = imagePrompt; // Using imagePrompt field for video description
+    }
+
+    generateAiContentMutation.mutate(params);
+  };
+
+  const handleSelectSuggestion = (suggestion: string) => {
+    setContent(suggestion);
+    setShowAiSuggestions(false);
+  };
+
+  return (
+    <div className="p-6">
+      <div className="max-w-6xl mx-auto">
+        <div className="mb-6">
+          <h1 className="text-3xl font-bold text-foreground">Create Content</h1>
+          <p className="text-muted-foreground mt-2">
+            Generate AI-powered content optimized for your business and target audience
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          {/* AI Input Fields - Left Side */}
+          <div className="lg:col-span-2 space-y-6">
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Building2 className="w-5 h-5 text-primary" />
+                  Business Information
+                </CardTitle>
+                <CardDescription>
+                  Provide details about your business for personalized content generation
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="businessName">Business Name *</Label>
+                    <Input
+                      id="businessName"
+                      value={businessName}
+                      onChange={(e) => setBusinessName(e.target.value)}
+                      placeholder="e.g., Sarah's Coffee Shop"
+                      className="mt-1"
+                    />
+                  </div>
+                  <div>
+                    <Label htmlFor="productName">Product/Service</Label>
+                    <Input
+                      id="productName"
+                      value={productName}
+                      onChange={(e) => setProductName(e.target.value)}
+                      placeholder="e.g., Organic Coffee Blend"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="targetAudience">Target Audience</Label>
+                  <Input
+                    id="targetAudience"
+                    value={targetAudience}
+                    onChange={(e) => setTargetAudience(e.target.value)}
+                    placeholder="e.g., Young professionals, coffee enthusiasts, eco-conscious consumers"
+                    className="mt-1"
+                  />
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="brandTone">Brand Tone</Label>
+                    <Select value={brandTone} onValueChange={setBrandTone}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="professional">Professional</SelectItem>
+                        <SelectItem value="friendly">Friendly & Casual</SelectItem>
+                        <SelectItem value="luxurious">Luxurious & Premium</SelectItem>
+                        <SelectItem value="playful">Playful & Fun</SelectItem>
+                        <SelectItem value="inspirational">Inspirational</SelectItem>
+                        <SelectItem value="educational">Educational</SelectItem>
+                        <SelectItem value="urgent">Urgent & Action-Oriented</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div>
+                    <Label htmlFor="callToAction">Call to Action</Label>
+                    <Input
+                      id="callToAction"
+                      value={callToAction}
+                      onChange={(e) => setCallToAction(e.target.value)}
+                      placeholder="e.g., Shop Now, Learn More, Get 20% Off"
+                      className="mt-1"
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="keyMessages">Key Messages (comma-separated)</Label>
+                  <Textarea
+                    id="keyMessages"
+                    value={keyMessages}
+                    onChange={(e) => setKeyMessages(e.target.value)}
+                    placeholder="e.g., Free shipping on orders over $50, Eco-friendly packaging, Award-winning quality"
+                    className="mt-1 h-20"
+                  />
+                </div>
+
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center space-x-2">
+                    <Switch
+                      id="isAdvertisement"
+                      checked={isAdvertisement}
+                      onCheckedChange={setIsAdvertisement}
+                    />
+                    <Label htmlFor="isAdvertisement" className="cursor-pointer">
+                      Structure as Advertisement
+                    </Label>
+                  </div>
+                  <Badge variant={isAdvertisement ? "default" : "secondary"}>
+                    {isAdvertisement ? "Ad Format" : "Organic Content"}
+                  </Badge>
+                </div>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Palette className="w-5 h-5 text-primary" />
+                  Media Generation
+                </CardTitle>
+                <CardDescription>
+                  Choose what type of content to generate with AI
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label>Media Type</Label>
+                  <RadioGroup value={mediaType} onValueChange={(value: any) => setMediaType(value)} className="mt-2">
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="text" id="text" />
+                      <Label htmlFor="text" className="flex items-center gap-2 cursor-pointer">
+                        <FileText className="w-4 h-4" />
+                        Text Only (Gemini 2.5 Flash)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="image" id="image" />
+                      <Label htmlFor="image" className="flex items-center gap-2 cursor-pointer">
+                        <ImageIcon className="w-4 h-4" />
+                        Text + Image (Gemini + Imagen4)
+                      </Label>
+                    </div>
+                    <div className="flex items-center space-x-2">
+                      <RadioGroupItem value="video" id="video" />
+                      <Label htmlFor="video" className="flex items-center gap-2 cursor-pointer">
+                        <Video className="w-4 h-4" />
+                        Text + Video (Gemini + Veo3 Fast)
+                      </Label>
+                    </div>
+                  </RadioGroup>
+                </div>
+
+                {(mediaType === "image" || mediaType === "video") && (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div>
+                        <Label htmlFor="visualStyle">Visual Style</Label>
+                        <Select value={visualStyle} onValueChange={setVisualStyle}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="modern">Modern & Clean</SelectItem>
+                            <SelectItem value="vintage">Vintage & Retro</SelectItem>
+                            <SelectItem value="minimalist">Minimalist</SelectItem>
+                            <SelectItem value="bold">Bold & Vibrant</SelectItem>
+                            <SelectItem value="elegant">Elegant & Sophisticated</SelectItem>
+                            <SelectItem value="playful">Playful & Colorful</SelectItem>
+                            <SelectItem value="professional">Professional & Corporate</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="colorScheme">Color Scheme</Label>
+                        <Input
+                          id="colorScheme"
+                          value={colorScheme}
+                          onChange={(e) => setColorScheme(e.target.value)}
+                          placeholder="e.g., Blue and gold, Earth tones"
+                          className="mt-1"
+                        />
+                      </div>
+                    </div>
+                    
+                    {mediaType === "image" && (
+                      <div>
+                        <Label htmlFor="imagePrompt">Image Description</Label>
+                        <Textarea
+                          id="imagePrompt"
+                          value={imagePrompt}
+                          onChange={(e) => setImagePrompt(e.target.value)}
+                          placeholder="Describe specific visual elements you want in the image..."
+                          className="mt-1 h-20"
+                        />
+                      </div>
+                    )}
+                    
+                    {mediaType === "video" && (
+                      <>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          <div>
+                            <Label htmlFor="videoDuration">Video Duration (seconds)</Label>
+                            <Input
+                              id="videoDuration"
+                              type="number"
+                              min="5"
+                              max="30"
+                              value={videoDuration}
+                              onChange={(e) => setVideoDuration(parseInt(e.target.value) || 15)}
+                              className="mt-1"
+                            />
+                          </div>
+                          <div>
+                            <Label htmlFor="videoTextOverlay">Text Overlay</Label>
+                            <Input
+                              id="videoTextOverlay"
+                              value={videoTextOverlay}
+                              onChange={(e) => setVideoTextOverlay(e.target.value)}
+                              placeholder="e.g., Limited Time Offer"
+                              className="mt-1"
+                            />
+                          </div>
+                        </div>
+                        <div>
+                          <Label htmlFor="imagePrompt">Video Scene Description</Label>
+                          <Textarea
+                            id="imagePrompt"
+                            value={imagePrompt}
+                            onChange={(e) => setImagePrompt(e.target.value)}
+                            placeholder="Describe the scenes and visual elements for your video..."
+                            className="mt-1 h-20"
+                          />
+                        </div>
+                      </>
+                    )}
+                  </>
+                )}
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <MessageSquare className="w-5 h-5 text-primary" />
+                  Content Editor
+                </CardTitle>
+                <CardDescription>
+                  Edit your generated content or write from scratch
+                </CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div>
+                  <Label htmlFor="additionalContext">Additional Context (Optional)</Label>
+                  <Textarea
+                    id="additionalContext"
+                    value={additionalContext}
+                    onChange={(e) => setAdditionalContext(e.target.value)}
+                    placeholder="Any special instructions, current promotions, or specific details to include..."
+                    className="mt-1 h-20"
+                  />
+                </div>
+
+                <div className="flex justify-between items-center mb-2">
+                  <Label>Generated Content</Label>
+                  <Button
+                    onClick={handleAiGenerate}
+                    disabled={generateAiContentMutation.isPending}
+                    size="sm"
+                  >
+                    <Sparkles className="w-4 h-4 mr-2" />
+                    {generateAiContentMutation.isPending ? 
+                      `Generating ${mediaType}...` : 
+                      `Generate ${mediaType === 'text' ? 'Text' : mediaType === 'image' ? 'Text + Image' : 'Text + Video'}`
+                    }
+                  </Button>
+                </div>
+                
+                <div className="border border-border rounded-lg overflow-hidden">
+                  <div className="bg-muted px-4 py-2 border-b border-border flex items-center space-x-2 text-sm">
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <Bold className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <Italic className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <LinkIcon className="w-4 h-4" />
+                    </Button>
+                    <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                      <Image className="w-4 h-4" />
+                    </Button>
+                  </div>
+                  <Textarea
+                    value={content}
+                    onChange={(e) => setContent(e.target.value)}
+                    className="border-0 resize-none h-40 focus-visible:ring-0"
+                    placeholder="Your AI-generated content will appear here. You can also type or edit manually..."
+                  />
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Platform Previews - Show below content editor */}
+            {selectedPlatforms.length > 0 && (
+              <div className="space-y-4">
+                <h3 className="text-lg font-semibold flex items-center gap-2">
+                  <Eye className="w-5 h-5 text-primary" />
+                  Platform Previews
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {selectedPlatforms.map((platform) => (
+                    <PlatformPreview
+                      key={platform}
+                      platform={platform}
+                      content={content}
+                      businessName={businessName || "Your Business"}
+                      imageUrl={mediaType === "image" ? "https://via.placeholder.com/1080x1080/9333ea/ffffff?text=AI+Generated+Image" : undefined}
+                    />
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Right Sidebar */}
+          <div className="space-y-6">
+            {/* Platform Selection */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-primary" />
+                  Target Platforms
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <PlatformSelector 
+                  selectedPlatforms={selectedPlatforms}
+                  onPlatformsChange={setSelectedPlatforms}
+                />
+              </CardContent>
+            </Card>
+
+            {/* AI Suggestions */}
+            {showAiSuggestions && (
+              <Card>
+                <CardHeader>
+                  <CardTitle>AI Suggestions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AiSuggestions
+                    suggestions={aiSuggestions}
+                    onSelectSuggestion={handleSelectSuggestion}
+                  />
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Schedule Options */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Megaphone className="w-5 h-5 text-primary" />
+                  Publishing Options
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <RadioGroup
+                  value={scheduleOption}
+                  onValueChange={setScheduleOption}
+                >
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="now" id="now" />
+                    <Label htmlFor="now">Publish Now</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="later" id="later" />
+                    <Label htmlFor="later">Schedule for Later</Label>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    <RadioGroupItem value="approval" id="approval" />
+                    <Label htmlFor="approval">Send for Approval</Label>
+                  </div>
+                </RadioGroup>
+                
+                <Button 
+                  onClick={handleSubmit}
+                  disabled={createPostMutation.isPending}
+                  className="w-full"
+                  size="lg"
+                >
+                  {createPostMutation.isPending ? "Creating..." : "Create Post"}
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
