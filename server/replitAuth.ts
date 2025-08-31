@@ -7,7 +7,7 @@ import memoize from "memoizee";
 import connectPg from "connect-pg-simple";
 import { storage } from "./storage";
 
-const isDevelopment = process.env.NODE_ENV !== 'production';
+const isDevelopment = true;
 
 // Mock user for development
 const mockUser = {
