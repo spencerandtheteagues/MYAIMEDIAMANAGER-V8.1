@@ -26,6 +26,7 @@ RUN npm install --production=true
 # Copy the built application artifacts from the builder stage
 COPY --from=builder /app/dist ./dist
 COPY drizzle.config.ts ./
+COPY shared ./shared
 
 # Expose the port and define the start command
 EXPOSE 3000
