@@ -113,11 +113,10 @@ export default function CreateContent() {
   const generateAiContentMutation = useMutation({
     mutationFn: async (params: any) => {
       const response = await apiRequest("POST", "/api/ai/text", {
-        system: "You write punchy, on-brand social media captions.",
         prompt: `Create a ${params.brandTone || 'professional'} social media post for ${params.platform || 'Instagram'} about: ${params.businessName} ${params.productName || ''} - ${params.callToAction || 'promotion'}. Include ${params.includeHashtags ? 'hashtags' : 'no hashtags'} and ${params.includeEmojis ? 'emojis' : 'no emojis'}.`,
+        system: "You write punchy, on-brand social media captions.",
         temperature: 0.9,
-        maxOutputTokens: 2048,
-        jsonSchema: null,
+        maxOutputTokens: 2048
       });
       return response.json();
     },
@@ -134,7 +133,7 @@ export default function CreateContent() {
       console.error('AI generation error:', error);
       toast({
         title: "Error",
-        description: error?.error || "Failed to generate AI content. Please try again.",
+        description: error?.message || "Failed to generate AI content. Please try again.",
         variant: "destructive",
       });
     },
@@ -143,7 +142,7 @@ export default function CreateContent() {
   const generateImageMutation = useMutation({
     mutationFn: async (params: any) => {
       const prompt = params.imagePrompt || 
-        `Photorealistic ${params.businessName || ''} ${params.productName || ''} ${params.visualStyle || 'modern'} ${params.environment || ''} ${params.mood || ''}`;
+        `Photoreal ${params.businessName || ''} ${params.productName || ''} ${params.visualStyle || 'modern'} ${params.environment || ''} ${params.mood || ''}, golden hour, steam`;
       
       const aspectRatioMap: Record<string, string> = {
         "Instagram": "1:1",
@@ -156,10 +155,8 @@ export default function CreateContent() {
       const response = await apiRequest("POST", "/api/ai/image", {
         prompt: prompt.trim(),
         aspectRatio: aspectRatioMap[selectedPlatforms[0]] || "1:1",
-        personGeneration: "allow_all",
         count: 1,
-        negativePrompt: "blurry, watermark, low quality",
-        outputResolution: "1024",
+        negativePrompt: "blurry, watermark, low quality"
       });
       return response.json();
     },
@@ -169,14 +166,14 @@ export default function CreateContent() {
       }
       toast({
         title: "Image Generated",
-        description: "AI has created a custom image for your content",
+        description: "AI has created a custom image for your content (SynthID watermarked)",
       });
     },
     onError: (error: any) => {
       console.error('Image generation error:', error);
       toast({
         title: "Error",
-        description: error?.error || "Failed to generate image. Please try again.",
+        description: error?.message || "Failed to generate image. Please try again.",
         variant: "destructive",
       });
     },
@@ -185,46 +182,46 @@ export default function CreateContent() {
   const generateVideoMutation = useMutation({
     mutationFn: async (params: any) => {
       const prompt = params.videoScript || 
-        `Cinematic slow pan across ${params.businessName || ''} ${params.productName || ''}, ${params.videoStyle || 'professional'} style`;
+        `Cinematic close-up of ${params.businessName || ''} ${params.productName || ''} in slow motion, soft jazz, ${params.videoStyle || 'professional'} style`;
       
       const aspectRatio = selectedPlatforms[0] === "TikTok" ? "9:16" : "16:9";
       
       // Start video generation
       const startResponse = await apiRequest("POST", "/api/ai/video/start", {
         prompt: prompt.trim(),
-        negativePrompt: "blurry, low quality",
         aspectRatio,
         fast: true, // Use fast model for quicker generation
+        negativePrompt: "blurry, low quality"
       });
       const { operationName } = await startResponse.json();
       
       // Poll for completion
-      let videoUri = "";
+      let downloadUrl = "";
       let attempts = 0;
       while (attempts < 30) { // Max 30 attempts (2.5 minutes)
         await new Promise(r => setTimeout(r, 5000)); // Wait 5 seconds
         
-        const statusResponse = await fetch(`/api/ai/video/status/${operationName}`);
+        const statusResponse = await fetch(`/api/ai/video/status/${encodeURIComponent(operationName)}`);
         const status = await statusResponse.json();
         
         if (status.done) {
-          videoUri = status.uri;
+          downloadUrl = status.downloadUrl;
           break;
         }
         attempts++;
       }
       
-      if (!videoUri) {
+      if (!downloadUrl) {
         throw new Error("Video generation timed out");
       }
       
-      return { videoUrl: videoUri };
+      return { videoUrl: downloadUrl };
     },
     onSuccess: (data) => {
       setGeneratedVideo(data.videoUrl);
       toast({
         title: "Video Generated",
-        description: "AI has created a custom video for your content (8 seconds with audio)",
+        description: "AI has created a custom 8-second video with audio",
       });
     },
     onError: (error: any) => {

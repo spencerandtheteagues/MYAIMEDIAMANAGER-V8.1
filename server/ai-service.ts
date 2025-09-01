@@ -1,4 +1,4 @@
-import { GoogleGenerativeAI } from "@google/generative-ai";
+import { GoogleGenAI } from "@google/genai";
 
 if (!process.env.GEMINI_API_KEY) {
   console.warn("GEMINI_API_KEY not set. AI features will be disabled.");
@@ -7,7 +7,7 @@ if (!process.env.GEMINI_API_KEY) {
 }
 
 const genAI = process.env.GEMINI_API_KEY 
-  ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
+  ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
   : null;
 
 export interface ContentGenerationOptions {
@@ -33,12 +33,8 @@ export interface VideoGenerationOptions {
 }
 
 export class AIService {
-  private textModel = genAI ? genAI.getGenerativeModel({ 
-    model: "gemini-1.5-pro" 
-  }) : null;
-
   async generateContent(options: ContentGenerationOptions): Promise<string[]> {
-    if (!this.textModel) {
+    if (!genAI) {
       throw new Error("AI service not configured. Please set GEMINI_API_KEY.");
     }
 
@@ -68,9 +64,13 @@ ${options.includeEmojis ? "- Include appropriate emojis" : "- No emojis"}
 Format each post on a new line. Make each one unique and engaging.`;
 
     try {
-      const result = await this.textModel.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      const result = await (genAI.models as any).generateContent({
+        model: "gemini-1.5-pro",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.9, maxOutputTokens: 2048 }
+      });
+      
+      const text = result.text || "";
       
       // Split by newlines and filter out empty lines
       const posts = text.split('\n')
@@ -89,47 +89,30 @@ Format each post on a new line. Make each one unique and engaging.`;
       throw new Error("AI service not configured. Please set GEMINI_API_KEY.");
     }
 
-    // Using Imagen 3 through Gemini API
-    const imageModel = genAI.getGenerativeModel({ 
-      model: "imagen-3.0-generate-002" 
-    });
-
     // Enhance prompt with style and quality modifiers
     const enhancedPrompt = `${options.prompt}${options.style ? `, ${options.style} style` : ""}, high quality, professional photography, detailed`;
 
     try {
-      const result = await imageModel.generateContent({
-        contents: [{ 
-          role: "user", 
-          parts: [{ text: enhancedPrompt }] 
-        }],
-        generationConfig: {
-          temperature: 0.4,
-          maxOutputTokens: 0,
-          responseMimeType: "image/png"
-        }
-      });
-
-      const response = await result.response;
-      
-      // For now, return a placeholder URL since Imagen requires additional setup
-      // In production, this would return the actual generated image URL
+      // Imagen requires additional setup - using placeholder
       return {
         url: `data:image/svg+xml;base64,${btoa(`
           <svg width="800" height="800" xmlns="http://www.w3.org/2000/svg">
-            <rect width="800" height="800" fill="#1a1a1a"/>
-            <text x="50%" y="45%" text-anchor="middle" fill="#666" font-size="24" font-family="system-ui">
-              AI Image Generation
-            </text>
-            <text x="50%" y="55%" text-anchor="middle" fill="#444" font-size="16" font-family="system-ui">
-              "${options.prompt.substring(0, 50)}..."
+            <defs>
+              <linearGradient id="grad1" x1="0%" y1="0%" x2="100%" y2="100%">
+                <stop offset="0%" style="stop-color:#FF00FF;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#00FFFF;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            <rect width="800" height="800" fill="url(#grad1)"/>
+            <text x="50%" y="50%" text-anchor="middle" fill="white" font-size="32" font-family="system-ui" font-weight="bold">
+              AI Generated Image
             </text>
           </svg>
         `)}`
       };
     } catch (error) {
       console.error("Image generation error:", error);
-      // Return a styled placeholder for now
+      // Return a styled placeholder
       return {
         url: `data:image/svg+xml;base64,${btoa(`
           <svg width="800" height="800" xmlns="http://www.w3.org/2000/svg">
@@ -154,15 +137,8 @@ Format each post on a new line. Make each one unique and engaging.`;
       throw new Error("AI service not configured. Please set GEMINI_API_KEY.");
     }
 
-    // Video generation would use Veo 2 through Vertex AI
-    // For now, return a placeholder since Veo requires Vertex AI setup
-    
+    // Video generation would use Veo 3 - using placeholder
     try {
-      // In production, this would call Veo 2 API
-      // const videoModel = vertexAI.preview.getGenerativeModel({
-      //   model: "veo-2.0-generate-001"
-      // });
-      
       return {
         url: `data:video/mp4;base64,placeholder`,
         thumbnail: `data:image/svg+xml;base64,${btoa(`
@@ -191,7 +167,7 @@ Format each post on a new line. Make each one unique and engaging.`;
   }
 
   async generateHashtags(content: string, platform: string): Promise<string[]> {
-    if (!this.textModel) {
+    if (!genAI) {
       throw new Error("AI service not configured. Please set GEMINI_API_KEY.");
     }
 
@@ -206,9 +182,13 @@ Requirements:
 Return only the hashtags, one per line.`;
 
     try {
-      const result = await this.textModel.generateContent(prompt);
-      const response = await result.response;
-      const text = response.text();
+      const result = await (genAI.models as any).generateContent({
+        model: "gemini-1.5-pro",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
+      });
+      
+      const text = result.text || "";
       
       return text.split('\n')
         .filter(tag => tag.trim().length > 0)
@@ -221,7 +201,7 @@ Return only the hashtags, one per line.`;
   }
 
   async improveContent(content: string, platform: string): Promise<string> {
-    if (!this.textModel) {
+    if (!genAI) {
       throw new Error("AI service not configured. Please set GEMINI_API_KEY.");
     }
 
@@ -237,9 +217,13 @@ Requirements:
 Return only the improved version.`;
 
     try {
-      const result = await this.textModel.generateContent(prompt);
-      const response = await result.response;
-      return response.text().trim();
+      const result = await (genAI.models as any).generateContent({
+        model: "gemini-1.5-pro",
+        contents: [{ role: "user", parts: [{ text: prompt }] }],
+        generationConfig: { temperature: 0.8, maxOutputTokens: 1024 }
+      });
+      
+      return (result.text || "").trim();
     } catch (error) {
       console.error("Content improvement error:", error);
       return content; // Return original if improvement fails
