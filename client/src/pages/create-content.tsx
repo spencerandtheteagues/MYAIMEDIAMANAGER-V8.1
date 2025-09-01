@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,7 +10,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Bot, Bold, Italic, Link as LinkIcon, Image, Wand2, Target, Palette, Building2, MessageSquare, Megaphone, Sparkles } from "lucide-react";
+import { 
+  Bot, Bold, Italic, Link as LinkIcon, Image, Wand2, Target, Palette, 
+  Building2, MessageSquare, Megaphone, Sparkles, Type, ImagePlus, Video,
+  Camera, Globe, Brush, Sun, Upload, Play, Trash2, Send, Clock, Film,
+  Music, Mic, Aperture, Zap, Layers, Monitor, Eye
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import PlatformSelector from "../components/content/platform-selector";
@@ -19,9 +24,17 @@ import AiSuggestions from "../components/content/ai-suggestions";
 export default function CreateContent() {
   const [content, setContent] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["Instagram", "Facebook"]);
-  const [scheduleOption, setScheduleOption] = useState("now");
+  const [scheduleOption, setScheduleOption] = useState("approval");
   const [showAiSuggestions, setShowAiSuggestions] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
+  
+  // Theme state
+  const [theme, setTheme] = useState<'neon-pink' | 'neon-blue' | 'professional'>(() => {
+    return (localStorage.getItem('content-theme') as any) || 'neon-pink';
+  });
+  
+  // Content type selection
+  const [contentType, setContentType] = useState("text-image");
   
   // Enhanced AI input fields
   const [businessName, setBusinessName] = useState("");
@@ -33,14 +46,51 @@ export default function CreateContent() {
   const [isAdvertisement, setIsAdvertisement] = useState(true);
   const [additionalContext, setAdditionalContext] = useState("");
   
-  // Visual generation fields
-  const [generateVisuals, setGenerateVisuals] = useState(false);
+  // Image generation fields
   const [visualStyle, setVisualStyle] = useState("modern");
   const [colorScheme, setColorScheme] = useState("");
   const [imagePrompt, setImagePrompt] = useState("");
+  const [cameraAngle, setCameraAngle] = useState("eye-level");
+  const [environment, setEnvironment] = useState("studio");
+  const [lighting, setLighting] = useState("natural");
+  const [mood, setMood] = useState("bright");
+  const [composition, setComposition] = useState("rule-of-thirds");
+  const [objectFocus, setObjectFocus] = useState("");
+  const [aspectRatio, setAspectRatio] = useState("16:9");
+  const [imageResolution, setImageResolution] = useState("1080p");
+  
+  // Video generation fields
+  const [videoDuration, setVideoDuration] = useState("15");
+  const [videoStyle, setVideoStyle] = useState("cinematic");
+  const [videoTransitions, setVideoTransitions] = useState("smooth");
+  const [videoMusic, setVideoMusic] = useState("upbeat");
+  const [videoVoiceover, setVideoVoiceover] = useState("none");
+  const [videoPacing, setVideoPacing] = useState("medium");
+  const [videoEffects, setVideoEffects] = useState("minimal");
+  const [videoFrameRate, setVideoFrameRate] = useState("30fps");
+  const [videoResolution, setVideoResolution] = useState("1080p");
+  const [videoAspectRatio, setVideoAspectRatio] = useState("16:9");
+  const [videoScenes, setVideoScenes] = useState("");
+  const [videoScript, setVideoScript] = useState("");
+  
+  // Preview states
+  const [generatedImage, setGeneratedImage] = useState<string | null>(null);
+  const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
+  const [uploadedImage, setUploadedImage] = useState<string | null>(null);
+  const [uploadedVideo, setUploadedVideo] = useState<string | null>(null);
+  
+  // File input refs
+  const imageInputRef = useRef<HTMLInputElement>(null);
+  const videoInputRef = useRef<HTMLInputElement>(null);
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+
+  // Apply theme on change
+  useEffect(() => {
+    localStorage.setItem('content-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
+  }, [theme]);
 
   const createPostMutation = useMutation({
     mutationFn: async (postData: any) => {
@@ -49,23 +99,16 @@ export default function CreateContent() {
     onSuccess: () => {
       toast({
         title: "Success",
-        description: "Your post has been created successfully!",
+        description: scheduleOption === "approval" 
+          ? "Your post has been sent to the approval queue!" 
+          : "Your post has been created successfully!",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts/pending"] });
       // Reset form
-      setContent("");
-      setSelectedPlatforms(["Instagram", "Facebook"]);
-      setScheduleOption("now");
-      setShowAiSuggestions(false);
-      setAiSuggestions([]);
-      setBusinessName("");
-      setProductName("");
-      setTargetAudience("");
-      setKeyMessages("");
-      setCallToAction("");
-      setAdditionalContext("");
-      setImagePrompt("");
-      setColorScheme("");
+      resetForm();
+      // Reset to approval queue after successful submission
+      setScheduleOption("approval");
     },
     onError: () => {
       toast({
@@ -84,7 +127,7 @@ export default function CreateContent() {
     onSuccess: (data) => {
       setContent(data.content);
       if (data.imageUrl) {
-        setImagePrompt(data.imagePrompt || "");
+        setGeneratedImage(data.imageUrl);
       }
       toast({
         title: "Content Generated",
@@ -99,6 +142,91 @@ export default function CreateContent() {
       });
     },
   });
+
+  const generateImageMutation = useMutation({
+    mutationFn: async (params: any) => {
+      const response = await apiRequest("POST", "/api/ai/generate-image", params);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setGeneratedImage(data.imageUrl || "/api/placeholder/800/600");
+      toast({
+        title: "Image Generated",
+        description: "AI has created a custom image for your content",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to generate image. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const generateVideoMutation = useMutation({
+    mutationFn: async (params: any) => {
+      const response = await apiRequest("POST", "/api/ai/generate-video", params);
+      return response.json();
+    },
+    onSuccess: (data) => {
+      setGeneratedVideo(data.videoUrl || "/api/placeholder/video");
+      toast({
+        title: "Video Generated",
+        description: "AI has created a custom video for your content",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to generate video. Please try again.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const sendToApprovalQueueMutation = useMutation({
+    mutationFn: async (mediaData: any) => {
+      return apiRequest("POST", "/api/posts/approval-queue", mediaData);
+    },
+    onSuccess: () => {
+      toast({
+        title: "Sent to Approval Queue",
+        description: "Media has been sent for approval",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts/pending"] });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to send to approval queue",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const resetForm = () => {
+    setContent("");
+    setSelectedPlatforms(["Instagram", "Facebook"]);
+    setScheduleOption("approval");
+    setShowAiSuggestions(false);
+    setAiSuggestions([]);
+    setBusinessName("");
+    setProductName("");
+    setTargetAudience("");
+    setKeyMessages("");
+    setCallToAction("");
+    setAdditionalContext("");
+    setImagePrompt("");
+    setColorScheme("");
+    setObjectFocus("");
+    setVideoScenes("");
+    setVideoScript("");
+    setGeneratedImage(null);
+    setGeneratedVideo(null);
+    setUploadedImage(null);
+    setUploadedVideo(null);
+  };
 
   const handleSubmit = () => {
     if (!content.trim() && !businessName.trim()) {
@@ -119,14 +247,16 @@ export default function CreateContent() {
       return;
     }
 
-    const status = scheduleOption === "approval" ? "pending" : 
-                  scheduleOption === "later" ? "scheduled" : "published";
+    const status = scheduleOption === "approval" ? "pending" : "scheduled";
 
     createPostMutation.mutate({
       content,
       platforms: selectedPlatforms,
       status,
       aiGenerated: true,
+      contentType,
+      imageUrl: uploadedImage || generatedImage,
+      videoUrl: uploadedVideo || generatedVideo,
       scheduledFor: scheduleOption === "later" ? new Date(Date.now() + 24 * 60 * 60 * 1000) : null,
       metadata: {
         businessName,
@@ -139,6 +269,26 @@ export default function CreateContent() {
         visualStyle,
         colorScheme,
         imagePrompt,
+        cameraAngle,
+        environment,
+        lighting,
+        mood,
+        composition,
+        objectFocus,
+        aspectRatio,
+        imageResolution,
+        videoDuration,
+        videoStyle,
+        videoTransitions,
+        videoMusic,
+        videoVoiceover,
+        videoPacing,
+        videoEffects,
+        videoFrameRate,
+        videoResolution,
+        videoAspectRatio,
+        videoScenes,
+        videoScript,
       }
     });
   };
@@ -163,10 +313,91 @@ export default function CreateContent() {
       platform: selectedPlatforms[0] || 'Instagram',
       isAdvertisement,
       additionalContext,
-      generateImage: generateVisuals,
+      contentType,
+    });
+  };
+
+  const handleGenerateImage = () => {
+    generateImageMutation.mutate({
+      businessName,
+      productName,
       visualStyle,
       colorScheme,
+      cameraAngle,
+      environment,
+      lighting,
+      mood,
+      composition,
+      objectFocus,
+      aspectRatio,
+      resolution: imageResolution,
+      imagePrompt,
     });
+  };
+
+  const handleGenerateVideo = () => {
+    generateVideoMutation.mutate({
+      businessName,
+      productName,
+      videoDuration,
+      videoStyle,
+      videoTransitions,
+      videoMusic,
+      videoVoiceover,
+      videoPacing,
+      videoEffects,
+      videoFrameRate,
+      videoResolution,
+      videoAspectRatio,
+      videoScenes,
+      videoScript,
+    });
+  };
+
+  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUploadedImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleVideoUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUploadedVideo(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSendImageToApproval = () => {
+    const imageToSend = uploadedImage || generatedImage;
+    if (imageToSend) {
+      sendToApprovalQueueMutation.mutate({
+        type: 'image',
+        url: imageToSend,
+        businessName,
+        platforms: selectedPlatforms,
+      });
+    }
+  };
+
+  const handleSendVideoToApproval = () => {
+    const videoToSend = uploadedVideo || generatedVideo;
+    if (videoToSend) {
+      sendToApprovalQueueMutation.mutate({
+        type: 'video',
+        url: videoToSend,
+        businessName,
+        platforms: selectedPlatforms,
+      });
+    }
   };
 
   const handleSelectSuggestion = (suggestion: string) => {
@@ -175,19 +406,76 @@ export default function CreateContent() {
   };
 
   return (
-    <div className="p-6">
-      <div className="max-w-6xl mx-auto">
-        <div className="mb-6">
-          <h1 className="text-3xl font-bold text-foreground">Create Content</h1>
-          <p className="text-muted-foreground mt-2">
-            Generate AI-powered content optimized for your business and target audience
-          </p>
+    <div className="p-6 tech-grid">
+      <div className="max-w-7xl mx-auto">
+        <div className="mb-6 flex justify-between items-start">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground font-display">Create Content</h1>
+            <p className="text-muted-foreground mt-2">
+              Generate AI-powered content optimized for your business and target audience
+            </p>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setTheme('neon-pink')}
+              className={`px-3 py-2 rounded-lg border transition-all ${
+                theme === 'neon-pink' 
+                  ? 'border-pink-500 bg-pink-500/20 text-pink-400' 
+                  : 'border-border hover:border-pink-500/50'
+              }`}
+              data-testid="button-theme-neon-pink"
+            >
+              <span className="text-xs font-medium">Neon Pink</span>
+            </button>
+            <button
+              onClick={() => setTheme('neon-blue')}
+              className={`px-3 py-2 rounded-lg border transition-all ${
+                theme === 'neon-blue' 
+                  ? 'border-blue-500 bg-blue-500/20 text-blue-400' 
+                  : 'border-border hover:border-blue-500/50'
+              }`}
+              data-testid="button-theme-neon-blue"
+            >
+              <span className="text-xs font-medium">Neon Blue</span>
+            </button>
+            <button
+              onClick={() => setTheme('professional')}
+              className={`px-3 py-2 rounded-lg border transition-all ${
+                theme === 'professional' 
+                  ? 'border-emerald-600 bg-emerald-600/20 text-emerald-400' 
+                  : 'border-border hover:border-emerald-600/50'
+              }`}
+              data-testid="button-theme-professional"
+            >
+              <span className="text-xs font-medium">Professional</span>
+            </button>
+          </div>
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* AI Input Fields - Left Side */}
+          {/* Main Content Area - Left Side */}
           <div className="lg:col-span-2 space-y-6">
-            <Card>
+            {/* Target Platforms - Now at top */}
+            <Card className="glass-morphism">
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Target className="w-5 h-5 text-primary" />
+                  Target Platforms
+                </CardTitle>
+                <CardDescription>
+                  Select the social media platforms for your content
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <PlatformSelector 
+                  selectedPlatforms={selectedPlatforms}
+                  onPlatformsChange={setSelectedPlatforms}
+                />
+              </CardContent>
+            </Card>
+
+            {/* Business Information */}
+            <Card className="glass-morphism">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Building2 className="w-5 h-5 text-primary" />
@@ -207,6 +495,7 @@ export default function CreateContent() {
                       onChange={(e) => setBusinessName(e.target.value)}
                       placeholder="e.g., Sarah's Coffee Shop"
                       className="mt-1"
+                      data-testid="input-business-name"
                     />
                   </div>
                   <div>
@@ -217,6 +506,7 @@ export default function CreateContent() {
                       onChange={(e) => setProductName(e.target.value)}
                       placeholder="e.g., Organic Coffee Blend"
                       className="mt-1"
+                      data-testid="input-product-name"
                     />
                   </div>
                 </div>
@@ -229,6 +519,7 @@ export default function CreateContent() {
                     onChange={(e) => setTargetAudience(e.target.value)}
                     placeholder="e.g., Young professionals, coffee enthusiasts, eco-conscious consumers"
                     className="mt-1"
+                    data-testid="input-target-audience"
                   />
                 </div>
 
@@ -236,7 +527,7 @@ export default function CreateContent() {
                   <div>
                     <Label htmlFor="brandTone">Brand Tone</Label>
                     <Select value={brandTone} onValueChange={setBrandTone}>
-                      <SelectTrigger className="mt-1">
+                      <SelectTrigger className="mt-1" data-testid="select-brand-tone">
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -258,6 +549,7 @@ export default function CreateContent() {
                       onChange={(e) => setCallToAction(e.target.value)}
                       placeholder="e.g., Shop Now, Learn More, Get 20% Off"
                       className="mt-1"
+                      data-testid="input-call-to-action"
                     />
                   </div>
                 </div>
@@ -270,6 +562,7 @@ export default function CreateContent() {
                     onChange={(e) => setKeyMessages(e.target.value)}
                     placeholder="e.g., Free shipping on orders over $50, Eco-friendly packaging, Award-winning quality"
                     className="mt-1 h-20"
+                    data-testid="textarea-key-messages"
                   />
                 </div>
 
@@ -279,91 +572,689 @@ export default function CreateContent() {
                       id="isAdvertisement"
                       checked={isAdvertisement}
                       onCheckedChange={setIsAdvertisement}
+                      data-testid="switch-advertisement"
                     />
                     <Label htmlFor="isAdvertisement" className="cursor-pointer">
                       Structure as Advertisement
                     </Label>
                   </div>
-                  <Badge variant={isAdvertisement ? "default" : "secondary"}>
+                  <Badge variant={isAdvertisement ? "default" : "secondary"} className="pulse-glow">
                     {isAdvertisement ? "Ad Format" : "Organic Content"}
                   </Badge>
                 </div>
               </CardContent>
             </Card>
 
-            <Card>
+            {/* Content Type Selection */}
+            <Card className="glass-morphism">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Palette className="w-5 h-5 text-primary" />
-                  Visual Preferences
+                  <Wand2 className="w-5 h-5 text-primary" />
+                  Content Type
                 </CardTitle>
                 <CardDescription>
-                  Define the visual style for AI-generated images
+                  Choose what type of content you want to create
                 </CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2">
-                  <Switch
-                    id="generateVisuals"
-                    checked={generateVisuals}
-                    onCheckedChange={setGenerateVisuals}
-                  />
-                  <Label htmlFor="generateVisuals" className="cursor-pointer">
-                    Generate AI Images with Content
-                  </Label>
+              <CardContent>
+                <div className="grid grid-cols-3 gap-4">
+                  <button
+                    onClick={() => setContentType("text")}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      contentType === "text" 
+                        ? "border-primary bg-primary/10 neon-glow" 
+                        : "border-border hover:border-primary/50"
+                    }`}
+                    data-testid="button-content-text"
+                  >
+                    <Type className="w-6 h-6 mx-auto mb-2 text-primary" />
+                    <div className="text-sm font-medium">Text Only</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Caption & copy
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => setContentType("text-image")}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      contentType === "text-image" 
+                        ? "border-primary bg-primary/10 neon-glow" 
+                        : "border-border hover:border-primary/50"
+                    }`}
+                    data-testid="button-content-text-image"
+                  >
+                    <ImagePlus className="w-6 h-6 mx-auto mb-2 text-primary" />
+                    <div className="text-sm font-medium">Text + Image</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Visual content
+                    </div>
+                  </button>
+                  
+                  <button
+                    onClick={() => setContentType("text-video")}
+                    className={`p-4 rounded-lg border-2 transition-all ${
+                      contentType === "text-video" 
+                        ? "border-primary bg-primary/10 neon-glow" 
+                        : "border-border hover:border-primary/50"
+                    }`}
+                    data-testid="button-content-text-video"
+                  >
+                    <Video className="w-6 h-6 mx-auto mb-2 text-primary" />
+                    <div className="text-sm font-medium">Text + Video</div>
+                    <div className="text-xs text-muted-foreground mt-1">
+                      Dynamic content
+                    </div>
+                  </button>
                 </div>
-
-                {generateVisuals && (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div>
-                        <Label htmlFor="visualStyle">Visual Style</Label>
-                        <Select value={visualStyle} onValueChange={setVisualStyle}>
-                          <SelectTrigger className="mt-1">
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent>
-                            <SelectItem value="modern">Modern & Clean</SelectItem>
-                            <SelectItem value="vintage">Vintage & Retro</SelectItem>
-                            <SelectItem value="minimalist">Minimalist</SelectItem>
-                            <SelectItem value="bold">Bold & Vibrant</SelectItem>
-                            <SelectItem value="elegant">Elegant & Sophisticated</SelectItem>
-                            <SelectItem value="playful">Playful & Colorful</SelectItem>
-                            <SelectItem value="professional">Professional & Corporate</SelectItem>
-                          </SelectContent>
-                        </Select>
-                      </div>
-                      <div>
-                        <Label htmlFor="colorScheme">Color Scheme</Label>
-                        <Input
-                          id="colorScheme"
-                          value={colorScheme}
-                          onChange={(e) => setColorScheme(e.target.value)}
-                          placeholder="e.g., Blue and gold, Earth tones"
-                          className="mt-1"
-                        />
-                      </div>
-                    </div>
-                    <div>
-                      <Label htmlFor="imagePrompt">Additional Image Instructions</Label>
-                      <Textarea
-                        id="imagePrompt"
-                        value={imagePrompt}
-                        onChange={(e) => setImagePrompt(e.target.value)}
-                        placeholder="Describe specific visual elements you want in the image..."
-                        className="mt-1 h-20"
-                      />
-                    </div>
-                  </>
-                )}
               </CardContent>
             </Card>
 
-            <Card>
+            {/* Image Creator - Only show for image content */}
+            {contentType === "text-image" && (
+              <Card className="glass-morphism">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Palette className="w-5 h-5 text-primary" />
+                    Image Creator
+                  </CardTitle>
+                  <CardDescription>
+                    Generate or upload custom images for your content
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <Label>Image Generation Settings</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => imageInputRef.current?.click()}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload Image
+                      </Button>
+                      <input
+                        ref={imageInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handleImageUpload}
+                      />
+                      <Button
+                        onClick={handleGenerateImage}
+                        disabled={generateImageMutation.isPending}
+                        size="sm"
+                        className="neon-glow"
+                        data-testid="button-generate-image"
+                      >
+                        <Image className="w-4 h-4 mr-2" />
+                        {generateImageMutation.isPending ? "Generating..." : "Generate Image"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="visualStyle">Visual Style</Label>
+                      <Select value={visualStyle} onValueChange={setVisualStyle}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="modern">Modern & Clean</SelectItem>
+                          <SelectItem value="vintage">Vintage & Retro</SelectItem>
+                          <SelectItem value="minimalist">Minimalist</SelectItem>
+                          <SelectItem value="bold">Bold & Vibrant</SelectItem>
+                          <SelectItem value="elegant">Elegant & Sophisticated</SelectItem>
+                          <SelectItem value="playful">Playful & Colorful</SelectItem>
+                          <SelectItem value="professional">Professional & Corporate</SelectItem>
+                          <SelectItem value="artistic">Artistic & Abstract</SelectItem>
+                          <SelectItem value="realistic">Photo-Realistic</SelectItem>
+                          <SelectItem value="cartoon">Cartoon & Animated</SelectItem>
+                          <SelectItem value="watercolor">Watercolor</SelectItem>
+                          <SelectItem value="sketch">Sketch & Line Art</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="colorScheme">Color Scheme</Label>
+                      <Input
+                        id="colorScheme"
+                        value={colorScheme}
+                        onChange={(e) => setColorScheme(e.target.value)}
+                        placeholder="e.g., Blue and gold, Earth tones"
+                        className="mt-1"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="aspectRatio">
+                        <Monitor className="w-4 h-4 inline mr-1" />
+                        Aspect Ratio
+                      </Label>
+                      <Select value={aspectRatio} onValueChange={setAspectRatio}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                          <SelectItem value="4:3">4:3 (Standard)</SelectItem>
+                          <SelectItem value="16:9">16:9 (Widescreen)</SelectItem>
+                          <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+                          <SelectItem value="21:9">21:9 (Ultrawide)</SelectItem>
+                          <SelectItem value="3:2">3:2 (Photo)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="cameraAngle">
+                        <Camera className="w-4 h-4 inline mr-1" />
+                        Camera Angle
+                      </Label>
+                      <Select value={cameraAngle} onValueChange={setCameraAngle}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="eye-level">Eye Level</SelectItem>
+                          <SelectItem value="low-angle">Low Angle</SelectItem>
+                          <SelectItem value="high-angle">High Angle</SelectItem>
+                          <SelectItem value="birds-eye">Bird's Eye View</SelectItem>
+                          <SelectItem value="dutch-angle">Dutch Angle</SelectItem>
+                          <SelectItem value="close-up">Close-Up</SelectItem>
+                          <SelectItem value="wide-shot">Wide Shot</SelectItem>
+                          <SelectItem value="extreme-close-up">Extreme Close-Up</SelectItem>
+                          <SelectItem value="aerial">Aerial View</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="environment">
+                        <Globe className="w-4 h-4 inline mr-1" />
+                        Environment
+                      </Label>
+                      <Select value={environment} onValueChange={setEnvironment}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="studio">Studio</SelectItem>
+                          <SelectItem value="outdoor">Outdoor</SelectItem>
+                          <SelectItem value="indoor">Indoor</SelectItem>
+                          <SelectItem value="urban">Urban</SelectItem>
+                          <SelectItem value="nature">Nature</SelectItem>
+                          <SelectItem value="abstract">Abstract</SelectItem>
+                          <SelectItem value="minimal">Minimal Background</SelectItem>
+                          <SelectItem value="office">Office</SelectItem>
+                          <SelectItem value="home">Home</SelectItem>
+                          <SelectItem value="industrial">Industrial</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="lighting">
+                        <Sun className="w-4 h-4 inline mr-1" />
+                        Lighting
+                      </Label>
+                      <Select value={lighting} onValueChange={setLighting}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="natural">Natural Light</SelectItem>
+                          <SelectItem value="soft">Soft Lighting</SelectItem>
+                          <SelectItem value="dramatic">Dramatic</SelectItem>
+                          <SelectItem value="golden-hour">Golden Hour</SelectItem>
+                          <SelectItem value="studio">Studio Lighting</SelectItem>
+                          <SelectItem value="neon">Neon</SelectItem>
+                          <SelectItem value="moody">Moody</SelectItem>
+                          <SelectItem value="backlit">Backlit</SelectItem>
+                          <SelectItem value="candlelight">Candlelight</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="mood">
+                        <Brush className="w-4 h-4 inline mr-1" />
+                        Mood
+                      </Label>
+                      <Select value={mood} onValueChange={setMood}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="bright">Bright & Cheerful</SelectItem>
+                          <SelectItem value="calm">Calm & Serene</SelectItem>
+                          <SelectItem value="energetic">Energetic</SelectItem>
+                          <SelectItem value="mysterious">Mysterious</SelectItem>
+                          <SelectItem value="romantic">Romantic</SelectItem>
+                          <SelectItem value="professional">Professional</SelectItem>
+                          <SelectItem value="luxurious">Luxurious</SelectItem>
+                          <SelectItem value="nostalgic">Nostalgic</SelectItem>
+                          <SelectItem value="futuristic">Futuristic</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="composition">Composition</Label>
+                      <Select value={composition} onValueChange={setComposition}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="rule-of-thirds">Rule of Thirds</SelectItem>
+                          <SelectItem value="centered">Centered</SelectItem>
+                          <SelectItem value="symmetrical">Symmetrical</SelectItem>
+                          <SelectItem value="asymmetrical">Asymmetrical</SelectItem>
+                          <SelectItem value="diagonal">Diagonal</SelectItem>
+                          <SelectItem value="golden-ratio">Golden Ratio</SelectItem>
+                          <SelectItem value="leading-lines">Leading Lines</SelectItem>
+                          <SelectItem value="framing">Framing</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="imageResolution">
+                        <Aperture className="w-4 h-4 inline mr-1" />
+                        Resolution
+                      </Label>
+                      <Select value={imageResolution} onValueChange={setImageResolution}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="720p">720p (HD)</SelectItem>
+                          <SelectItem value="1080p">1080p (Full HD)</SelectItem>
+                          <SelectItem value="2k">2K</SelectItem>
+                          <SelectItem value="4k">4K (Ultra HD)</SelectItem>
+                          <SelectItem value="8k">8K</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="objectFocus">Object/Subject Focus</Label>
+                    <Input
+                      id="objectFocus"
+                      value={objectFocus}
+                      onChange={(e) => setObjectFocus(e.target.value)}
+                      placeholder="e.g., Coffee cup on wooden table, Person using laptop"
+                      className="mt-1"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="imagePrompt">Additional Image Instructions</Label>
+                    <Textarea
+                      id="imagePrompt"
+                      value={imagePrompt}
+                      onChange={(e) => setImagePrompt(e.target.value)}
+                      placeholder="Describe specific visual elements, props, backgrounds, textures, or any other details you want in the image..."
+                      className="mt-1 h-24"
+                    />
+                  </div>
+
+                  {/* Image Preview Box */}
+                  {(generatedImage || uploadedImage) && (
+                    <div className="border border-primary/30 rounded-lg p-4 bg-background/50">
+                      <div className="flex justify-between items-center mb-3">
+                        <Label className="text-sm">Image Preview</Label>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleSendImageToApproval}
+                            disabled={sendToApprovalQueueMutation.isPending}
+                            data-testid="button-send-image-approval"
+                          >
+                            <Send className="w-4 h-4 mr-1" />
+                            Send to Approval Queue
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              setGeneratedImage(null);
+                              setUploadedImage(null);
+                            }}
+                            data-testid="button-delete-image"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="aspect-video bg-muted rounded-lg overflow-hidden">
+                        <img 
+                          src={uploadedImage || generatedImage || ""} 
+                          alt="Generated content" 
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Video Creator - Only show for video content */}
+            {contentType === "text-video" && (
+              <Card className="glass-morphism">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Film className="w-5 h-5 text-primary" />
+                    Video Creator
+                  </CardTitle>
+                  <CardDescription>
+                    Generate or upload custom videos for your content
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <Label>Video Generation Settings</Label>
+                    <div className="flex gap-2">
+                      <Button
+                        onClick={() => videoInputRef.current?.click()}
+                        size="sm"
+                        variant="outline"
+                      >
+                        <Upload className="w-4 h-4 mr-2" />
+                        Upload Video
+                      </Button>
+                      <input
+                        ref={videoInputRef}
+                        type="file"
+                        accept="video/*"
+                        className="hidden"
+                        onChange={handleVideoUpload}
+                      />
+                      <Button
+                        onClick={handleGenerateVideo}
+                        disabled={generateVideoMutation.isPending}
+                        size="sm"
+                        className="neon-glow"
+                        data-testid="button-generate-video"
+                      >
+                        <Video className="w-4 h-4 mr-2" />
+                        {generateVideoMutation.isPending ? "Generating..." : "Generate Video"}
+                      </Button>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="videoDuration">
+                        <Clock className="w-4 h-4 inline mr-1" />
+                        Duration
+                      </Label>
+                      <Select value={videoDuration} onValueChange={setVideoDuration}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="5">5 seconds</SelectItem>
+                          <SelectItem value="10">10 seconds</SelectItem>
+                          <SelectItem value="15">15 seconds</SelectItem>
+                          <SelectItem value="30">30 seconds</SelectItem>
+                          <SelectItem value="60">60 seconds</SelectItem>
+                          <SelectItem value="90">90 seconds</SelectItem>
+                          <SelectItem value="120">2 minutes</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="videoStyle">
+                        <Brush className="w-4 h-4 inline mr-1" />
+                        Video Style
+                      </Label>
+                      <Select value={videoStyle} onValueChange={setVideoStyle}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="cinematic">Cinematic</SelectItem>
+                          <SelectItem value="documentary">Documentary</SelectItem>
+                          <SelectItem value="animated">Animated</SelectItem>
+                          <SelectItem value="motion-graphics">Motion Graphics</SelectItem>
+                          <SelectItem value="slideshow">Slideshow</SelectItem>
+                          <SelectItem value="stop-motion">Stop Motion</SelectItem>
+                          <SelectItem value="time-lapse">Time Lapse</SelectItem>
+                          <SelectItem value="vertical">Vertical (Stories)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="videoAspectRatio">
+                        <Monitor className="w-4 h-4 inline mr-1" />
+                        Aspect Ratio
+                      </Label>
+                      <Select value={videoAspectRatio} onValueChange={setVideoAspectRatio}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="16:9">16:9 (Landscape)</SelectItem>
+                          <SelectItem value="9:16">9:16 (Portrait/Stories)</SelectItem>
+                          <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                          <SelectItem value="4:3">4:3 (Standard)</SelectItem>
+                          <SelectItem value="21:9">21:9 (Cinematic)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="videoTransitions">
+                        <Layers className="w-4 h-4 inline mr-1" />
+                        Transitions
+                      </Label>
+                      <Select value={videoTransitions} onValueChange={setVideoTransitions}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="smooth">Smooth Fade</SelectItem>
+                          <SelectItem value="cut">Hard Cut</SelectItem>
+                          <SelectItem value="dissolve">Dissolve</SelectItem>
+                          <SelectItem value="wipe">Wipe</SelectItem>
+                          <SelectItem value="zoom">Zoom</SelectItem>
+                          <SelectItem value="slide">Slide</SelectItem>
+                          <SelectItem value="glitch">Glitch</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="videoMusic">
+                        <Music className="w-4 h-4 inline mr-1" />
+                        Background Music
+                      </Label>
+                      <Select value={videoMusic} onValueChange={setVideoMusic}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="upbeat">Upbeat & Energetic</SelectItem>
+                          <SelectItem value="calm">Calm & Relaxing</SelectItem>
+                          <SelectItem value="corporate">Corporate</SelectItem>
+                          <SelectItem value="inspirational">Inspirational</SelectItem>
+                          <SelectItem value="electronic">Electronic</SelectItem>
+                          <SelectItem value="acoustic">Acoustic</SelectItem>
+                          <SelectItem value="dramatic">Dramatic</SelectItem>
+                          <SelectItem value="none">No Music</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="videoVoiceover">
+                        <Mic className="w-4 h-4 inline mr-1" />
+                        Voiceover
+                      </Label>
+                      <Select value={videoVoiceover} onValueChange={setVideoVoiceover}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="none">No Voiceover</SelectItem>
+                          <SelectItem value="male-professional">Male Professional</SelectItem>
+                          <SelectItem value="female-professional">Female Professional</SelectItem>
+                          <SelectItem value="male-friendly">Male Friendly</SelectItem>
+                          <SelectItem value="female-friendly">Female Friendly</SelectItem>
+                          <SelectItem value="ai-generated">AI Generated</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div>
+                      <Label htmlFor="videoPacing">
+                        <Zap className="w-4 h-4 inline mr-1" />
+                        Pacing
+                      </Label>
+                      <Select value={videoPacing} onValueChange={setVideoPacing}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="slow">Slow & Steady</SelectItem>
+                          <SelectItem value="medium">Medium</SelectItem>
+                          <SelectItem value="fast">Fast-Paced</SelectItem>
+                          <SelectItem value="dynamic">Dynamic</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="videoEffects">Effects</Label>
+                      <Select value={videoEffects} onValueChange={setVideoEffects}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="minimal">Minimal</SelectItem>
+                          <SelectItem value="subtle">Subtle</SelectItem>
+                          <SelectItem value="moderate">Moderate</SelectItem>
+                          <SelectItem value="heavy">Heavy</SelectItem>
+                          <SelectItem value="vintage">Vintage Filter</SelectItem>
+                          <SelectItem value="black-white">Black & White</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div>
+                      <Label htmlFor="videoFrameRate">Frame Rate</Label>
+                      <Select value={videoFrameRate} onValueChange={setVideoFrameRate}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="24fps">24 fps (Cinematic)</SelectItem>
+                          <SelectItem value="30fps">30 fps (Standard)</SelectItem>
+                          <SelectItem value="60fps">60 fps (Smooth)</SelectItem>
+                          <SelectItem value="120fps">120 fps (Slow Motion)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="videoResolution">
+                      <Eye className="w-4 h-4 inline mr-1" />
+                      Resolution
+                    </Label>
+                    <Select value={videoResolution} onValueChange={setVideoResolution}>
+                      <SelectTrigger className="mt-1">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="720p">720p (HD)</SelectItem>
+                        <SelectItem value="1080p">1080p (Full HD)</SelectItem>
+                        <SelectItem value="2k">2K</SelectItem>
+                        <SelectItem value="4k">4K (Ultra HD)</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div>
+                    <Label htmlFor="videoScenes">Scene Descriptions</Label>
+                    <Textarea
+                      id="videoScenes"
+                      value={videoScenes}
+                      onChange={(e) => setVideoScenes(e.target.value)}
+                      placeholder="Describe the scenes you want in your video, separated by commas (e.g., Product close-up, Customer testimonial, Logo animation)"
+                      className="mt-1 h-20"
+                    />
+                  </div>
+
+                  <div>
+                    <Label htmlFor="videoScript">Video Script/Narration</Label>
+                    <Textarea
+                      id="videoScript"
+                      value={videoScript}
+                      onChange={(e) => setVideoScript(e.target.value)}
+                      placeholder="Write the script or narration for your video. Include any text overlays, captions, or dialogue..."
+                      className="mt-1 h-24"
+                    />
+                  </div>
+
+                  {/* Video Preview Box */}
+                  {(generatedVideo || uploadedVideo) && (
+                    <div className="border border-primary/30 rounded-lg p-4 bg-background/50">
+                      <div className="flex justify-between items-center mb-3">
+                        <Label className="text-sm">Video Preview</Label>
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={handleSendVideoToApproval}
+                            disabled={sendToApprovalQueueMutation.isPending}
+                            data-testid="button-send-video-approval"
+                          >
+                            <Send className="w-4 h-4 mr-1" />
+                            Send to Approval Queue
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="destructive"
+                            onClick={() => {
+                              setGeneratedVideo(null);
+                              setUploadedVideo(null);
+                            }}
+                            data-testid="button-delete-video"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                      <div className="aspect-video bg-muted rounded-lg overflow-hidden relative">
+                        {uploadedVideo || generatedVideo ? (
+                          <video 
+                            src={uploadedVideo || generatedVideo || ""} 
+                            controls
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="flex items-center justify-center h-full">
+                            <Play className="w-12 h-12 text-muted-foreground" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )}
+
+            {/* Text and Caption Editor */}
+            <Card className="glass-morphism">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <MessageSquare className="w-5 h-5 text-primary" />
-                  Content Editor
+                  Text and Caption Editor
                 </CardTitle>
                 <CardDescription>
                   Edit your generated content or write from scratch
@@ -378,6 +1269,7 @@ export default function CreateContent() {
                     onChange={(e) => setAdditionalContext(e.target.value)}
                     placeholder="Any special instructions, current promotions, or specific details to include..."
                     className="mt-1 h-20"
+                    data-testid="textarea-additional-context"
                   />
                 </div>
 
@@ -387,6 +1279,8 @@ export default function CreateContent() {
                     onClick={handleAiGenerate}
                     disabled={generateAiContentMutation.isPending}
                     size="sm"
+                    className="neon-glow"
+                    data-testid="button-generate-content"
                   >
                     <Sparkles className="w-4 h-4 mr-2" />
                     {generateAiContentMutation.isPending ? "Generating..." : "Generate with AI"}
@@ -413,6 +1307,7 @@ export default function CreateContent() {
                     onChange={(e) => setContent(e.target.value)}
                     className="border-0 resize-none h-40 focus-visible:ring-0"
                     placeholder="Your AI-generated content will appear here. You can also type or edit manually..."
+                    data-testid="textarea-content"
                   />
                 </div>
               </CardContent>
@@ -421,74 +1316,8 @@ export default function CreateContent() {
 
           {/* Right Sidebar */}
           <div className="space-y-6">
-            {/* Platform Selection */}
-            <Card>
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Target className="w-5 h-5 text-primary" />
-                  Target Platforms
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                <PlatformSelector 
-                  selectedPlatforms={selectedPlatforms}
-                  onPlatformsChange={setSelectedPlatforms}
-                />
-              </CardContent>
-            </Card>
-
-            {/* AI Suggestions */}
-            {showAiSuggestions && (
-              <Card>
-                <CardHeader>
-                  <CardTitle>AI Suggestions</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <AiSuggestions
-                    suggestions={aiSuggestions}
-                    onSelectSuggestion={handleSelectSuggestion}
-                  />
-                </CardContent>
-              </Card>
-            )}
-
-            {/* Platform Preview */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Platform Preview</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <Tabs defaultValue={selectedPlatforms[0] || "Instagram"}>
-                  <TabsList className="grid w-full grid-cols-2">
-                    {selectedPlatforms.slice(0, 2).map((platform) => (
-                      <TabsTrigger key={platform} value={platform}>
-                        {platform}
-                      </TabsTrigger>
-                    ))}
-                  </TabsList>
-                  {selectedPlatforms.map((platform) => (
-                    <TabsContent key={platform} value={platform}>
-                      <div className="bg-muted p-4 rounded-lg">
-                        <div className="text-sm text-muted-foreground mb-2">
-                          {platform} Preview
-                        </div>
-                        <div className="bg-background p-3 rounded">
-                          {content || `Your ${platform} optimized content will appear here...`}
-                        </div>
-                        {platform === "Twitter" && content.length > 280 && (
-                          <Badge variant="destructive" className="mt-2">
-                            {content.length}/280 characters
-                          </Badge>
-                        )}
-                      </div>
-                    </TabsContent>
-                  ))}
-                </Tabs>
-              </CardContent>
-            </Card>
-
-            {/* Schedule Options */}
-            <Card>
+            {/* Publishing Options */}
+            <Card className="glass-morphism">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                   <Megaphone className="w-5 h-5 text-primary" />
@@ -501,29 +1330,43 @@ export default function CreateContent() {
                   onValueChange={setScheduleOption}
                 >
                   <div className="flex items-center space-x-2">
-                    <RadioGroupItem value="now" id="now" />
-                    <Label htmlFor="now">Publish Now</Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
                     <RadioGroupItem value="later" id="later" />
                     <Label htmlFor="later">Schedule for Later</Label>
                   </div>
                   <div className="flex items-center space-x-2">
                     <RadioGroupItem value="approval" id="approval" />
-                    <Label htmlFor="approval">Send for Approval</Label>
+                    <Label htmlFor="approval">Send to Approval Queue</Label>
                   </div>
                 </RadioGroup>
                 
                 <Button 
                   onClick={handleSubmit}
                   disabled={createPostMutation.isPending}
-                  className="w-full"
+                  className="w-full neon-glow"
                   size="lg"
+                  data-testid="button-create-post"
                 >
-                  {createPostMutation.isPending ? "Creating..." : "Create Post"}
+                  <Megaphone className="w-4 h-4 mr-2" />
+                  {createPostMutation.isPending ? "Creating..." : 
+                   scheduleOption === "approval" ? "Send to Approval Queue" : "Schedule Post"}
                 </Button>
               </CardContent>
             </Card>
+
+            {/* AI Suggestions */}
+            {showAiSuggestions && (
+              <Card className="glass-morphism">
+                <CardHeader>
+                  <CardTitle>AI Suggestions</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <AiSuggestions
+                    suggestions={aiSuggestions}
+                    onSelectSuggestion={handleSelectSuggestion}
+                  />
+                </CardContent>
+              </Card>
+            )}
           </div>
         </div>
       </div>

@@ -3,8 +3,8 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  /* Futuristic Dark Theme - Jet Black Base */
+:root, [data-theme="neon-pink"] {
+  /* Futuristic Dark Theme - Jet Black Base with Neon Pink */
   --background: hsl(0, 0%, 0%);
   --foreground: hsl(0, 0%, 90%);
   --card: hsl(0, 0%, 3%);
@@ -66,6 +66,92 @@
   --gradient-accent: linear-gradient(135deg, hsl(300, 100%, 50%), hsl(260, 100%, 60%));
   --gradient-neon: linear-gradient(135deg, hsl(280, 100%, 60%), hsl(180, 100%, 50%));
   --gradient-cyber: linear-gradient(135deg, hsl(0, 0%, 0%), hsl(280, 100%, 20%));
+}
+
+[data-theme="neon-blue"] {
+  /* Futuristic Dark Theme - Jet Black Base with Neon Blue */
+  --background: hsl(0, 0%, 0%);
+  --foreground: hsl(0, 0%, 90%);
+  --card: hsl(0, 0%, 3%);
+  --card-foreground: hsl(0, 0%, 90%);
+  --popover: hsl(0, 0%, 5%);
+  --popover-foreground: hsl(0, 0%, 90%);
+  --primary: hsl(200, 100%, 60%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(180, 100%, 40%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(0, 0%, 8%);
+  --muted-foreground: hsl(0, 0%, 60%);
+  --accent: hsl(190, 100%, 50%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 100%, 50%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(200, 50%, 20%);
+  --input: hsl(0, 0%, 10%);
+  --ring: hsl(200, 100%, 60%);
+  --chart-1: hsl(200, 100%, 60%);
+  --chart-2: hsl(180, 100%, 40%);
+  --chart-3: hsl(60, 100%, 50%);
+  --chart-4: hsl(220, 100%, 50%);
+  --chart-5: hsl(160, 100%, 50%);
+  --sidebar: hsl(0, 0%, 2%);
+  --sidebar-foreground: hsl(0, 0%, 90%);
+  --sidebar-primary: hsl(200, 100%, 60%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(200, 100%, 10%);
+  --sidebar-accent-foreground: hsl(200, 100%, 70%);
+  --sidebar-border: hsl(200, 50%, 15%);
+  --sidebar-ring: hsl(200, 100%, 60%);
+  
+  /* Gradients for Neon Blue theme */
+  --gradient-primary: linear-gradient(135deg, hsl(200, 100%, 60%), hsl(220, 100%, 50%));
+  --gradient-secondary: linear-gradient(135deg, hsl(180, 100%, 40%), hsl(160, 100%, 50%));
+  --gradient-accent: linear-gradient(135deg, hsl(190, 100%, 50%), hsl(210, 100%, 60%));
+  --gradient-neon: linear-gradient(135deg, hsl(200, 100%, 60%), hsl(180, 100%, 50%));
+  --gradient-cyber: linear-gradient(135deg, hsl(0, 0%, 0%), hsl(200, 100%, 20%));
+}
+
+[data-theme="professional"] {
+  /* Professional Theme - Easy on the eyes with subtle accents */
+  --background: hsl(210, 20%, 8%);
+  --foreground: hsl(0, 0%, 85%);
+  --card: hsl(210, 15%, 12%);
+  --card-foreground: hsl(0, 0%, 85%);
+  --popover: hsl(210, 15%, 14%);
+  --popover-foreground: hsl(0, 0%, 85%);
+  --primary: hsl(160, 70%, 45%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(210, 40%, 35%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(210, 15%, 18%);
+  --muted-foreground: hsl(0, 0%, 65%);
+  --accent: hsl(160, 60%, 40%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 60%, 50%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(210, 20%, 25%);
+  --input: hsl(210, 15%, 16%);
+  --ring: hsl(160, 70%, 45%);
+  --chart-1: hsl(160, 70%, 45%);
+  --chart-2: hsl(210, 60%, 50%);
+  --chart-3: hsl(45, 80%, 55%);
+  --chart-4: hsl(330, 60%, 50%);
+  --chart-5: hsl(180, 60%, 45%);
+  --sidebar: hsl(210, 20%, 10%);
+  --sidebar-foreground: hsl(0, 0%, 85%);
+  --sidebar-primary: hsl(160, 70%, 45%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(210, 15%, 15%);
+  --sidebar-accent-foreground: hsl(160, 70%, 55%);
+  --sidebar-border: hsl(210, 20%, 20%);
+  --sidebar-ring: hsl(160, 70%, 45%);
+  
+  /* Subtle gradients for Professional theme */
+  --gradient-primary: linear-gradient(135deg, hsl(160, 70%, 45%), hsl(180, 60%, 40%));
+  --gradient-secondary: linear-gradient(135deg, hsl(210, 40%, 35%), hsl(220, 45%, 40%));
+  --gradient-accent: linear-gradient(135deg, hsl(160, 60%, 40%), hsl(170, 65%, 45%));
+  --gradient-neon: linear-gradient(135deg, hsl(160, 70%, 45%), hsl(180, 70%, 45%));
+  --gradient-cyber: linear-gradient(135deg, hsl(210, 20%, 8%), hsl(160, 50%, 20%));
 }
 
 .dark {
