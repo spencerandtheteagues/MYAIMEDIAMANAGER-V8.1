@@ -1,5 +1,5 @@
 import { useLocation, Link } from "wouter";
-import { Bell, Plus, ChevronDown, FileText, Image, Video, CalendarDays, Sparkles } from "lucide-react";
+import { Bell, Plus, ChevronDown, FileText, Image, Video, CalendarDays, Sparkles, Palette } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -9,7 +9,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 const pageData = {
   "/": {
@@ -46,6 +46,14 @@ export default function Header() {
   const [location, setLocation] = useLocation();
   const currentPage = pageData[location as keyof typeof pageData] || pageData["/"];
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
+  const [theme, setTheme] = useState<'neon-pink' | 'neon-blue' | 'professional'>(() => {
+    return (localStorage.getItem('app-theme') as any) || 'neon-pink';
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    localStorage.setItem('app-theme', theme);
+  }, [theme]);
 
   return (
     <header className="bg-card shadow-sm border-b border-border px-6 py-4">
@@ -55,6 +63,46 @@ export default function Header() {
           <p className="text-sm text-muted-foreground mt-1">{currentPage.subtitle}</p>
         </div>
         <div className="flex items-center space-x-4">
+          {/* Theme Toggle */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon">
+                <Palette className="h-5 w-5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-48">
+              <DropdownMenuLabel>Choose Theme</DropdownMenuLabel>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem 
+                onClick={() => setTheme('neon-pink')}
+                className="cursor-pointer"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span>Neon Pink</span>
+                  {theme === 'neon-pink' && <div className="w-2 h-2 rounded-full bg-pink-500" />}
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setTheme('neon-blue')}
+                className="cursor-pointer"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span>Neon Blue</span>
+                  {theme === 'neon-blue' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
+                </div>
+              </DropdownMenuItem>
+              <DropdownMenuItem 
+                onClick={() => setTheme('professional')}
+                className="cursor-pointer"
+              >
+                <div className="flex items-center justify-between w-full">
+                  <span>Professional</span>
+                  {theme === 'professional' && <div className="w-2 h-2 rounded-full bg-emerald-500" />}
+                </div>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           <Button variant="ghost" size="icon" className="relative">
             <Bell className="h-5 w-5" />
             <span className="absolute top-0 right-0 w-2 h-2 bg-destructive rounded-full" />
