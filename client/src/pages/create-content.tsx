@@ -28,10 +28,6 @@ export default function CreateContent() {
   const [showAiSuggestions, setShowAiSuggestions] = useState(false);
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   
-  // Theme state
-  const [theme, setTheme] = useState<'neon-pink' | 'neon-blue' | 'professional'>(() => {
-    return (localStorage.getItem('content-theme') as any) || 'neon-pink';
-  });
   
   // Content type selection
   const [contentType, setContentType] = useState("text-image");
@@ -86,11 +82,6 @@ export default function CreateContent() {
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
-  // Apply theme on change
-  useEffect(() => {
-    localStorage.setItem('content-theme', theme);
-    document.documentElement.setAttribute('data-theme', theme);
-  }, [theme]);
 
   const createPostMutation = useMutation({
     mutationFn: async (postData: any) => {
@@ -121,23 +112,29 @@ export default function CreateContent() {
 
   const generateAiContentMutation = useMutation({
     mutationFn: async (params: any) => {
-      const response = await apiRequest("POST", "/api/ai/generate", params);
+      const response = await apiRequest("POST", "/api/ai/text", {
+        system: "You write punchy, on-brand social media captions.",
+        prompt: `Create a ${params.brandTone || 'professional'} social media post for ${params.platform || 'Instagram'} about: ${params.businessName} ${params.productName || ''} - ${params.callToAction || 'promotion'}. Include ${params.includeHashtags ? 'hashtags' : 'no hashtags'} and ${params.includeEmojis ? 'emojis' : 'no emojis'}.`,
+        temperature: 0.9,
+        maxOutputTokens: 2048,
+        jsonSchema: null,
+      });
       return response.json();
     },
     onSuccess: (data) => {
-      setContent(data.content);
-      if (data.imageUrl) {
-        setGeneratedImage(data.imageUrl);
+      if (data.text) {
+        setContent(data.text);
       }
       toast({
         title: "Content Generated",
         description: "AI has created optimized content for your platforms",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('AI generation error:', error);
       toast({
         title: "Error",
-        description: "Failed to generate AI content. Please try again.",
+        description: error?.error || "Failed to generate AI content. Please try again.",
         variant: "destructive",
       });
     },
@@ -145,20 +142,41 @@ export default function CreateContent() {
 
   const generateImageMutation = useMutation({
     mutationFn: async (params: any) => {
-      const response = await apiRequest("POST", "/api/ai/generate-image", params);
+      const prompt = params.imagePrompt || 
+        `Photorealistic ${params.businessName || ''} ${params.productName || ''} ${params.visualStyle || 'modern'} ${params.environment || ''} ${params.mood || ''}`;
+      
+      const aspectRatioMap: Record<string, string> = {
+        "Instagram": "1:1",
+        "Facebook": "16:9",
+        "X.com": "16:9",
+        "TikTok": "9:16",
+        "LinkedIn": "16:9"
+      };
+      
+      const response = await apiRequest("POST", "/api/ai/image", {
+        prompt: prompt.trim(),
+        aspectRatio: aspectRatioMap[selectedPlatforms[0]] || "1:1",
+        personGeneration: "allow_all",
+        count: 1,
+        negativePrompt: "blurry, watermark, low quality",
+        outputResolution: "1024",
+      });
       return response.json();
     },
     onSuccess: (data) => {
-      setGeneratedImage(data.imageUrl || "/api/placeholder/800/600");
+      if (data.images && data.images[0]) {
+        setGeneratedImage(data.images[0]);
+      }
       toast({
         title: "Image Generated",
         description: "AI has created a custom image for your content",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('Image generation error:', error);
       toast({
         title: "Error",
-        description: "Failed to generate image. Please try again.",
+        description: error?.error || "Failed to generate image. Please try again.",
         variant: "destructive",
       });
     },
@@ -166,20 +184,54 @@ export default function CreateContent() {
 
   const generateVideoMutation = useMutation({
     mutationFn: async (params: any) => {
-      const response = await apiRequest("POST", "/api/ai/generate-video", params);
-      return response.json();
+      const prompt = params.videoScript || 
+        `Cinematic slow pan across ${params.businessName || ''} ${params.productName || ''}, ${params.videoStyle || 'professional'} style`;
+      
+      const aspectRatio = selectedPlatforms[0] === "TikTok" ? "9:16" : "16:9";
+      
+      // Start video generation
+      const startResponse = await apiRequest("POST", "/api/ai/video/start", {
+        prompt: prompt.trim(),
+        negativePrompt: "blurry, low quality",
+        aspectRatio,
+        fast: true, // Use fast model for quicker generation
+      });
+      const { operationName } = await startResponse.json();
+      
+      // Poll for completion
+      let videoUri = "";
+      let attempts = 0;
+      while (attempts < 30) { // Max 30 attempts (2.5 minutes)
+        await new Promise(r => setTimeout(r, 5000)); // Wait 5 seconds
+        
+        const statusResponse = await fetch(`/api/ai/video/status/${operationName}`);
+        const status = await statusResponse.json();
+        
+        if (status.done) {
+          videoUri = status.uri;
+          break;
+        }
+        attempts++;
+      }
+      
+      if (!videoUri) {
+        throw new Error("Video generation timed out");
+      }
+      
+      return { videoUrl: videoUri };
     },
     onSuccess: (data) => {
-      setGeneratedVideo(data.videoUrl || "/api/placeholder/video");
+      setGeneratedVideo(data.videoUrl);
       toast({
         title: "Video Generated",
-        description: "AI has created a custom video for your content",
+        description: "AI has created a custom video for your content (8 seconds with audio)",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      console.error('Video generation error:', error);
       toast({
         title: "Error",
-        description: "Failed to generate video. Please try again.",
+        description: error?.message || "Failed to generate video. Please try again.",
         variant: "destructive",
       });
     },
@@ -414,41 +466,6 @@ export default function CreateContent() {
             <p className="text-muted-foreground mt-2">
               Generate AI-powered content optimized for your business and target audience
             </p>
-          </div>
-          <div className="flex gap-2">
-            <button
-              onClick={() => setTheme('neon-pink')}
-              className={`px-3 py-2 rounded-lg border transition-all ${
-                theme === 'neon-pink' 
-                  ? 'border-pink-500 bg-pink-500/20 text-pink-400' 
-                  : 'border-border hover:border-pink-500/50'
-              }`}
-              data-testid="button-theme-neon-pink"
-            >
-              <span className="text-xs font-medium">Neon Pink</span>
-            </button>
-            <button
-              onClick={() => setTheme('neon-blue')}
-              className={`px-3 py-2 rounded-lg border transition-all ${
-                theme === 'neon-blue' 
-                  ? 'border-blue-500 bg-blue-500/20 text-blue-400' 
-                  : 'border-border hover:border-blue-500/50'
-              }`}
-              data-testid="button-theme-neon-blue"
-            >
-              <span className="text-xs font-medium">Neon Blue</span>
-            </button>
-            <button
-              onClick={() => setTheme('professional')}
-              className={`px-3 py-2 rounded-lg border transition-all ${
-                theme === 'professional' 
-                  ? 'border-emerald-600 bg-emerald-600/20 text-emerald-400' 
-                  : 'border-border hover:border-emerald-600/50'
-              }`}
-              data-testid="button-theme-professional"
-            >
-              <span className="text-xs font-medium">Professional</span>
-            </button>
           </div>
         </div>
 

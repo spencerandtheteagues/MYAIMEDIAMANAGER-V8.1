@@ -199,63 +199,69 @@
     @apply font-semibold tracking-tight;
   }
 
-  /* Text selection styling - Neon Pink theme (default) */
+  /* Text selection styling - High contrast for all themes */
   ::selection {
-    background-color: hsl(280, 100%, 40%);
-    color: hsl(0, 0%, 100%);
+    background-color: hsl(280, 100%, 60%);
+    color: hsl(0, 0%, 0%);
+    text-shadow: none;
   }
   
   ::-moz-selection {
-    background-color: hsl(280, 100%, 40%);
-    color: hsl(0, 0%, 100%);
+    background-color: hsl(280, 100%, 60%);
+    color: hsl(0, 0%, 0%);
+    text-shadow: none;
   }
   
-  /* Neon Blue theme selection */
+  /* Neon Blue theme selection - bright yellow for contrast */
   [data-theme="neon-blue"] ::selection {
-    background-color: hsl(200, 100%, 35%);
-    color: hsl(0, 0%, 100%);
+    background-color: hsl(50, 100%, 50%);
+    color: hsl(0, 0%, 0%);
+    text-shadow: none;
   }
   
   [data-theme="neon-blue"] ::-moz-selection {
-    background-color: hsl(200, 100%, 35%);
-    color: hsl(0, 0%, 100%);
+    background-color: hsl(50, 100%, 50%);
+    color: hsl(0, 0%, 0%);
+    text-shadow: none;
   }
   
-  /* Professional theme selection */
+  /* Professional theme selection - bright teal */
   [data-theme="professional"] ::selection {
-    background-color: hsl(160, 70%, 35%);
-    color: hsl(0, 0%, 100%);
+    background-color: hsl(160, 100%, 45%);
+    color: hsl(0, 0%, 0%);
+    text-shadow: none;
   }
   
   [data-theme="professional"] ::-moz-selection {
-    background-color: hsl(160, 70%, 35%);
-    color: hsl(0, 0%, 100%);
+    background-color: hsl(160, 100%, 45%);
+    color: hsl(0, 0%, 0%);
+    text-shadow: none;
   }
   
-  /* Make blue text darker and easier to read */
+  /* Make blue text more visible on dark backgrounds */
   .text-blue-400 {
-    color: hsl(200, 100%, 35%) !important;
+    color: hsl(200, 100%, 65%) !important;
   }
   
   .text-blue-500 {
-    color: hsl(200, 100%, 40%) !important;
+    color: hsl(200, 100%, 60%) !important;
   }
   
   .text-blue-600 {
-    color: hsl(200, 100%, 30%) !important;
-  }
-  
-  .text-blue-700 {
-    color: hsl(200, 100%, 25%) !important;
-  }
-  
-  /* Dark mode blue text adjustments */
-  .dark .text-blue-400 {
     color: hsl(200, 100%, 55%) !important;
   }
   
-  .dark .text-blue-600 {
+  .text-blue-700 {
     color: hsl(200, 100%, 50%) !important;
+  }
+  
+  /* Ensure link colors are visible */
+  a, .link {
+    color: hsl(200, 100%, 65%) !important;
+  }
+  
+  a:hover, .link:hover {
+    color: hsl(200, 100%, 75%) !important;
   }
 }
 

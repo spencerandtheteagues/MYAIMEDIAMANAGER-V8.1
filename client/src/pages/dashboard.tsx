@@ -20,12 +20,16 @@ import {
   Copy
 } from "lucide-react";
 import { Link } from "wouter";
+import instagramLogo from "@/assets/logos/instagram.svg";
+import facebookLogo from "@/assets/logos/facebook.svg";
+import xLogo from "@/assets/logos/x.svg";
+import tiktokLogo from "@/assets/logos/tiktok.svg";
+import linkedinLogo from "@/assets/logos/linkedin.svg";
 
 interface PlatformStatus {
   name: string;
-  icon: string;
+  logo: string;
   connected: boolean;
-  color: string;
 }
 
 interface DashboardData {
@@ -64,11 +68,11 @@ interface DashboardData {
 }
 
 const platforms: PlatformStatus[] = [
-  { name: "Instagram", icon: "fab fa-instagram", connected: true, color: "text-pink-500" },
-  { name: "Facebook", icon: "fab fa-facebook", connected: true, color: "text-blue-600" },
-  { name: "X (Twitter)", icon: "fab fa-twitter", connected: true, color: "text-blue-400" },
-  { name: "TikTok", icon: "fab fa-tiktok", connected: true, color: "text-gray-800" },
-  { name: "LinkedIn", icon: "fab fa-linkedin", connected: true, color: "text-blue-700" },
+  { name: "Instagram", logo: instagramLogo, connected: true },
+  { name: "Facebook", logo: facebookLogo, connected: true },
+  { name: "X.com", logo: xLogo, connected: true },
+  { name: "TikTok", logo: tiktokLogo, connected: true },
+  { name: "LinkedIn", logo: linkedinLogo, connected: true },
 ];
 
 export default function Dashboard() {
@@ -102,12 +106,18 @@ export default function Dashboard() {
         <h3 className="text-lg font-semibold text-foreground mb-4">Connected Platforms</h3>
         <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           {platforms.map((platform) => (
-            <Card key={platform.name} className="text-center">
+            <Card key={platform.name} className="text-center overflow-hidden hover:shadow-lg transition-shadow">
               <CardContent className="p-4">
-                <i className={`${platform.icon} text-2xl ${platform.color} mb-2`} />
+                <div className="w-12 h-12 mx-auto mb-3 rounded-lg overflow-hidden shadow-md">
+                  <img 
+                    src={platform.logo} 
+                    alt={`${platform.name} logo`}
+                    className="w-full h-full object-cover"
+                  />
+                </div>
                 <p className="text-sm font-medium text-foreground">{platform.name}</p>
                 <p className="text-xs text-green-600 mt-1 flex items-center justify-center">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-1" />
+                  <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse" />
                   Connected
                 </p>
               </CardContent>

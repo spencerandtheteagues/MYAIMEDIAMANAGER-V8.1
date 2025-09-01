@@ -3,9 +3,12 @@ import { createServer, type Server } from "http";
 import { storage } from "./storage";
 import { insertPostSchema, insertAiSuggestionSchema, insertCampaignSchema } from "@shared/schema";
 import { z } from "zod";
-import * as gcloudAI from "./gcloud-ai";
+import { aiService } from "./ai-service";
+import aiRoutes from "./aiRoutes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Wire up the new AI routes exactly as specified
+  app.use("/api/ai", aiRoutes);
   // Get current user (demo user for now)
   app.get("/api/user", async (req, res) => {
     try {
@@ -128,23 +131,49 @@ export async function registerRoutes(app: Express): Promise<Server> {
       (async () => {
         try {
           const startDate = new Date(campaign.startDate);
-          const posts = await gcloudAI.generateCampaign(
-            {
-              businessName: campaign.businessName,
-              productName: campaign.productName || undefined,
-              targetAudience: campaign.targetAudience,
-              brandTone: campaign.brandTone,
-              keyMessages: campaign.keyMessages || [],
-              callToAction: campaign.callToAction,
-              platform: campaign.platform,
-              visualStyle: campaign.visualStyle,
-              colorScheme: campaign.colorScheme || undefined,
-            },
-            startDate
-          );
+          const endDate = new Date(campaign.endDate || startDate);
+          const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+          const totalPosts = Math.min(days * 2, 14); // 2 posts per day, max 14 posts
 
-          // Generate images for posts
-          await gcloudAI.generateCampaignImages(posts);
+          const posts = [];
+          for (let i = 0; i < totalPosts; i++) {
+            const dayOffset = Math.floor(i / 2);
+            const isAfternoonPost = i % 2 === 1;
+            const scheduledDate = new Date(startDate);
+            scheduledDate.setDate(scheduledDate.getDate() + dayOffset);
+            scheduledDate.setHours(isAfternoonPost ? 15 : 9, 0, 0, 0);
+
+            // Generate content for each post
+            const topic = `${campaign.businessName} ${campaign.productName || 'product'} - ${campaign.callToAction}`;
+            const contentSuggestions = await aiService.generateContent({
+              topic,
+              tone: campaign.brandTone,
+              platform: campaign.platform,
+              includeHashtags: true,
+              includeEmojis: true,
+              length: "medium",
+            });
+
+            let imageUrl = null;
+            if (campaign.visualStyle) {
+              const imageResult = await aiService.generateImage({
+                prompt: `${campaign.businessName} ${campaign.productName || ''} ${campaign.visualStyle}`,
+                style: campaign.visualStyle,
+                aspectRatio: campaign.platform === "Instagram" ? "1:1" : "16:9",
+              });
+              imageUrl = imageResult.url;
+            }
+
+            posts.push({
+              content: contentSuggestions[0],
+              imageUrl,
+              scheduledFor: scheduledDate,
+            });
+
+            // Update progress
+            const progress = Math.round(((i + 1) / totalPosts) * 100);
+            await storage.updateCampaign(campaign.id, { generationProgress: progress });
+          }
 
           // Create posts in storage
           for (const post of posts) {
@@ -152,8 +181,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
               userId: campaign.userId,
               campaignId: campaign.id,
               content: post.content,
-              imageUrl: post.imageUrl,
-              imagePrompt: post.imagePrompt,
+              mediaUrls: post.imageUrl ? [post.imageUrl] : [],
               platforms: [campaign.platform],
               status: "pending",
               scheduledFor: post.scheduledFor,
@@ -241,8 +269,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(400).json({ message: "Prompt is required" });
       }
 
-      // Mock AI suggestions based on prompt
-      const suggestions = generateAISuggestions(prompt);
+      // Generate AI suggestions using real AI
+      const suggestions = await generateAISuggestions(prompt);
       
       const aiSuggestion = await storage.createAiSuggestion({
         userId: "demo-user-1",
@@ -261,54 +289,72 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/ai/generate", async (req, res) => {
     try {
       const {
-        businessName,
-        productName,
-        targetAudience,
-        brandTone,
-        keyMessages,
-        callToAction,
+        topic,
+        tone,
         platform,
-        isAdvertisement,
-        additionalContext,
+        contentType,
+        includeHashtags = true,
+        includeEmojis = true,
+        length = "medium",
         generateImage,
-        visualStyle,
-        colorScheme,
+        imageStyle,
+        generateVideo,
+        videoStyle,
       } = req.body;
 
-      // Import AI generation functions
-      const { generateTextContent, generateImage: generateAIImage } = await import('./gcloud-ai.js');
-      
-      // Generate text content
-      const content = await generateTextContent({
-        businessName,
-        productName,
-        targetAudience,
-        brandTone,
-        keyMessages: keyMessages || [],
-        callToAction,
-        platform,
-        isAdvertisement,
-        additionalContext,
-      });
-
+      let content = null;
       let imageUrl = null;
-      let imagePrompt = null;
+      let videoUrl = null;
+      let hashtags = [];
+
+      // Generate text content
+      if (contentType === "text" || !contentType) {
+        const suggestions = await aiService.generateContent({
+          topic: topic || "social media post",
+          tone: tone || "professional",
+          platform: platform || "Instagram",
+          includeHashtags,
+          includeEmojis,
+          length,
+        });
+        content = suggestions[0]; // Use the first suggestion
+        
+        // Generate hashtags separately if needed
+        if (includeHashtags && content) {
+          hashtags = await aiService.generateHashtags(content, platform || "Instagram");
+        }
+      }
 
       // Generate image if requested
-      if (generateImage) {
-        imagePrompt = `${businessName} ${productName || ''} advertisement for ${targetAudience || 'target audience'}`;
-        imageUrl = await generateAIImage({
-          prompt: imagePrompt,
-          visualStyle: visualStyle || 'modern',
-          colorScheme,
-          businessContext: `${businessName} - ${productName || 'business'}`,
+      if (generateImage || contentType === "image") {
+        const imageResult = await aiService.generateImage({
+          prompt: topic || "beautiful landscape",
+          style: imageStyle,
+          aspectRatio: platform === "Instagram" ? "1:1" : "16:9",
         });
+        imageUrl = imageResult.url;
+      }
+
+      // Generate video if requested
+      if (generateVideo || contentType === "video") {
+        const videoResult = await aiService.generateVideo({
+          prompt: topic || "engaging social media video",
+          style: videoStyle,
+          aspectRatio: platform === "TikTok" ? "9:16" : "16:9",
+        });
+        videoUrl = videoResult.url;
       }
       
-      res.json({ content, imageUrl, imagePrompt });
+      res.json({ 
+        content, 
+        imageUrl, 
+        videoUrl,
+        hashtags,
+        suggestions: content ? [content] : [], 
+      });
     } catch (error) {
       console.error('AI generation error:', error);
-      res.status(500).json({ message: "Failed to generate AI content" });
+      res.status(500).json({ message: error instanceof Error ? error.message : "Failed to generate AI content" });
     }
   });
 
@@ -372,18 +418,25 @@ export async function registerRoutes(app: Express): Promise<Server> {
   return httpServer;
 }
 
-// Mock AI suggestion generator
-function generateAISuggestions(prompt: string): string[] {
-  const suggestions = [
-    "☕ Start your Monday with our signature blend! What's your go-to morning coffee order? #MondayMotivation #CoffeeLovers",
-    "Fresh pastries, warm atmosphere, and the perfect cup of coffee - that's what makes mornings special at our café ✨",
-    "Behind the scenes: Our baristas craft each latte with love and precision. Come taste the difference! ☕❤️",
-    "🥐 Tuesday treats are here! Enjoy our freshly baked croissants with your favorite coffee blend. #TuesdayTreats #FreshBaked",
-    "What's your perfect coffee pairing? Tell us in the comments! ☕🥧 #CoffeePairing #CustomerChoice",
-    "Weekend vibes at the café! ☕ Join us for a relaxing coffee break and catch up with friends. #WeekendVibes #CafeLife",
-  ];
-
-  // Return 3 random suggestions
-  const shuffled = suggestions.sort(() => 0.5 - Math.random());
-  return shuffled.slice(0, 3);
+// AI suggestion generator using real AI
+async function generateAISuggestions(prompt: string): Promise<string[]> {
+  try {
+    const suggestions = await aiService.generateContent({
+      topic: prompt,
+      tone: "engaging",
+      platform: "Instagram",
+      includeHashtags: true,
+      includeEmojis: true,
+      length: "medium",
+    });
+    return suggestions;
+  } catch (error) {
+    console.error("AI suggestion generation failed:", error);
+    // Fallback suggestions
+    return [
+      "✨ Share your story with the world! #SocialMedia #ContentCreation",
+      "🚀 Elevate your brand with engaging content! #Marketing #Business",
+      "💡 Connect with your audience authentically! #Engagement #Community",
+    ];
+  }
 }
