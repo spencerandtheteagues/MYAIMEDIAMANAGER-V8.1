@@ -2,34 +2,6 @@
 
 MyAiMediaMgr is an AI-powered social media management platform designed specifically for small businesses. The application enables users to create, schedule, approve, and publish content across multiple social media platforms (Instagram, Facebook, X/Twitter, TikTok, LinkedIn) from a single interface. The platform leverages AI assistance for content generation and includes sophisticated approval workflows, analytics tracking, and performance monitoring to streamline social media management operations.
 
-## Recent Updates (August 23, 2025)
-
-### Admin System Implementation
-- Added secure admin login system with hardcoded credentials
-- Created comprehensive admin dashboard for user management
-- Admin capabilities include:
-  - Bypass all Stripe paywalls
-  - Infinite credits (999,999,999)
-  - User credit management (add/remove)
-  - User deletion capabilities
-  - System statistics overview
-  - Full platform control
-
-### Admin Access
-- **Admin Login URL**: `/admin/login`
-- **Admin Email**: `spencerandtheteagues@gmail.com`
-- **Admin Password**: `TheMoonKey8!`
-- Admin users have `isAdmin: true` flag in database
-- Admin sessions bypass OAuth authentication
-
-### Railway Deployment Optimization
-- Created Railway configuration file (`railway.json`)
-- Optimized build and start commands for production
-- Added comprehensive deployment documentation
-- Configured health checks and monitoring
-- Set up automatic restart policies
-- Prepared environment variable templates
-
 ## User Preferences
 
 Preferred communication style: Simple, everyday language.

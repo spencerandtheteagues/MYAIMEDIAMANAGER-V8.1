@@ -1,15 +1,17 @@
 # Google Cloud Deployment Guide for MyAiMediaMgr
 
-## Prerequisites Checklist
-- [ ] Google Cloud account with billing enabled
-- [ ] `gcloud` CLI installed locally
-- [ ] Docker installed (for local testing)
-- [ ] Node.js 20+ installed
-- [ ] PostgreSQL database (Neon or Cloud SQL)
+## Overview
+This guide provides comprehensive instructions for deploying MyAiMediaMgr to Google Cloud Run with full AI content generation capabilities using Vertex AI, Gemini 2.5, Veo3, and Imagen4.
 
-## Step 1: Google Cloud Project Setup
+## Prerequisites
+- Google Cloud Platform (GCP) account with billing enabled
+- Google Cloud SDK (gcloud CLI) installed locally
+- Docker installed (for local testing)
+- Node.js 20+ installed
 
-### 1.1 Create Project
+## Step 1: GCP Project Setup
+
+### 1.1 Create a New Project
 ```bash
 # Create new project
 gcloud projects create myaimediamgr-prod --name="MyAiMediaMgr Production"
@@ -17,8 +19,8 @@ gcloud projects create myaimediamgr-prod --name="MyAiMediaMgr Production"
 # Set as active project
 gcloud config set project myaimediamgr-prod
 
-# Link billing account (replace with your billing account ID)
-gcloud billing projects link myaimediamgr-prod --billing-account=YOUR_BILLING_ACCOUNT_ID
+# Enable billing (replace with your billing account ID)
+gcloud beta billing projects link myaimediamgr-prod --billing-account=BILLING_ACCOUNT_ID
 ```
 
 ### 1.2 Enable Required APIs
@@ -27,430 +29,374 @@ gcloud billing projects link myaimediamgr-prod --billing-account=YOUR_BILLING_AC
 gcloud services enable \
   run.googleapis.com \
   cloudbuild.googleapis.com \
-  secretmanager.googleapis.com \
+  containerregistry.googleapis.com \
   aiplatform.googleapis.com \
-  storage-api.googleapis.com \
-  storage-component.googleapis.com \
-  iam.googleapis.com \
+  storage.googleapis.com \
+  secretmanager.googleapis.com \
   cloudresourcemanager.googleapis.com \
   compute.googleapis.com
 ```
 
-## Step 2: IAM Roles and Service Account Setup
+## Step 2: Service Account Configuration
 
 ### 2.1 Create Service Account
 ```bash
-# Create service account for the application
-gcloud iam service-accounts create myaimediamgr-app \
-  --display-name="MyAiMediaMgr Application Service Account"
+# Create service account
+gcloud iam service-accounts create myaimediamgr-sa \
+  --display-name="MyAiMediaMgr Service Account"
 
-# Get the service account email
-export SERVICE_ACCOUNT=myaimediamgr-app@myaimediamgr-prod.iam.gserviceaccount.com
+# Get service account email
+SA_EMAIL=$(gcloud iam service-accounts list --filter="displayName:MyAiMediaMgr Service Account" --format="value(email)")
 ```
 
-### 2.2 Assign Required Roles
+### 2.2 Grant Required Permissions
 ```bash
-# Vertex AI roles for Gemini, Imagen, and Veo
+# Grant necessary roles
 gcloud projects add-iam-policy-binding myaimediamgr-prod \
-  --member="serviceAccount:${SERVICE_ACCOUNT}" \
+  --member="serviceAccount:${SA_EMAIL}" \
   --role="roles/aiplatform.user"
 
-# Cloud Storage roles
 gcloud projects add-iam-policy-binding myaimediamgr-prod \
-  --member="serviceAccount:${SERVICE_ACCOUNT}" \
-  --role="roles/storage.objectAdmin"
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/storage.admin"
 
-# Secret Manager roles
 gcloud projects add-iam-policy-binding myaimediamgr-prod \
-  --member="serviceAccount:${SERVICE_ACCOUNT}" \
-  --role="roles/secretmanager.secretAccessor"
-
-# Cloud Run invoker (for public access)
-gcloud projects add-iam-policy-binding myaimediamgr-prod \
-  --member="allUsers" \
+  --member="serviceAccount:${SA_EMAIL}" \
   --role="roles/run.invoker"
+
+gcloud projects add-iam-policy-binding myaimediamgr-prod \
+  --member="serviceAccount:${SA_EMAIL}" \
+  --role="roles/secretmanager.secretAccessor"
 ```
 
-### 2.3 Create Storage Bucket
+### 2.3 Create Service Account Key
 ```bash
-# Create bucket for AI-generated content
-gsutil mb -p myaimediamgr-prod -c standard -l us-central1 gs://myaimediamgr-content/
+# Create and download key
+gcloud iam service-accounts keys create ./service-account-key.json \
+  --iam-account=${SA_EMAIL}
 
-# Set public access for content delivery
+# IMPORTANT: Keep this file secure and never commit it to version control
+```
+
+## Step 3: Vertex AI Setup
+
+### 3.1 Enable Vertex AI Models
+```bash
+# Initialize Vertex AI
+gcloud ai models list --region=us-central1
+
+# Note: Gemini 2.5, Imagen4, and Veo3 access may require:
+# 1. Requesting access through Google Cloud Console
+# 2. Quota increases for specific models
+# 3. Acceptance of additional terms of service
+```
+
+### 3.2 Request Model Access
+1. Navigate to Vertex AI in Google Cloud Console
+2. Go to "Model Garden"
+3. Request access for:
+   - Gemini 2.5 Flash
+   - Gemini 2.5 Pro
+   - Imagen 4.0
+   - Veo 3 Fast
+4. Wait for approval (usually 24-48 hours)
+
+## Step 4: Cloud Storage Setup
+
+### 4.1 Create Storage Bucket
+```bash
+# Create bucket for media storage
+gsutil mb -p myaimediamgr-prod -c STANDARD -l us-central1 gs://myaimediamgr-content/
+
+# Set bucket permissions for public access
 gsutil iam ch allUsers:objectViewer gs://myaimediamgr-content
 ```
 
-## Step 3: Configure Secrets
+### 4.2 Configure CORS
+Create `cors.json`:
+```json
+[
+  {
+    "origin": ["*"],
+    "method": ["GET", "HEAD", "PUT", "POST", "DELETE"],
+    "responseHeader": ["*"],
+    "maxAgeSeconds": 3600
+  }
+]
+```
 
-### 3.1 Create Secrets in Secret Manager
+Apply CORS configuration:
 ```bash
-# Database URL (replace with your actual database URL)
-echo -n "postgresql://user:password@host/database?sslmode=require" | \
+gsutil cors set cors.json gs://myaimediamgr-content
+```
+
+## Step 5: Database Setup (Cloud SQL)
+
+### 5.1 Create PostgreSQL Instance
+```bash
+# Create Cloud SQL instance
+gcloud sql instances create myaimediamgr-db \
+  --database-version=POSTGRES_15 \
+  --tier=db-f1-micro \
+  --region=us-central1 \
+  --network=default \
+  --no-assign-ip
+
+# Create database
+gcloud sql databases create myaimediamgr \
+  --instance=myaimediamgr-db
+
+# Create user
+gcloud sql users create dbuser \
+  --instance=myaimediamgr-db \
+  --password=SECURE_PASSWORD_HERE
+```
+
+### 5.2 Get Connection String
+```bash
+# Get connection name
+gcloud sql instances describe myaimediamgr-db --format="value(connectionName)"
+# Output: PROJECT_ID:REGION:INSTANCE_NAME
+```
+
+## Step 6: Secret Manager Setup
+
+### 6.1 Create Secrets
+```bash
+# Database URL
+echo -n "postgresql://dbuser:PASSWORD@/myaimediamgr?host=/cloudsql/CONNECTION_NAME" | \
   gcloud secrets create DATABASE_URL --data-file=-
 
-# Session secret (generate a strong random string)
+# Gemini API Key (get from Google AI Studio)
+echo -n "YOUR_GEMINI_API_KEY" | \
+  gcloud secrets create GEMINI_API_KEY --data-file=-
+
+# Session Secret
 echo -n "$(openssl rand -base64 32)" | \
   gcloud secrets create SESSION_SECRET --data-file=-
 
-# Replit environment variables (required for OAuth)
-echo -n "your-repl-id" | \
-  gcloud secrets create REPL_ID --data-file=-
+# GCP Configuration
+echo -n "myaimediamgr-prod" | \
+  gcloud secrets create GCLOUD_PROJECT_ID --data-file=-
 
-echo -n "your-app-domain.replit.app" | \
-  gcloud secrets create REPLIT_DOMAINS --data-file=-
+echo -n "us-central1" | \
+  gcloud secrets create GCLOUD_LOCATION --data-file=-
 
-# Grant service account access to secrets
-for SECRET in DATABASE_URL SESSION_SECRET REPL_ID REPLIT_DOMAINS; do
+echo -n "myaimediamgr-content" | \
+  gcloud secrets create GCLOUD_STORAGE_BUCKET --data-file=-
+```
+
+### 6.2 Grant Secret Access
+```bash
+# Grant Cloud Run access to secrets
+for SECRET in DATABASE_URL GEMINI_API_KEY SESSION_SECRET GCLOUD_PROJECT_ID GCLOUD_LOCATION GCLOUD_STORAGE_BUCKET; do
   gcloud secrets add-iam-policy-binding $SECRET \
-    --member="serviceAccount:${SERVICE_ACCOUNT}" \
+    --member="serviceAccount:${SA_EMAIL}" \
     --role="roles/secretmanager.secretAccessor"
 done
 ```
 
-## Step 4: Prepare Application for Deployment
+## Step 7: Application Configuration
 
-### 4.1 Create Dockerfile
-```dockerfile
-# Multi-stage build for optimization
-FROM node:20-alpine AS builder
-
-WORKDIR /app
-
-# Copy package files
-COPY package*.json ./
-COPY tsconfig.json ./
-COPY vite.config.ts ./
-COPY tailwind.config.ts ./
-COPY postcss.config.js ./
-COPY components.json ./
-COPY drizzle.config.ts ./
-
-# Install dependencies
-RUN npm ci
-
-# Copy source code
-COPY client ./client
-COPY server ./server
-COPY shared ./shared
-
-# Build the application
-RUN npm run build
-
-# Production stage
-FROM node:20-alpine
-
-WORKDIR /app
-
-# Install production dependencies only
-COPY package*.json ./
-RUN npm ci --omit=dev && npm cache clean --force
-
-# Copy built application
-COPY --from=builder /app/dist ./dist
-COPY --from=builder /app/server ./server
-COPY --from=builder /app/shared ./shared
-
-# Set environment variables
-ENV NODE_ENV=production
-ENV PORT=8080
-
-# Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-  CMD node -e "require('http').get('http://localhost:8080/health', (r) => {r.statusCode === 200 ? process.exit(0) : process.exit(1)})"
-
-# Start the application
-CMD ["node", "dist/server/index.js"]
-```
-
-### 4.2 Create .gcloudignore
-```
-node_modules/
-.git/
-.gitignore
-*.md
-.env*
-.local/
-tmp/
-*.log
-.DS_Store
-coverage/
-.vscode/
-.idea/
-*.zip
-attached_assets/
-```
-
-### 4.3 Create cloudbuild.yaml
-```yaml
-steps:
-  # Build the container image
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['build', '-t', 'gcr.io/$PROJECT_ID/myaimediamgr:$COMMIT_SHA', '.']
-  
-  # Push the container image to Container Registry
-  - name: 'gcr.io/cloud-builders/docker'
-    args: ['push', 'gcr.io/$PROJECT_ID/myaimediamgr:$COMMIT_SHA']
-  
-  # Deploy container image to Cloud Run
-  - name: 'gcr.io/google.com/cloudsdktool/cloud-sdk'
-    entrypoint: gcloud
-    args:
-      - 'run'
-      - 'deploy'
-      - 'myaimediamgr'
-      - '--image'
-      - 'gcr.io/$PROJECT_ID/myaimediamgr:$COMMIT_SHA'
-      - '--region'
-      - 'us-central1'
-      - '--platform'
-      - 'managed'
-      - '--allow-unauthenticated'
-      - '--service-account'
-      - 'myaimediamgr-app@$PROJECT_ID.iam.gserviceaccount.com'
-      - '--set-env-vars'
-      - 'GCLOUD_PROJECT_ID=$PROJECT_ID,GCLOUD_LOCATION=us-central1,GCLOUD_STORAGE_BUCKET=myaimediamgr-content,NODE_ENV=production,ISSUER_URL=https://replit.com/oidc'
-      - '--set-secrets'
-      - 'DATABASE_URL=DATABASE_URL:latest,SESSION_SECRET=SESSION_SECRET:latest,REPL_ID=REPL_ID:latest,REPLIT_DOMAINS=REPLIT_DOMAINS:latest'
-      - '--memory'
-      - '2Gi'
-      - '--cpu'
-      - '2'
-      - '--timeout'
-      - '300'
-      - '--max-instances'
-      - '100'
-      - '--min-instances'
-      - '0'
-
-images:
-  - 'gcr.io/$PROJECT_ID/myaimediamgr:$COMMIT_SHA'
-
-timeout: '1200s'
-```
-
-## Step 5: Add Production Configuration
-
-### 5.1 Update package.json scripts
-```json
-{
-  "scripts": {
-    "build": "npm run build:client && npm run build:server",
-    "build:client": "vite build --outDir dist/client",
-    "build:server": "tsc -p tsconfig.server.json",
-    "start": "node dist/server/index.js",
-    "db:push": "drizzle-kit push",
-    "db:generate": "drizzle-kit generate"
-  }
-}
-```
-
-### 5.2 Create tsconfig.server.json
-```json
-{
-  "extends": "./tsconfig.json",
-  "compilerOptions": {
-    "outDir": "./dist",
-    "rootDir": ".",
-    "composite": false,
-    "noEmit": false
-  },
-  "include": ["server/**/*", "shared/**/*"],
-  "exclude": ["node_modules", "dist", "client"]
-}
-```
-
-### 5.3 Add health check endpoint to server/routes.ts
-```typescript
-// Add this to your routes
-app.get('/health', (req, res) => {
-  res.status(200).json({ status: 'healthy', timestamp: new Date().toISOString() });
-});
-```
-
-### 5.4 Create .env.example
+### 7.1 Update Environment Variables
+Create `.env.production`:
 ```env
 NODE_ENV=production
 PORT=8080
-DATABASE_URL=postgresql://user:pass@host/db?sslmode=require
+DATABASE_URL=postgresql://dbuser:PASSWORD@/myaimediamgr?host=/cloudsql/CONNECTION_NAME
+GEMINI_API_KEY=your-gemini-api-key
 SESSION_SECRET=your-session-secret
 GCLOUD_PROJECT_ID=myaimediamgr-prod
 GCLOUD_LOCATION=us-central1
 GCLOUD_STORAGE_BUCKET=myaimediamgr-content
-REPL_ID=your-repl-id
-REPLIT_DOMAINS=your-domain.replit.app
-ISSUER_URL=https://replit.com/oidc
+GCLOUD_KEY_FILE=/app/service-account-key.json
 ```
 
-## Step 6: Deploy to Cloud Run
+### 7.2 Update Application Code
+Ensure your application uses environment variables:
+```javascript
+// server/index.ts
+const port = process.env.PORT || 8080;
+```
 
-### 6.1 Initial Deployment
+## Step 8: Deployment
+
+### 8.1 Build and Push Container
 ```bash
-# Build and deploy using Cloud Build
-gcloud builds submit --config=cloudbuild.yaml
+# Build container
+docker build -t gcr.io/myaimediamgr-prod/myaimediamgr:latest .
 
-# Alternative: Direct deployment
+# Push to Container Registry
+docker push gcr.io/myaimediamgr-prod/myaimediamgr:latest
+```
+
+### 8.2 Deploy to Cloud Run
+```bash
 gcloud run deploy myaimediamgr \
-  --source . \
-  --region us-central1 \
+  --image gcr.io/myaimediamgr-prod/myaimediamgr:latest \
   --platform managed \
+  --region us-central1 \
   --allow-unauthenticated \
-  --service-account myaimediamgr-app@myaimediamgr-prod.iam.gserviceaccount.com \
-  --set-env-vars GCLOUD_PROJECT_ID=myaimediamgr-prod,GCLOUD_LOCATION=us-central1,GCLOUD_STORAGE_BUCKET=myaimediamgr-content,NODE_ENV=production,ISSUER_URL=https://replit.com/oidc \
-  --set-secrets DATABASE_URL=DATABASE_URL:latest,SESSION_SECRET=SESSION_SECRET:latest,REPL_ID=REPL_ID:latest,REPLIT_DOMAINS=REPLIT_DOMAINS:latest \
+  --service-account ${SA_EMAIL} \
+  --add-cloudsql-instances PROJECT_ID:REGION:myaimediamgr-db \
+  --set-env-vars NODE_ENV=production \
+  --set-secrets="DATABASE_URL=DATABASE_URL:latest,GEMINI_API_KEY=GEMINI_API_KEY:latest,SESSION_SECRET=SESSION_SECRET:latest,GCLOUD_PROJECT_ID=GCLOUD_PROJECT_ID:latest,GCLOUD_LOCATION=GCLOUD_LOCATION:latest,GCLOUD_STORAGE_BUCKET=GCLOUD_STORAGE_BUCKET:latest" \
   --memory 2Gi \
   --cpu 2 \
   --timeout 300 \
-  --max-instances 100
+  --max-instances 10 \
+  --min-instances 1
 ```
 
-### 6.2 Verify Deployment
-```bash
-# Get service URL
-gcloud run services describe myaimediamgr --region us-central1 --format 'value(status.url)'
+## Step 9: Continuous Deployment Setup
 
-# Check logs
+### 9.1 Connect GitHub Repository
+```bash
+# Connect repository
+gcloud builds connect create github \
+  --region=us-central1 \
+  --connection=myaimediamgr-github
+
+# Create trigger
+gcloud builds triggers create github \
+  --repo-name=myaimediamgr \
+  --repo-owner=YOUR_GITHUB_USERNAME \
+  --branch-pattern="^main$" \
+  --build-config=cloudbuild.yaml \
+  --region=us-central1
+```
+
+### 9.2 Configure Build Permissions
+```bash
+# Get Cloud Build service account
+BUILD_SA=$(gcloud projects describe myaimediamgr-prod --format="value(projectNumber)")@cloudbuild.gserviceaccount.com
+
+# Grant necessary permissions
+gcloud projects add-iam-policy-binding myaimediamgr-prod \
+  --member="serviceAccount:${BUILD_SA}" \
+  --role="roles/run.admin"
+
+gcloud projects add-iam-policy-binding myaimediamgr-prod \
+  --member="serviceAccount:${BUILD_SA}" \
+  --role="roles/iam.serviceAccountUser"
+```
+
+## Step 10: Custom Domain Setup (Optional)
+
+### 10.1 Map Custom Domain
+```bash
+# Add domain mapping
+gcloud run domain-mappings create \
+  --service myaimediamgr \
+  --domain yourdomain.com \
+  --region us-central1
+```
+
+### 10.2 Update DNS Records
+Add the following DNS records to your domain:
+- Type: A
+- Name: @ (or subdomain)
+- Value: (provided by Cloud Run)
+
+## Step 11: Monitoring and Logging
+
+### 11.1 Enable Monitoring
+```bash
+# View logs
 gcloud logging read "resource.type=cloud_run_revision AND resource.labels.service_name=myaimediamgr" --limit 50
+
+# Set up alerts
+gcloud alpha monitoring policies create \
+  --notification-channels=YOUR_CHANNEL_ID \
+  --display-name="High Error Rate" \
+  --condition-display-name="Error rate above 1%" \
+  --condition-threshold-value=0.01
 ```
 
-## Step 7: Post-Deployment Configuration
+### 11.2 Create Dashboard
+1. Go to Cloud Console > Monitoring > Dashboards
+2. Create new dashboard
+3. Add widgets for:
+   - Request rate
+   - Latency
+   - Error rate
+   - Container CPU/Memory usage
+   - Vertex AI API calls
 
-### 7.1 Set up Custom Domain (Optional)
+## Step 12: Cost Optimization
+
+### 12.1 Set Budget Alerts
 ```bash
-# Verify domain ownership
-gcloud domains verify yourdomain.com
-
-# Map domain to Cloud Run service
-gcloud run domain-mappings create --service myaimediamgr --domain yourdomain.com --region us-central1
+gcloud billing budgets create \
+  --billing-account=BILLING_ACCOUNT_ID \
+  --display-name="MyAiMediaMgr Monthly Budget" \
+  --budget-amount=500 \
+  --threshold-rule=percent=50 \
+  --threshold-rule=percent=90 \
+  --threshold-rule=percent=100
 ```
 
-### 7.2 Configure Monitoring
-```bash
-# Create uptime check
-gcloud monitoring uptime-check-configs create myaimediamgr-health \
-  --display-name="MyAiMediaMgr Health Check" \
-  --monitored-resource="type=uptime_url,labels={project_id=myaimediamgr-prod,host=your-service-url.run.app}" \
-  --http-check-path="/health" \
-  --check-frequency=300
-```
+### 12.2 Optimize Resources
+- Use Cloud Scheduler to scale down during off-hours
+- Implement caching for AI responses
+- Use Cloud CDN for static assets
+- Set appropriate timeouts for AI operations
 
-## Troubleshooting Guide
+## Pricing Estimates
 
-### Common Issues and Solutions
+### Monthly Costs (Approximate)
+- **Cloud Run**: $20-50 (based on usage)
+- **Cloud SQL**: $10-30 (db-f1-micro)
+- **Cloud Storage**: $5-20 (based on storage/bandwidth)
+- **Vertex AI**:
+  - Gemini 2.5 Flash: $0.00001875 per 1K characters
+  - Gemini 2.5 Pro: $0.0025 per 1K characters
+  - Imagen 4: $0.025 per image
+  - Veo 3: $0.10 per video (15 seconds)
+- **Estimated Total**: $100-500/month for moderate usage
 
-#### 1. Build Fails
-- **Issue**: TypeScript compilation errors
-- **Solution**: Run `npm run build` locally first to catch errors
-- **Fix**: Ensure all TypeScript errors are resolved before deployment
+## Troubleshooting
 
-#### 2. Deployment Fails - Insufficient Permissions
-- **Issue**: "Permission denied" errors
-- **Solution**: Ensure all IAM roles are correctly assigned:
-```bash
-gcloud projects get-iam-policy myaimediamgr-prod --flatten="bindings[].members" --format='table(bindings.role)' --filter="bindings.members:myaimediamgr-app@"
-```
+### Common Issues
 
-#### 3. Runtime Errors - Missing Environment Variables
-- **Issue**: Application crashes on startup
-- **Solution**: Verify all secrets are created and accessible:
-```bash
-gcloud secrets list
-gcloud run services describe myaimediamgr --region us-central1 --format export | grep -A 20 "env:"
-```
+#### 1. Vertex AI Models Not Available
+- Ensure you have requested access through Model Garden
+- Check regional availability
+- Verify billing is enabled
 
-#### 4. Vertex AI API Errors
-- **Issue**: "API not enabled" or permission errors
-- **Solution**: Verify API enablement and quota:
-```bash
-gcloud services list --enabled | grep -E "aiplatform|storage"
-gcloud compute project-info describe --format="value(quotas[].metric)" | grep -i vertex
-```
+#### 2. Authentication Errors
+- Verify service account permissions
+- Check secret values in Secret Manager
+- Ensure Cloud Run has access to secrets
 
-#### 5. Database Connection Issues
-- **Issue**: Cannot connect to PostgreSQL
-- **Solution**: 
-  - Ensure DATABASE_URL includes SSL mode: `?sslmode=require`
-  - Whitelist Cloud Run outbound IPs if using external database
-  - For Neon database, ensure connection pooling is enabled
+#### 3. Storage Issues
+- Verify bucket exists and has correct permissions
+- Check CORS configuration
+- Ensure service account has storage.admin role
 
-#### 6. OAuth Authentication Issues
-- **Issue**: Replit OAuth not working
-- **Solution**:
-  - Update REPLIT_DOMAINS secret with your Cloud Run URL
-  - Ensure ISSUER_URL is set correctly
-  - Update OAuth callback URLs in your Replit settings
-
-## Pre-Deployment Checklist
-
-Before deploying, ensure:
-
-- [ ] All environment variables are set in Secret Manager
-- [ ] Database migrations are run: `npm run db:push`
-- [ ] Local build succeeds: `npm run build`
-- [ ] Docker image builds locally: `docker build -t myaimediamgr .`
-- [ ] All required APIs are enabled
-- [ ] Service account has all necessary roles
-- [ ] Storage bucket is created and accessible
-- [ ] Health check endpoint returns 200 OK
-- [ ] All TypeScript errors are resolved
-- [ ] Package.json has correct build scripts
-
-## Cost Optimization Tips
-
-1. **Set minimum instances to 0** for development environments
-2. **Use Cloud CDN** for static assets
-3. **Configure autoscaling** based on actual traffic patterns
-4. **Set appropriate memory limits** (2Gi is usually sufficient)
-5. **Use regional resources** in the same region as Cloud Run
-6. **Implement caching** for AI-generated content
+#### 4. Database Connection Failed
+- Verify Cloud SQL proxy is enabled in Cloud Run
+- Check connection string format
+- Ensure database user has proper permissions
 
 ## Security Best Practices
 
-1. **Never commit secrets** to version control
-2. **Use Secret Manager** for all sensitive data
-3. **Enable VPC Service Controls** for production
-4. **Implement rate limiting** on API endpoints
-5. **Use Cloud Armor** for DDoS protection
-6. **Enable audit logging** for compliance
-7. **Regularly update dependencies** for security patches
-8. **Use least privilege principle** for IAM roles
+1. **Never commit secrets to version control**
+2. **Use Secret Manager for all sensitive data**
+3. **Enable VPC Service Controls for additional security**
+4. **Implement rate limiting for AI endpoints**
+5. **Use Cloud Armor for DDoS protection**
+6. **Enable audit logging for all services**
+7. **Regularly rotate service account keys**
+8. **Implement least privilege access policies**
 
-## Vertex AI Model Access
+## Support and Resources
 
-### Request Access to Models
-1. Navigate to Vertex AI in Google Cloud Console
-2. Go to "Model Garden"
-3. Request access for:
-   - **Gemini 2.5 Flash** (gemini-2.5-flash-002)
-   - **Gemini 2.5 Pro** (gemini-2.5-pro-002)
-   - **Imagen 4** (imagen-4.0-generate-001)
-   - **Veo 3 Fast** (veo-3.0-fast-generate-001)
-4. Wait for approval (usually 24-48 hours)
-
-### Pricing Information
-- **Gemini 2.5 Flash**: ~$0.00001875 per 1K characters
-- **Gemini 2.5 Pro**: ~$0.0025 per 1K characters
-- **Imagen 4**: ~$0.025 per image
-- **Veo 3 Fast**: ~$0.10 per 8-second video
-
-## Support Resources
-
-- [Cloud Run Documentation](https://cloud.google.com/run/docs)
+- [Google Cloud Run Documentation](https://cloud.google.com/run/docs)
 - [Vertex AI Documentation](https://cloud.google.com/vertex-ai/docs)
-- [IAM Best Practices](https://cloud.google.com/iam/docs/best-practices)
-- [Cloud Build Documentation](https://cloud.google.com/build/docs)
+- [Gemini API Documentation](https://cloud.google.com/vertex-ai/generative-ai/docs/models/gemini)
+- [Cloud SQL Documentation](https://cloud.google.com/sql/docs)
 - [Secret Manager Documentation](https://cloud.google.com/secret-manager/docs)
 
----
-
-## Quick Start Commands Summary
-
-```bash
-# Complete deployment in one script
-PROJECT_ID=myaimediamgr-prod
-gcloud config set project $PROJECT_ID
-gcloud services enable run.googleapis.com cloudbuild.googleapis.com aiplatform.googleapis.com storage-api.googleapis.com secretmanager.googleapis.com
-gcloud iam service-accounts create myaimediamgr-app
-gcloud builds submit --config=cloudbuild.yaml
-```
-
-This guide ensures your deployment will succeed on the first try by covering all necessary configurations, permissions, and common pitfalls. Follow each step carefully and use the troubleshooting guide if you encounter any issues.
+## Contact
+For issues specific to the MyAiMediaMgr application, please refer to the application documentation or contact the development team.
