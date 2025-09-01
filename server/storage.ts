@@ -66,7 +66,13 @@ export class MemStorage implements IStorage {
       password: "demo123",
       fullName: "Sarah Johnson",
       businessName: "Sarah's Corner Café",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?ixlib=rb-4.0.3&w=40&h=40&fit=crop",
+      avatar: null,
+      googleAvatar: null,
+      role: "admin",
+      tier: "enterprise",
+      credits: 999999999,
+      stripeCustomerId: null,
+      stripeSubscriptionId: null,
       createdAt: new Date(),
     };
     this.users.set(demoUser.id, demoUser);
@@ -225,6 +231,12 @@ export class MemStorage implements IStorage {
       id,
       businessName: insertUser.businessName ?? null,
       avatar: insertUser.avatar ?? null,
+      googleAvatar: insertUser.googleAvatar ?? null,
+      role: insertUser.role ?? "user",
+      tier: insertUser.tier ?? "free",
+      credits: insertUser.credits ?? 50,
+      stripeCustomerId: insertUser.stripeCustomerId ?? null,
+      stripeSubscriptionId: insertUser.stripeSubscriptionId ?? null,
       createdAt: new Date(),
     };
     this.users.set(id, user);

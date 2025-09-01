@@ -10,6 +10,12 @@ export const users = pgTable("users", {
   fullName: text("full_name").notNull(),
   businessName: text("business_name"),
   avatar: text("avatar"),
+  googleAvatar: text("google_avatar"),
+  role: text("role").notNull().default("user"), // admin, user
+  tier: text("tier").notNull().default("free"), // free, starter, professional, enterprise
+  credits: integer("credits").notNull().default(50),
+  stripeCustomerId: text("stripe_customer_id"),
+  stripeSubscriptionId: text("stripe_subscription_id"),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -103,6 +109,12 @@ export const insertUserSchema = createInsertSchema(users).pick({
   fullName: true,
   businessName: true,
   avatar: true,
+  googleAvatar: true,
+  role: true,
+  tier: true,
+  credits: true,
+  stripeCustomerId: true,
+  stripeSubscriptionId: true,
 });
 
 export const insertPlatformSchema = createInsertSchema(platforms).pick({
@@ -168,6 +180,8 @@ export const insertAnalyticsSchema = createInsertSchema(analytics).pick({
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UserRole = "admin" | "user";
+export type UserTier = "free" | "starter" | "professional" | "enterprise";
 export type Platform = typeof platforms.$inferSelect;
 export type InsertPlatform = z.infer<typeof insertPlatformSchema>;
 export type Campaign = typeof campaigns.$inferSelect;
