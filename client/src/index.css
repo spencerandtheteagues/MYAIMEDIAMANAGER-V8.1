@@ -198,6 +198,65 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-semibold tracking-tight;
   }
+
+  /* Text selection styling - Neon Pink theme (default) */
+  ::selection {
+    background-color: hsl(280, 100%, 40%);
+    color: hsl(0, 0%, 100%);
+  }
+  
+  ::-moz-selection {
+    background-color: hsl(280, 100%, 40%);
+    color: hsl(0, 0%, 100%);
+  }
+  
+  /* Neon Blue theme selection */
+  [data-theme="neon-blue"] ::selection {
+    background-color: hsl(200, 100%, 35%);
+    color: hsl(0, 0%, 100%);
+  }
+  
+  [data-theme="neon-blue"] ::-moz-selection {
+    background-color: hsl(200, 100%, 35%);
+    color: hsl(0, 0%, 100%);
+  }
+  
+  /* Professional theme selection */
+  [data-theme="professional"] ::selection {
+    background-color: hsl(160, 70%, 35%);
+    color: hsl(0, 0%, 100%);
+  }
+  
+  [data-theme="professional"] ::-moz-selection {
+    background-color: hsl(160, 70%, 35%);
+    color: hsl(0, 0%, 100%);
+  }
+  
+  /* Make blue text darker and easier to read */
+  .text-blue-400 {
+    color: hsl(200, 100%, 35%) !important;
+  }
+  
+  .text-blue-500 {
+    color: hsl(200, 100%, 40%) !important;
+  }
+  
+  .text-blue-600 {
+    color: hsl(200, 100%, 30%) !important;
+  }
+  
+  .text-blue-700 {
+    color: hsl(200, 100%, 25%) !important;
+  }
+  
+  /* Dark mode blue text adjustments */
+  .dark .text-blue-400 {
+    color: hsl(200, 100%, 55%) !important;
+  }
+  
+  .dark .text-blue-600 {
+    color: hsl(200, 100%, 50%) !important;
+  }
 }
 
 @layer utilities {
