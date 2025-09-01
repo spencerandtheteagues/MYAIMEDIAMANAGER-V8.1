@@ -109,7 +109,7 @@ export function Logo({ className, size = "md", animated = true }: LogoProps) {
           )}
           style={{ fontFamily: 'Space Grotesk, sans-serif' }}
         >
-          MediaMgr
+          MediaMgr.com
         </span>
       </div>
     </div>
