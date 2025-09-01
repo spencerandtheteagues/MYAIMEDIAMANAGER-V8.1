@@ -62,10 +62,10 @@ export class MemStorage implements IStorage {
     // Create demo user
     const demoUser: User = {
       id: "demo-user-1",
-      username: "sarah.johnson",
-      password: "demo123",
-      fullName: "Sarah Johnson",
-      businessName: "Sarah's Corner Café",
+      username: "spencer.teague",
+      password: "TheMoonKey8!",
+      fullName: "Spencer Teague",
+      businessName: "MyAiMediaMgr",
       avatar: null,
       googleAvatar: null,
       role: "admin",

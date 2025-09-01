@@ -9,7 +9,7 @@ interface UserAvatarProps {
 export function UserAvatar({ user, className }: UserAvatarProps) {
   const getTierColor = (role: string | undefined, tier: string | undefined) => {
     if (role === "admin") {
-      return "bg-red-600 border-red-500";
+      return "bg-gradient-to-br from-primary to-accent border-primary";
     }
     
     switch (tier) {
@@ -51,7 +51,7 @@ export function UserAvatar({ user, className }: UserAvatarProps) {
         alt={user.fullName} 
         className={cn(
           "w-10 h-10 rounded-full object-cover border-2",
-          user.role === "admin" ? "border-red-500" : "border-transparent",
+          user.role === "admin" ? "border-primary" : "border-transparent",
           className
         )}
       />
