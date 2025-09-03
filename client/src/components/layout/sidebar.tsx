@@ -10,7 +10,8 @@ import {
   Settings,
   Rocket,
   Share2,
-  CalendarDays
+  CalendarDays,
+  Shield
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -72,6 +73,26 @@ export default function Sidebar() {
             </Link>
           );
         })}
+        
+        {/* Admin Panel - only show for admin users */}
+        {user?.role === "admin" && (
+          <Link href="/admin">
+            <div
+              className={cn(
+                "flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer mt-2",
+                location === "/admin"
+                  ? "bg-accent text-accent-foreground border border-border"
+                  : "text-muted-foreground hover:bg-muted hover:text-foreground"
+              )}
+            >
+              <Shield className="w-5 h-5" />
+              <span>Admin Panel</span>
+              <Badge variant="secondary" className="ml-auto bg-purple-500/20 text-purple-500">
+                Admin
+              </Badge>
+            </div>
+          </Link>
+        )}
       </nav>
       
       <div className="p-4 border-t border-border">

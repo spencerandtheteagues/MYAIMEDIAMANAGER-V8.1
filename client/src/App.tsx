@@ -14,6 +14,7 @@ import Settings from "./pages/settings";
 import Campaigns from "./pages/campaigns";
 import Platforms from "./pages/platforms";
 import Schedule from "./pages/schedule";
+import AdminPanel from "./pages/admin";
 import Sidebar from "./components/layout/sidebar";
 import Header from "./components/layout/header";
 
@@ -34,6 +35,7 @@ function Router() {
           <Route path="/platforms" component={Platforms} />
           <Route path="/schedule" component={Schedule} />
           <Route path="/settings" component={Settings} />
+          <Route path="/admin" component={AdminPanel} />
           <Route component={NotFound} />
         </Switch>
       </main>

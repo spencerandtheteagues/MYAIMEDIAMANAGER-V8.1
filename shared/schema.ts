@@ -260,6 +260,62 @@ export const adminActions = pgTable("admin_actions", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Notifications table
+export const notifications = pgTable("notifications", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id), // null for global notifications
+  fromUserId: varchar("from_user_id").references(() => users.id), // who sent the notification (admin usually)
+  type: text("type").notNull(), // system, admin_message, campaign_complete, post_approved, post_rejected, credit_low, new_feature
+  title: text("title").notNull(),
+  message: text("message").notNull(),
+  actionUrl: text("action_url"), // Optional URL to navigate to
+  read: boolean("read").default(false),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
+// Content library table for storing all generated and uploaded media
+export const contentLibrary = pgTable("content_library", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  type: text("type").notNull(), // image, video
+  url: text("url").notNull(),
+  thumbnail: text("thumbnail"), // For video thumbnails
+  caption: text("caption"),
+  metadata: jsonb("metadata"), // Store generation settings, dimensions, etc.
+  tags: text("tags").array(), // For searching
+  businessName: text("business_name"),
+  productName: text("product_name"),
+  platform: text("platform"), // Instagram, Facebook, etc.
+  usageCount: integer("usage_count").default(0), // How many times used in posts
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Insert schemas for new tables
+export const insertNotificationSchema = createInsertSchema(notifications).pick({
+  userId: true,
+  fromUserId: true,
+  type: true,
+  title: true,
+  message: true,
+  actionUrl: true,
+  read: true,
+});
+
+export const insertContentLibrarySchema = createInsertSchema(contentLibrary).pick({
+  userId: true,
+  type: true,
+  url: true,
+  thumbnail: true,
+  caption: true,
+  metadata: true,
+  tags: true,
+  businessName: true,
+  productName: true,
+  platform: true,
+  usageCount: true,
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
@@ -282,3 +338,7 @@ export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
 export type InsertSubscriptionPlan = typeof subscriptionPlans.$inferInsert;
 export type AdminAction = typeof adminActions.$inferSelect;
 export type InsertAdminAction = typeof adminActions.$inferInsert;
+export type Notification = typeof notifications.$inferSelect;
+export type InsertNotification = z.infer<typeof insertNotificationSchema>;
+export type ContentLibraryItem = typeof contentLibrary.$inferSelect;
+export type InsertContentLibrary = z.infer<typeof insertContentLibrarySchema>;

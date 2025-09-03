@@ -1,5 +1,6 @@
 import { useLocation, Link } from "wouter";
-import { Bell, Plus, ChevronDown, FileText, Image, Video, CalendarDays, Sparkles, Palette } from "lucide-react";
+import { Plus, ChevronDown, FileText, Image, Video, CalendarDays, Sparkles, Palette } from "lucide-react";
+import { NotificationsBell } from "@/components/notifications-bell";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -103,10 +104,7 @@ export default function Header() {
             </DropdownMenuContent>
           </DropdownMenu>
 
-          <Button variant="ghost" size="icon" className="relative">
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-0 right-0 w-2 h-2 bg-destructive rounded-full" />
-          </Button>
+          <NotificationsBell />
           <DropdownMenu open={isQuickCreateOpen} onOpenChange={setIsQuickCreateOpen}>
             <DropdownMenuTrigger asChild>
               <Button className="bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white shadow-lg transition-all hover:shadow-xl">

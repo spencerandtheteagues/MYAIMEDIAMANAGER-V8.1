@@ -7,7 +7,9 @@ import {
   type Campaign, type InsertCampaign,
   type CreditTransaction, type InsertCreditTransaction,
   type SubscriptionPlan, type InsertSubscriptionPlan,
-  type AdminAction, type InsertAdminAction
+  type AdminAction, type InsertAdminAction,
+  type Notification, type InsertNotification,
+  type ContentLibraryItem, type InsertContentLibrary
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -66,6 +68,22 @@ export interface IStorage {
   // Admin Actions
   logAdminAction(action: InsertAdminAction): Promise<AdminAction>;
   getAdminActionsByTargetUser(userId: string): Promise<AdminAction[]>;
+  
+  // Notifications
+  getNotificationsByUserId(userId: string): Promise<Notification[]>;
+  getUnreadNotificationCount(userId: string): Promise<number>;
+  createNotification(notification: InsertNotification): Promise<Notification>;
+  markNotificationAsRead(id: string): Promise<Notification | undefined>;
+  markAllNotificationsAsRead(userId: string): Promise<void>;
+  createGlobalNotification(notification: Omit<InsertNotification, 'userId'>): Promise<void>;
+  
+  // Content Library
+  getContentLibraryByUserId(userId: string): Promise<ContentLibraryItem[]>;
+  searchContentLibrary(userId: string, query: string): Promise<ContentLibraryItem[]>;
+  createContentLibraryItem(item: InsertContentLibrary): Promise<ContentLibraryItem>;
+  updateContentLibraryItem(id: string, updates: Partial<ContentLibraryItem>): Promise<ContentLibraryItem | undefined>;
+  deleteContentLibraryItem(id: string): Promise<boolean>;
+  incrementUsageCount(id: string): Promise<void>;
 }
 
 export class MemStorage implements IStorage {
@@ -78,6 +96,8 @@ export class MemStorage implements IStorage {
   private creditTransactions: Map<string, CreditTransaction>;
   private subscriptionPlans: Map<string, SubscriptionPlan>;
   private adminActions: Map<string, AdminAction>;
+  private notifications: Map<string, Notification>;
+  private contentLibrary: Map<string, ContentLibraryItem>;
 
   constructor() {
     this.users = new Map();
@@ -89,6 +109,8 @@ export class MemStorage implements IStorage {
     this.creditTransactions = new Map();
     this.subscriptionPlans = new Map();
     this.adminActions = new Map();
+    this.notifications = new Map();
+    this.contentLibrary = new Map();
     
     // Initialize with demo user and data
     this.initializeDemoData();
@@ -553,6 +575,129 @@ export class MemStorage implements IStorage {
     return Array.from(this.adminActions.values())
       .filter(action => action.targetUserId === userId)
       .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  // Notifications
+  async getNotificationsByUserId(userId: string): Promise<Notification[]> {
+    const userNotifications = Array.from(this.notifications.values())
+      .filter(n => n.userId === userId || n.userId === null) // Include global notifications
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+    return userNotifications;
+  }
+
+  async getUnreadNotificationCount(userId: string): Promise<number> {
+    return Array.from(this.notifications.values())
+      .filter(n => (n.userId === userId || n.userId === null) && !n.read)
+      .length;
+  }
+
+  async createNotification(notification: InsertNotification): Promise<Notification> {
+    const id = randomUUID();
+    const newNotification: Notification = {
+      ...notification,
+      id,
+      userId: notification.userId || null,
+      fromUserId: notification.fromUserId || null,
+      actionUrl: notification.actionUrl || null,
+      read: notification.read || false,
+      createdAt: new Date(),
+    };
+    this.notifications.set(id, newNotification);
+    return newNotification;
+  }
+
+  async markNotificationAsRead(id: string): Promise<Notification | undefined> {
+    const notification = this.notifications.get(id);
+    if (!notification) return undefined;
+    
+    const updatedNotification = { ...notification, read: true };
+    this.notifications.set(id, updatedNotification);
+    return updatedNotification;
+  }
+
+  async markAllNotificationsAsRead(userId: string): Promise<void> {
+    Array.from(this.notifications.entries()).forEach(([id, notification]) => {
+      if (notification.userId === userId || notification.userId === null) {
+        this.notifications.set(id, { ...notification, read: true });
+      }
+    });
+  }
+
+  async createGlobalNotification(notification: Omit<InsertNotification, 'userId'>): Promise<void> {
+    // Get all unique user IDs
+    const userIds = Array.from(this.users.keys());
+    
+    // Create a notification for each user
+    for (const userId of userIds) {
+      await this.createNotification({ ...notification, userId });
+    }
+  }
+
+  // Content Library
+  async getContentLibraryByUserId(userId: string): Promise<ContentLibraryItem[]> {
+    return Array.from(this.contentLibrary.values())
+      .filter(item => item.userId === userId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async searchContentLibrary(userId: string, query: string): Promise<ContentLibraryItem[]> {
+    const lowerQuery = query.toLowerCase();
+    return Array.from(this.contentLibrary.values())
+      .filter(item => {
+        if (item.userId !== userId) return false;
+        
+        // Search in caption, business name, product name, tags, and platform
+        const searchableText = [
+          item.caption,
+          item.businessName,
+          item.productName,
+          item.platform,
+          ...(item.tags || [])
+        ].filter(Boolean).join(' ').toLowerCase();
+        
+        return searchableText.includes(lowerQuery);
+      })
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async createContentLibraryItem(item: InsertContentLibrary): Promise<ContentLibraryItem> {
+    const id = randomUUID();
+    const newItem: ContentLibraryItem = {
+      ...item,
+      id,
+      thumbnail: item.thumbnail || null,
+      caption: item.caption || null,
+      metadata: item.metadata || null,
+      tags: item.tags || null,
+      businessName: item.businessName || null,
+      productName: item.productName || null,
+      platform: item.platform || null,
+      usageCount: item.usageCount || 0,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.contentLibrary.set(id, newItem);
+    return newItem;
+  }
+
+  async updateContentLibraryItem(id: string, updates: Partial<ContentLibraryItem>): Promise<ContentLibraryItem | undefined> {
+    const item = this.contentLibrary.get(id);
+    if (!item) return undefined;
+    
+    const updatedItem = { ...item, ...updates, updatedAt: new Date() };
+    this.contentLibrary.set(id, updatedItem);
+    return updatedItem;
+  }
+
+  async deleteContentLibraryItem(id: string): Promise<boolean> {
+    return this.contentLibrary.delete(id);
+  }
+
+  async incrementUsageCount(id: string): Promise<void> {
+    const item = this.contentLibrary.get(id);
+    if (item) {
+      this.contentLibrary.set(id, { ...item, usageCount: (item.usageCount || 0) + 1, updatedAt: new Date() });
+    }
   }
 }
 

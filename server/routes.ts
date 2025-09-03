@@ -457,6 +457,43 @@ export async function registerRoutes(app: Express): Promise<Server> {
         videoUrl = videoResult.url;
       }
       
+      // Auto-save generated media to content library
+      const userId = req.user.claims.sub;
+      
+      if (imageUrl) {
+        await storage.createContentLibraryItem({
+          userId,
+          name: `AI Generated Image - ${new Date().toLocaleDateString()}`,
+          type: "image",
+          url: imageUrl,
+          size: 0, // Size can be calculated if needed
+          metadata: {
+            prompt: topic || "beautiful landscape",
+            style: imageStyle,
+            platform,
+            aspectRatio: platform === "Instagram" ? "1:1" : "16:9",
+            aiGenerated: true,
+          },
+        });
+      }
+      
+      if (videoUrl) {
+        await storage.createContentLibraryItem({
+          userId,
+          name: `AI Generated Video - ${new Date().toLocaleDateString()}`,
+          type: "video",
+          url: videoUrl,
+          size: 0, // Size can be calculated if needed
+          metadata: {
+            prompt: topic || "engaging social media video",
+            style: videoStyle,
+            platform,
+            aspectRatio: platform === "TikTok" ? "9:16" : "16:9",
+            aiGenerated: true,
+          },
+        });
+      }
+      
       res.json({ 
         content, 
         imageUrl, 
@@ -531,6 +568,150 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(dashboardData);
     } catch (error) {
       res.status(500).json({ message: "Failed to get analytics" });
+    }
+  });
+
+  // Notification endpoints
+  app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const notifications = await storage.getNotificationsByUserId(userId);
+      res.json(notifications);
+    } catch (error) {
+      console.error("Error getting notifications:", error);
+      res.status(500).json({ message: "Failed to get notifications" });
+    }
+  });
+
+  app.get("/api/notifications/unread-count", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const count = await storage.getUnreadNotificationCount(userId);
+      res.json({ count });
+    } catch (error) {
+      console.error("Error getting unread count:", error);
+      res.status(500).json({ message: "Failed to get unread count" });
+    }
+  });
+
+  app.patch("/api/notifications/:id/read", isAuthenticated, async (req: any, res) => {
+    try {
+      const notification = await storage.markNotificationAsRead(req.params.id);
+      if (!notification) {
+        return res.status(404).json({ message: "Notification not found" });
+      }
+      res.json(notification);
+    } catch (error) {
+      console.error("Error marking notification as read:", error);
+      res.status(500).json({ message: "Failed to mark notification as read" });
+    }
+  });
+
+  app.patch("/api/notifications/read-all", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      await storage.markAllNotificationsAsRead(userId);
+      res.json({ message: "All notifications marked as read" });
+    } catch (error) {
+      console.error("Error marking all as read:", error);
+      res.status(500).json({ message: "Failed to mark all as read" });
+    }
+  });
+
+  // Admin notification endpoint - send notification to specific user or all users
+  app.post("/api/notifications", isAuthenticated, async (req: any, res) => {
+    try {
+      const adminUserId = req.user.claims.sub;
+      const user = await storage.getUser(adminUserId);
+      
+      // Check if user is admin
+      if (user?.role !== "admin") {
+        return res.status(403).json({ message: "Only admins can send notifications" });
+      }
+
+      const { userId, title, message, type = "admin_message", actionUrl } = req.body;
+
+      if (userId) {
+        // Send to specific user
+        const notification = await storage.createNotification({
+          userId,
+          fromUserId: adminUserId,
+          type,
+          title,
+          message,
+          actionUrl,
+          read: false,
+        });
+        res.json(notification);
+      } else {
+        // Send to all users (global notification)
+        await storage.createGlobalNotification({
+          fromUserId: adminUserId,
+          type,
+          title,
+          message,
+          actionUrl,
+          read: false,
+        });
+        res.json({ message: "Global notification sent to all users" });
+      }
+    } catch (error) {
+      console.error("Error creating notification:", error);
+      res.status(500).json({ message: "Failed to create notification" });
+    }
+  });
+
+  // Content Library endpoints
+  app.get("/api/content-library", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const contentItems = await storage.getContentLibraryByUserId(userId);
+      res.json(contentItems);
+    } catch (error) {
+      console.error("Error getting content library:", error);
+      res.status(500).json({ message: "Failed to get content library" });
+    }
+  });
+
+  app.post("/api/content-library", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const contentItem = await storage.createContentLibraryItem({
+        userId,
+        ...req.body,
+      });
+      res.json(contentItem);
+    } catch (error) {
+      console.error("Error creating content library item:", error);
+      res.status(500).json({ message: "Failed to save to content library" });
+    }
+  });
+
+  app.delete("/api/content-library/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const success = await storage.deleteContentLibraryItem(req.params.id, userId);
+      if (!success) {
+        return res.status(404).json({ message: "Content not found or unauthorized" });
+      }
+      res.json({ message: "Content deleted successfully" });
+    } catch (error) {
+      console.error("Error deleting content:", error);
+      res.status(500).json({ message: "Failed to delete content" });
+    }
+  });
+
+  app.patch("/api/content-library/:id", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const contentItem = await storage.updateContentLibraryItem(req.params.id, userId, req.body);
+      if (!contentItem) {
+        return res.status(404).json({ message: "Content not found or unauthorized" });
+      }
+      res.json(contentItem);
+    } catch (error) {
+      console.error("Error updating content:", error);
+      res.status(500).json({ message: "Failed to update content" });
     }
   });
 

@@ -82,6 +82,14 @@ export default function CreateContent() {
   const [generatedImageCaption, setGeneratedImageCaption] = useState<string>("");
   const [generatedVideoCaption, setGeneratedVideoCaption] = useState<string>("");
   
+  // Caption control states
+  const [autoGenerateImageCaption, setAutoGenerateImageCaption] = useState(true);
+  const [autoGenerateVideoCaption, setAutoGenerateVideoCaption] = useState(true);
+  const [manualImageCaption, setManualImageCaption] = useState("");
+  const [manualVideoCaption, setManualVideoCaption] = useState("");
+  const [imageCaptionStyle, setImageCaptionStyle] = useState("engaging");
+  const [videoCaptionStyle, setVideoCaptionStyle] = useState("engaging");
+  
   // File input refs
   const imageInputRef = useRef<HTMLInputElement>(null);
   const videoInputRef = useRef<HTMLInputElement>(null);
@@ -179,7 +187,8 @@ export default function CreateContent() {
         callToAction,
         isAdvertisement,
         additionalContext,
-        manualCaption: content, // Use existing content as manual caption if provided
+        manualCaption: params.autoGenerateCaption === false ? params.manualCaption : undefined,
+        captionStyle: params.captionStyle
       });
       return response.json();
     },
@@ -230,7 +239,8 @@ export default function CreateContent() {
         callToAction,
         isAdvertisement,
         additionalContext,
-        manualCaption: content, // Use existing content as manual caption if provided
+        manualCaption: params.autoGenerateCaption === false ? params.manualCaption : undefined,
+        captionStyle: params.captionStyle
       });
       const { operationName, caption } = await startResponse.json();
       
@@ -343,6 +353,12 @@ export default function CreateContent() {
     setUploadedVideo(null);
     setGeneratedImageCaption("");
     setGeneratedVideoCaption("");
+    setAutoGenerateImageCaption(true);
+    setAutoGenerateVideoCaption(true);
+    setManualImageCaption("");
+    setManualVideoCaption("");
+    setImageCaptionStyle("engaging");
+    setVideoCaptionStyle("engaging");
   };
 
   const handleSubmit = () => {
@@ -449,6 +465,9 @@ export default function CreateContent() {
       aspectRatio,
       resolution: imageResolution,
       imagePrompt,
+      autoGenerateCaption: autoGenerateImageCaption,
+      manualCaption: !autoGenerateImageCaption ? manualImageCaption : undefined,
+      captionStyle: imageCaptionStyle,
     });
   };
 
@@ -468,6 +487,9 @@ export default function CreateContent() {
       videoAspectRatio,
       videoScenes,
       videoScript,
+      autoGenerateCaption: autoGenerateVideoCaption,
+      manualCaption: !autoGenerateVideoCaption ? manualVideoCaption : undefined,
+      captionStyle: videoCaptionStyle,
     });
   };
 
@@ -746,33 +768,21 @@ export default function CreateContent() {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
                     <Label>Image Generation Settings</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => imageInputRef.current?.click()}
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload Image
-                      </Button>
-                      <input
-                        ref={imageInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={handleImageUpload}
-                      />
-                      <Button
-                        onClick={handleGenerateImage}
-                        disabled={generateImageMutation.isPending}
-                        size="sm"
-                        className="neon-glow"
-                        data-testid="button-generate-image"
-                      >
-                        <Image className="w-4 h-4 mr-2" />
-                        {generateImageMutation.isPending ? "Generating..." : "Generate Image"}
-                      </Button>
-                    </div>
+                    <Button
+                      onClick={() => imageInputRef.current?.click()}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Image
+                    </Button>
+                    <input
+                      ref={imageInputRef}
+                      type="file"
+                      accept="image/*"
+                      className="hidden"
+                      onChange={handleImageUpload}
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -982,6 +992,71 @@ export default function CreateContent() {
                     />
                   </div>
 
+                  {/* Caption Controls */}
+                  <div className="space-y-4 border border-primary/20 rounded-lg p-4 bg-background/50">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base">Caption Settings</Label>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="auto-generate-image-caption"
+                          checked={autoGenerateImageCaption}
+                          onCheckedChange={setAutoGenerateImageCaption}
+                        />
+                        <Label htmlFor="auto-generate-image-caption" className="cursor-pointer">
+                          Automatically Generate Text Caption with Image
+                        </Label>
+                      </div>
+                    </div>
+
+                    {!autoGenerateImageCaption && (
+                      <div>
+                        <Label htmlFor="manualImageCaption">Text Caption</Label>
+                        <Textarea
+                          id="manualImageCaption"
+                          value={manualImageCaption}
+                          onChange={(e) => setManualImageCaption(e.target.value)}
+                          placeholder="Enter your caption for this image..."
+                          className="mt-1 h-20"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <Label htmlFor="imageCaptionStyle">Caption Style</Label>
+                      <Select value={imageCaptionStyle} onValueChange={setImageCaptionStyle}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="engaging">Engaging & Conversational</SelectItem>
+                          <SelectItem value="professional">Professional & Formal</SelectItem>
+                          <SelectItem value="casual">Casual & Fun</SelectItem>
+                          <SelectItem value="inspirational">Inspirational & Motivational</SelectItem>
+                          <SelectItem value="educational">Educational & Informative</SelectItem>
+                          <SelectItem value="humorous">Humorous & Witty</SelectItem>
+                          <SelectItem value="urgent">Urgent & Action-Driven</SelectItem>
+                          <SelectItem value="storytelling">Storytelling & Narrative</SelectItem>
+                          <SelectItem value="minimalist">Minimalist & Simple</SelectItem>
+                          <SelectItem value="question">Question & Poll</SelectItem>
+                          <SelectItem value="announcement">Announcement & News</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Generate Image Button - Moved below instructions */}
+                  <div className="flex justify-center">
+                    <Button
+                      onClick={handleGenerateImage}
+                      disabled={generateImageMutation.isPending}
+                      className="neon-glow"
+                      data-testid="button-generate-image"
+                    >
+                      <Image className="w-4 h-4 mr-2" />
+                      {generateImageMutation.isPending ? "Generating..." : "Generate Image"}
+                    </Button>
+                  </div>
+
                   {/* Image Preview Box */}
                   {(generatedImage || uploadedImage) && (
                     <div className="border border-primary/30 rounded-lg p-4 bg-background/50">
@@ -1046,33 +1121,21 @@ export default function CreateContent() {
                 <CardContent className="space-y-4">
                   <div className="flex justify-between items-center">
                     <Label>Video Generation Settings</Label>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => videoInputRef.current?.click()}
-                        size="sm"
-                        variant="outline"
-                      >
-                        <Upload className="w-4 h-4 mr-2" />
-                        Upload Video
-                      </Button>
-                      <input
-                        ref={videoInputRef}
-                        type="file"
-                        accept="video/*"
-                        className="hidden"
-                        onChange={handleVideoUpload}
-                      />
-                      <Button
-                        onClick={handleGenerateVideo}
-                        disabled={generateVideoMutation.isPending}
-                        size="sm"
-                        className="neon-glow"
-                        data-testid="button-generate-video"
-                      >
-                        <Video className="w-4 h-4 mr-2" />
-                        {generateVideoMutation.isPending ? "Generating..." : "Generate Video"}
-                      </Button>
-                    </div>
+                    <Button
+                      onClick={() => videoInputRef.current?.click()}
+                      size="sm"
+                      variant="outline"
+                    >
+                      <Upload className="w-4 h-4 mr-2" />
+                      Upload Video
+                    </Button>
+                    <input
+                      ref={videoInputRef}
+                      type="file"
+                      accept="video/*"
+                      className="hidden"
+                      onChange={handleVideoUpload}
+                    />
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -1288,6 +1351,71 @@ export default function CreateContent() {
                       placeholder="Write the script or narration for your video. Include any text overlays, captions, or dialogue..."
                       className="mt-1 h-24"
                     />
+                  </div>
+
+                  {/* Caption Controls */}
+                  <div className="space-y-4 border border-primary/20 rounded-lg p-4 bg-background/50">
+                    <div className="flex items-center justify-between">
+                      <Label className="text-base">Caption Settings</Label>
+                      <div className="flex items-center gap-2">
+                        <Switch
+                          id="auto-generate-video-caption"
+                          checked={autoGenerateVideoCaption}
+                          onCheckedChange={setAutoGenerateVideoCaption}
+                        />
+                        <Label htmlFor="auto-generate-video-caption" className="cursor-pointer">
+                          Automatically Generate Text Caption with Video
+                        </Label>
+                      </div>
+                    </div>
+
+                    {!autoGenerateVideoCaption && (
+                      <div>
+                        <Label htmlFor="manualVideoCaption">Text Caption</Label>
+                        <Textarea
+                          id="manualVideoCaption"
+                          value={manualVideoCaption}
+                          onChange={(e) => setManualVideoCaption(e.target.value)}
+                          placeholder="Enter your caption for this video..."
+                          className="mt-1 h-20"
+                        />
+                      </div>
+                    )}
+
+                    <div>
+                      <Label htmlFor="videoCaptionStyle">Caption Style</Label>
+                      <Select value={videoCaptionStyle} onValueChange={setVideoCaptionStyle}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="engaging">Engaging & Conversational</SelectItem>
+                          <SelectItem value="professional">Professional & Formal</SelectItem>
+                          <SelectItem value="casual">Casual & Fun</SelectItem>
+                          <SelectItem value="inspirational">Inspirational & Motivational</SelectItem>
+                          <SelectItem value="educational">Educational & Informative</SelectItem>
+                          <SelectItem value="humorous">Humorous & Witty</SelectItem>
+                          <SelectItem value="urgent">Urgent & Action-Driven</SelectItem>
+                          <SelectItem value="storytelling">Storytelling & Narrative</SelectItem>
+                          <SelectItem value="minimalist">Minimalist & Simple</SelectItem>
+                          <SelectItem value="question">Question & Poll</SelectItem>
+                          <SelectItem value="announcement">Announcement & News</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  </div>
+
+                  {/* Generate Video Button - Moved below instructions */}
+                  <div className="flex justify-center">
+                    <Button
+                      onClick={handleGenerateVideo}
+                      disabled={generateVideoMutation.isPending}
+                      className="neon-glow"
+                      data-testid="button-generate-video"
+                    >
+                      <Video className="w-4 h-4 mr-2" />
+                      {generateVideoMutation.isPending ? "Generating..." : "Generate Video"}
+                    </Button>
                   </div>
 
                   {/* Video Preview Box */}
