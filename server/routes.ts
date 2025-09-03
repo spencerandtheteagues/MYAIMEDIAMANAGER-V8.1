@@ -404,6 +404,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         topic,
         tone,
         platform,
+        platforms, // Array of selected platforms
         contentType,
         includeHashtags = true,
         includeEmojis = true,
@@ -419,17 +420,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let videoUrl = null;
       let hashtags = [];
 
+      // Determine character limit based on selected platforms
+      const selectedPlatforms = platforms || [platform] || ["Instagram"];
+      const characterLimits: { [key: string]: number } = {
+        "Instagram": 2200,
+        "Facebook": 63206,
+        "X (Twitter)": 280,
+        "TikTok": 2200,
+        "LinkedIn": 3000
+      };
+      
+      // Get the minimum character limit from selected platforms
+      const charLimit = Math.min(...selectedPlatforms.map((p: string) => 
+        characterLimits[p] || 280
+      ));
+
       // Generate text content
       if (contentType === "text" || !contentType) {
         const suggestions = await aiService.generateContent({
           topic: topic || "social media post",
           tone: tone || "professional",
-          platform: platform || "Instagram",
+          platform: platform || selectedPlatforms[0] || "Instagram",
           includeHashtags,
           includeEmojis,
           length,
+          characterLimit: charLimit, // Pass character limit to AI
         });
         content = suggestions[0]; // Use the first suggestion
+        
+        // Ensure content doesn't exceed limit
+        if (content && content.length > charLimit) {
+          content = content.substring(0, charLimit - 3) + "...";
+        }
         
         // Generate hashtags separately if needed
         if (includeHashtags && content) {
@@ -741,8 +763,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
-      // Check if user is paid
-      if (!user?.isPaid) {
+      // Check if user is paid (admins bypass this restriction)
+      if (!user?.isPaid && user?.role !== "admin") {
         return res.status(403).json({ message: "Campaign creation requires a paid account" });
       }
       
