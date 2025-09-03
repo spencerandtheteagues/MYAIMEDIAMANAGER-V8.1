@@ -191,15 +191,22 @@ export default function CreateContent() {
         prompt: prompt.trim(),
         aspectRatio,
         fast: true, // Use fast model for quicker generation
-        negativePrompt: "blurry, low quality"
       });
       const { operationName } = await startResponse.json();
       
-      // Poll for completion
+      // Show initial toast
+      toast({
+        title: "Video Generation Started",
+        description: "Video generation can take 3-5 minutes. Please be patient...",
+      });
+      
+      // Poll for completion with longer intervals for video
       let downloadUrl = "";
       let attempts = 0;
-      while (attempts < 30) { // Max 30 attempts (2.5 minutes)
-        await new Promise(r => setTimeout(r, 5000)); // Wait 5 seconds
+      const maxAttempts = 60; // Max 60 attempts (10 minutes with 10 second intervals)
+      
+      while (attempts < maxAttempts) {
+        await new Promise(r => setTimeout(r, 10000)); // Wait 10 seconds between checks
         
         const statusResponse = await fetch(`/api/ai/video/status/${encodeURIComponent(operationName)}`);
         const status = await statusResponse.json();
@@ -208,6 +215,16 @@ export default function CreateContent() {
           downloadUrl = status.downloadUrl;
           break;
         }
+        
+        // Show progress updates every 30 seconds
+        if (attempts > 0 && attempts % 3 === 0) {
+          const minutesElapsed = Math.floor((attempts * 10) / 60);
+          toast({
+            title: "Still Generating...",
+            description: `Video generation in progress (${minutesElapsed} minute${minutesElapsed !== 1 ? 's' : ''} elapsed). ${status.message || 'Please wait...'}`,
+          });
+        }
+        
         attempts++;
       }
       

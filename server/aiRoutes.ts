@@ -188,13 +188,20 @@ router.get("/video/status/:name", async (req, res) => {
   try {
     const name = req.params.name;
     
+    // Set a longer timeout for video status checks (5 minutes)
+    req.setTimeout(300000);
+    
     // Check if this is a simulated operation
     const operations = (global as any).videoOperations || {};
     const simulatedOp = operations[name];
     
     if (simulatedOp) {
       if (!simulatedOp.done) {
-        return res.json({ done: false });
+        return res.json({ 
+          done: false,
+          progress: Math.min(90, Math.floor((Date.now() - simulatedOp.startTime) / 1000 / 3)),
+          message: "Video generation in progress... This can take several minutes."
+        });
       }
       
       // Return with download URL for proxy
@@ -210,12 +217,22 @@ router.get("/video/status/:name", async (req, res) => {
       throw new Error("AI service not configured. Please set GEMINI_API_KEY.");
     }
     
+    console.log(`Checking video generation status for operation: ${name}`);
+    
     let op = await (ai.operations as any).getVideosOperation({ operation: { name } });
-    if (!op?.done) return res.json({ done: false });
+    if (!op?.done) {
+      console.log("Video still generating...");
+      return res.json({ 
+        done: false,
+        message: "Video generation in progress... This can take several minutes."
+      });
+    }
 
     const vid = op?.response?.generatedVideos?.[0];
     if (!vid) return res.status(500).json({ error: "no_video_in_response" });
 
+    console.log("Video generation complete!");
+    
     // Don't leak your API key to the browser: we'll proxy the download.
     res.json({
       done: true,

@@ -188,58 +188,97 @@ export default function Library() {
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {filteredPosts.map((post) => (
-                <Card key={post.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="p-4">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex items-center space-x-2">
-                        <Badge variant="outline" className={getStatusColor(post.status)}>
-                          {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
-                        </Badge>
-                        <div className="flex space-x-1">
-                          {post.platforms.slice(0, 3).map((platform) => (
-                            <i key={platform} className={`${getPlatformIcon(platform)} text-sm`} />
-                          ))}
-                          {post.platforms.length > 3 && (
-                            <span className="text-xs text-muted-foreground">+{post.platforms.length - 3}</span>
-                          )}
+              {filteredPosts.map((post) => {
+                const imageUrl = post.metadata?.imageUrl || post.mediaUrls?.find(url => url.includes('image'));
+                const videoUrl = post.metadata?.videoUrl || post.mediaUrls?.find(url => url.includes('video'));
+                
+                return (
+                  <Card key={post.id} className="hover:shadow-md transition-shadow">
+                    <CardContent className="p-4">
+                      <div className="flex items-start justify-between mb-3">
+                        <div className="flex items-center space-x-2">
+                          <Badge variant="outline" className={getStatusColor(post.status)}>
+                            {post.status.charAt(0).toUpperCase() + post.status.slice(1)}
+                          </Badge>
+                          <div className="flex space-x-1">
+                            {post.platforms.slice(0, 3).map((platform) => (
+                              <i key={platform} className={`${getPlatformIcon(platform)} text-sm`} />
+                            ))}
+                            {post.platforms.length > 3 && (
+                              <span className="text-xs text-muted-foreground">+{post.platforms.length - 3}</span>
+                            )}
+                          </div>
                         </div>
-                      </div>
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreVertical className="w-4 h-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end">
-                          <DropdownMenuItem>
-                            <Edit className="w-4 h-4 mr-2" />
-                            Edit
-                          </DropdownMenuItem>
-                          <DropdownMenuItem onClick={() => duplicateMutation.mutate(post)}>
-                            <Copy className="w-4 h-4 mr-2" />
-                            Duplicate
-                          </DropdownMenuItem>
-                          {post.status === "published" && (
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="icon" className="h-8 w-8">
+                              <MoreVertical className="w-4 h-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
                             <DropdownMenuItem>
-                              <BarChart3 className="w-4 h-4 mr-2" />
-                              View Analytics
+                              <Edit className="w-4 h-4 mr-2" />
+                              Edit
                             </DropdownMenuItem>
-                          )}
-                          <DropdownMenuItem 
-                            onClick={() => deleteMutation.mutate(post.id)}
-                            className="text-destructive"
-                          >
-                            <Trash2 className="w-4 h-4 mr-2" />
-                            Delete
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
-                    </div>
+                            <DropdownMenuItem onClick={() => duplicateMutation.mutate(post)}>
+                              <Copy className="w-4 h-4 mr-2" />
+                              Duplicate
+                            </DropdownMenuItem>
+                            {post.status === "published" && (
+                              <DropdownMenuItem>
+                                <BarChart3 className="w-4 h-4 mr-2" />
+                                View Analytics
+                              </DropdownMenuItem>
+                            )}
+                            <DropdownMenuItem 
+                              onClick={() => deleteMutation.mutate(post.id)}
+                              className="text-destructive"
+                            >
+                              <Trash2 className="w-4 h-4 mr-2" />
+                              Delete
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
 
-                    <p className="text-foreground mb-2 line-clamp-3 text-sm">
-                      {post.content}
-                    </p>
+                      {/* Media Preview */}
+                      {(imageUrl || videoUrl) && (
+                        <div className="mb-3 rounded-lg overflow-hidden bg-muted aspect-video relative">
+                          {imageUrl && (
+                            <img 
+                              src={imageUrl} 
+                              alt="Content preview" 
+                              className="w-full h-full object-cover"
+                            />
+                          )}
+                          {videoUrl && !imageUrl && (
+                            <video 
+                              src={videoUrl} 
+                              className="w-full h-full object-cover"
+                              controls={false}
+                              muted
+                            />
+                          )}
+                          <div className="absolute top-2 right-2">
+                            {imageUrl && (
+                              <Badge className="bg-black/50 text-white">
+                                <Image className="w-3 h-3 mr-1" />
+                                Image
+                              </Badge>
+                            )}
+                            {videoUrl && (
+                              <Badge className="bg-black/50 text-white">
+                                <Video className="w-3 h-3 mr-1" />
+                                Video
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      )}
+
+                      <p className="text-foreground mb-2 line-clamp-3 text-sm">
+                        {post.content}
+                      </p>
 
                     {post.mediaUrls && post.mediaUrls.length > 0 && (
                       <div className="flex items-center space-x-1 mb-3 text-xs text-muted-foreground">
@@ -328,7 +367,8 @@ export default function Library() {
                     </div>
                   </CardContent>
                 </Card>
-              ))}
+                );
+              })}
             </div>
           )}
         </CardContent>

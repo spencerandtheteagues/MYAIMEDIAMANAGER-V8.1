@@ -225,12 +225,41 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new post
   app.post("/api/posts", async (req, res) => {
     try {
+      const userId = "demo-user-1"; // In production, get from session
+      
+      // Extract media URLs from the request
+      const mediaUrls = [];
+      if (req.body.imageUrl) mediaUrls.push(req.body.imageUrl);
+      if (req.body.videoUrl) mediaUrls.push(req.body.videoUrl);
+      
       const postData = insertPostSchema.parse({
         ...req.body,
-        userId: "demo-user-1",
+        userId,
+        mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
       });
       
-      const post = await storage.createPost(postData);
+      // Create the post with enhanced metadata for library tracking
+      const post = await storage.createPost({
+        ...postData,
+        metadata: {
+          ...req.body.metadata,
+          imageUrl: req.body.imageUrl,
+          videoUrl: req.body.videoUrl,
+          savedToLibrary: true,
+          libraryCreatedAt: new Date().toISOString(),
+        }
+      });
+      
+      // Also save AI-generated content to suggestions for reuse
+      if (req.body.aiGenerated && req.body.content) {
+        await storage.createAiSuggestion({
+          userId,
+          prompt: req.body.metadata?.businessName || "Generated content",
+          suggestions: [req.body.content],
+          selected: req.body.content,
+        });
+      }
+      
       res.status(201).json(post);
     } catch (error) {
       if (error instanceof z.ZodError) {
