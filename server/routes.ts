@@ -63,6 +63,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get draft posts
+  app.get("/api/posts/draft", async (req, res) => {
+    try {
+      const userId = "demo-user-1";
+      const posts = await storage.getPostsByStatus(userId, "draft");
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get draft posts" });
+    }
+  });
+
   // Get campaigns
   app.get("/api/campaigns", async (req, res) => {
     try {
@@ -275,6 +286,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const { id } = req.params;
       const updates = req.body;
       
+      // Convert scheduledFor string to Date if present
+      if (updates.scheduledFor && typeof updates.scheduledFor === 'string') {
+        updates.scheduledFor = new Date(updates.scheduledFor);
+      }
+      
       const post = await storage.updatePost(id, updates);
       if (!post) {
         return res.status(404).json({ message: "Post not found" });
@@ -299,6 +315,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json({ message: "Post deleted successfully" });
     } catch (error) {
       res.status(500).json({ message: "Failed to delete post" });
+    }
+  });
+
+  // Publish a post immediately
+  app.post("/api/posts/:id/publish", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const post = await storage.getPost(id);
+      
+      if (!post) {
+        return res.status(404).json({ message: "Post not found" });
+      }
+      
+      // Update post status to published
+      const updatedPost = await storage.updatePost(id, {
+        status: "published",
+        publishedAt: new Date()
+      });
+      
+      // TODO: Actually publish to connected platforms
+      // This would involve calling platform APIs
+      
+      res.json(updatedPost);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to publish post" });
     }
   });
 

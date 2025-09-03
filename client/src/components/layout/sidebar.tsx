@@ -9,7 +9,8 @@ import {
   FolderOpen, 
   Settings,
   Rocket,
-  Share2
+  Share2,
+  CalendarDays
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -21,6 +22,7 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Create Content", href: "/create", icon: PlusCircle },
   { name: "Campaigns", href: "/campaigns", icon: Rocket },
+  { name: "Schedule", href: "/schedule", icon: CalendarDays },
   { name: "Platforms", href: "/platforms", icon: Share2 },
   { name: "Content Calendar", href: "/calendar", icon: Calendar },
   { name: "Approval Queue", href: "/approval", icon: CheckCircle, badge: true },
