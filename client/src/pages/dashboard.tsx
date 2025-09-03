@@ -28,7 +28,6 @@ import linkedinLogo from "@/assets/logos/linkedin.svg";
 
 interface PlatformStatus {
   name: string;
-  logo: string;
   connected: boolean;
 }
 
@@ -67,18 +66,26 @@ interface DashboardData {
   }>;
 }
 
-const platforms: PlatformStatus[] = [
-  { name: "Instagram", logo: instagramLogo, connected: true },
-  { name: "Facebook", logo: facebookLogo, connected: true },
-  { name: "X.com", logo: xLogo, connected: true },
-  { name: "TikTok", logo: tiktokLogo, connected: true },
-  { name: "LinkedIn", logo: linkedinLogo, connected: true },
-];
+// Platform logos mapping
+const platformLogos: Record<string, string> = {
+  "Instagram": instagramLogo,
+  "Facebook": facebookLogo,
+  "X.com": xLogo,
+  "TikTok": tiktokLogo,
+  "LinkedIn": linkedinLogo,
+};
 
 export default function Dashboard() {
-  const { data: dashboardData, isLoading } = useQuery<DashboardData>({
+  const { data: dashboardData, isLoading: isLoadingDashboard } = useQuery<DashboardData>({
     queryKey: ["/api/analytics/dashboard"],
   });
+
+  const { data: platforms = [], isLoading: isLoadingPlatforms } = useQuery<PlatformStatus[]>({
+    queryKey: ["/api/platforms"],
+  });
+
+  const isLoading = isLoadingDashboard || isLoadingPlatforms;
+  const hasConnectedPlatforms = platforms.some(p => p.connected);
 
   if (isLoading) {
     return (
@@ -101,34 +108,66 @@ export default function Dashboard() {
 
   return (
     <div className="p-6 space-y-8">
-      {/* Connected Platforms Status */}
+      {/* Connected Platforms Status - REAL STATUS */}
       <section>
-        <h3 className="text-lg font-semibold text-foreground mb-4">Connected Platforms</h3>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          {platforms.map((platform) => (
-            <Card key={platform.name} className="text-center overflow-hidden hover:shadow-lg transition-shadow">
-              <CardContent className="p-4">
-                <div className="w-12 h-12 mx-auto mb-3 rounded-lg overflow-hidden shadow-md">
-                  <img 
-                    src={platform.logo} 
-                    alt={`${platform.name} logo`}
-                    className="w-full h-full object-cover"
-                  />
+        <h3 className="text-lg font-semibold text-foreground mb-4">Platform Connections</h3>
+        {!hasConnectedPlatforms ? (
+          <Card className="border-dashed border-2">
+            <CardContent className="p-8 text-center">
+              <div className="text-muted-foreground mb-4">
+                <div className="w-16 h-16 mx-auto mb-4 bg-muted rounded-full flex items-center justify-center">
+                  <Share2 className="w-8 h-8 text-muted-foreground" />
                 </div>
-                <p className="text-sm font-medium text-foreground">{platform.name}</p>
-                <p className="text-xs text-green-600 mt-1 flex items-center justify-center">
-                  <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse" />
-                  Connected
-                </p>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
+                <p className="text-lg font-medium mb-2">No Platforms Connected</p>
+                <p className="text-sm">Connect to a platform to start displaying live analytics and publishing content</p>
+              </div>
+              <Link href="/settings">
+                <Button className="mt-4">
+                  Connect Your First Platform
+                </Button>
+              </Link>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            {platforms.map((platform) => (
+              <Card key={platform.name} className={`text-center overflow-hidden transition-all ${platform.connected ? 'hover:shadow-lg' : 'opacity-60'}`}>
+                <CardContent className="p-4">
+                  <div className="w-12 h-12 mx-auto mb-3 rounded-lg overflow-hidden shadow-md">
+                    <img 
+                      src={platformLogos[platform.name]} 
+                      alt={`${platform.name} logo`}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                  <p className="text-sm font-medium text-foreground">{platform.name}</p>
+                  {platform.connected ? (
+                    <p className="text-xs text-green-600 mt-1 flex items-center justify-center">
+                      <div className="w-2 h-2 bg-green-500 rounded-full mr-1 animate-pulse" />
+                      Connected
+                    </p>
+                  ) : (
+                    <p className="text-xs text-muted-foreground mt-1">Not Connected</p>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
 
-      {/* Key Metrics */}
+      {/* Key Metrics - REAL DATA */}
       <section>
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        {!hasConnectedPlatforms ? (
+          <Card className="border-dashed border-2">
+            <CardContent className="p-8 text-center">
+              <BarChart3 className="w-12 h-12 mx-auto mb-4 text-muted-foreground" />
+              <p className="text-lg font-medium text-muted-foreground mb-2">Analytics Unavailable</p>
+              <p className="text-sm text-muted-foreground">Connect to a platform to start displaying live analytics</p>
+            </CardContent>
+          </Card>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -143,9 +182,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center mt-4">
-                <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
-                <span className="text-green-600 text-sm font-medium">12%</span>
-                <span className="text-muted-foreground text-sm ml-2">vs last month</span>
+                <span className="text-muted-foreground text-sm">Real-time data</span>
               </div>
             </CardContent>
           </Card>
@@ -164,9 +201,7 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center mt-4">
-                <TrendingUp className="w-4 h-4 text-green-600 mr-1" />
-                <span className="text-green-600 text-sm font-medium">23%</span>
-                <span className="text-muted-foreground text-sm ml-2">vs last month</span>
+                <span className="text-muted-foreground text-sm">From all platforms</span>
               </div>
             </CardContent>
           </Card>
@@ -208,11 +243,12 @@ export default function Dashboard() {
                 </div>
               </div>
               <div className="flex items-center mt-4">
-                <span className="text-muted-foreground text-sm">Next: Today 3:00 PM</span>
+                <span className="text-muted-foreground text-sm">{dashboardData?.scheduledPosts && dashboardData.scheduledPosts > 0 ? 'Ready to publish' : 'No posts scheduled'}</span>
               </div>
             </CardContent>
           </Card>
         </div>
+        )}
       </section>
 
       {/* Quick Actions & Recent Activity */}

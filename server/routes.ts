@@ -22,6 +22,27 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get connected platforms status - REAL CONNECTION STATUS
+  app.get("/api/platforms", async (req, res) => {
+    try {
+      const userId = "demo-user-1";
+      const platforms = await storage.getPlatformsByUserId(userId);
+      
+      // Return REAL platform connection status
+      const platformStatus = [
+        { name: "Instagram", connected: platforms.some(p => p.name === "Instagram" && p.isConnected) },
+        { name: "Facebook", connected: platforms.some(p => p.name === "Facebook" && p.isConnected) },
+        { name: "X.com", connected: platforms.some(p => p.name === "X (Twitter)" && p.isConnected) },
+        { name: "TikTok", connected: platforms.some(p => p.name === "TikTok" && p.isConnected) },
+        { name: "LinkedIn", connected: platforms.some(p => p.name === "LinkedIn" && p.isConnected) },
+      ];
+      
+      res.json(platformStatus);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get platforms" });
+    }
+  });
+
   // Get user's connected platforms
   app.get("/api/platforms", async (req, res) => {
     try {
@@ -358,54 +379,62 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get dashboard analytics
+  // Get dashboard analytics - REAL DATA ONLY
   app.get("/api/analytics/dashboard", async (req, res) => {
     try {
-      // Return mock analytics data for dashboard
+      const userId = "demo-user-1";
+      
+      // Get REAL data from storage
+      const [posts, platforms] = await Promise.all([
+        storage.getPostsByUserId(userId),
+        storage.getPlatformsByUserId(userId),
+      ]);
+
+      // Calculate REAL metrics from actual posts
+      const publishedPosts = posts.filter(p => p.status === "published");
+      const pendingPosts = posts.filter(p => p.status === "pending");
+      const scheduledPosts = posts.filter(p => p.status === "scheduled");
+      
+      // Calculate total engagement from published posts only
+      const totalEngagement = publishedPosts.reduce((sum, post) => {
+        if (post.engagementData) {
+          return sum + (post.engagementData.likes || 0) + 
+                      (post.engagementData.comments || 0) + 
+                      (post.engagementData.shares || 0);
+        }
+        return sum;
+      }, 0);
+
+      // Return REAL analytics data
       const dashboardData = {
-        totalPosts: 47,
-        totalEngagement: 2800,
-        pendingApproval: 3,
-        scheduledPosts: 12,
+        totalPosts: posts.length,
+        totalEngagement: totalEngagement,
+        pendingApproval: pendingPosts.length,
+        scheduledPosts: scheduledPosts.length,
         metrics: {
-          totalReach: 15200,
-          engagement: 2800,
-          newFollowers: 1200,
-          clickRate: 4.2,
+          totalReach: publishedPosts.reduce((sum, p) => sum + (p.engagementData?.reach || 0), 0),
+          engagement: totalEngagement,
+          newFollowers: 0, // Real platform API would provide this
+          clickRate: 0, // Real platform API would provide this
         },
-        platformPerformance: [
-          { platform: "Instagram", followers: 2100, engagement: 1234, change: 15 },
-          { platform: "Facebook", followers: 1800, engagement: 892, change: 8 },
-          { platform: "X (Twitter)", followers: 956, engagement: 445, change: -3 },
-          { platform: "LinkedIn", followers: 534, engagement: 227, change: 22 },
-        ],
-        engagementOverTime: [
-          { date: "Jan 1", value: 60 },
-          { date: "Jan 5", value: 80 },
-          { date: "Jan 10", value: 45 },
-          { date: "Jan 15", value: 95 },
-          { date: "Jan 20", value: 70 },
-          { date: "Jan 25", value: 110 },
-          { date: "Today", value: 85 },
-        ],
-        topPerformingPosts: [
-          {
-            id: "1",
-            platform: "Instagram",
-            content: "Morning coffee specials are here! ☕",
-            publishedAt: "3 days ago",
-            engagement: { likes: 324, comments: 45, shares: 12 },
-            engagementRate: 94,
-          },
-          {
-            id: "2",
-            platform: "Facebook",
-            content: "Behind the scenes: How we roast our beans",
-            publishedAt: "1 week ago",
-            engagement: { likes: 198, comments: 23, shares: 8 },
-            engagementRate: 87,
-          },
-        ],
+        platformPerformance: [], // Empty until real platforms are connected
+        engagementOverTime: [], // Empty until real data exists
+        topPerformingPosts: publishedPosts
+          .filter(p => p.engagementData)
+          .sort((a, b) => {
+            const aEngagement = (a.engagementData?.likes || 0) + (a.engagementData?.comments || 0);
+            const bEngagement = (b.engagementData?.likes || 0) + (b.engagementData?.comments || 0);
+            return bEngagement - aEngagement;
+          })
+          .slice(0, 5)
+          .map(post => ({
+            id: post.id,
+            platform: post.platforms?.[0] || "Unknown",
+            content: post.content.substring(0, 50) + "...",
+            publishedAt: post.publishedAt?.toISOString() || "Unknown",
+            engagement: post.engagementData || { likes: 0, comments: 0, shares: 0 },
+            engagementRate: 0,
+          })),
       };
 
       res.json(dashboardData);

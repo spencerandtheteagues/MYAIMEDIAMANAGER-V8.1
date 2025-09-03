@@ -59,7 +59,7 @@ export class MemStorage implements IStorage {
   }
 
   private initializeDemoData() {
-    // Create demo user
+    // Create demo user with admin credentials
     const demoUser: User = {
       id: "demo-user-1",
       username: "spencer.teague",
@@ -77,142 +77,9 @@ export class MemStorage implements IStorage {
     };
     this.users.set(demoUser.id, demoUser);
 
-    // Create connected platforms
-    const platforms: Platform[] = [
-      {
-        id: randomUUID(),
-        name: "Instagram",
-        icon: "fab fa-instagram",
-        color: "#E1306C",
-        isConnected: true,
-        userId: demoUser.id,
-        accountId: "cafe_instagram",
-        accessToken: "ig_token_123",
-        createdAt: new Date(),
-      },
-      {
-        id: randomUUID(),
-        name: "Facebook",
-        icon: "fab fa-facebook",
-        color: "#1877F2",
-        isConnected: true,
-        userId: demoUser.id,
-        accountId: "cafe_facebook",
-        accessToken: "fb_token_123",
-        createdAt: new Date(),
-      },
-      {
-        id: randomUUID(),
-        name: "X (Twitter)",
-        icon: "fab fa-twitter",
-        color: "#1DA1F2",
-        isConnected: true,
-        userId: demoUser.id,
-        accountId: "cafe_twitter",
-        accessToken: "twitter_token_123",
-        createdAt: new Date(),
-      },
-      {
-        id: randomUUID(),
-        name: "TikTok",
-        icon: "fab fa-tiktok",
-        color: "#000000",
-        isConnected: true,
-        userId: demoUser.id,
-        accountId: "cafe_tiktok",
-        accessToken: "tiktok_token_123",
-        createdAt: new Date(),
-      },
-      {
-        id: randomUUID(),
-        name: "LinkedIn",
-        icon: "fab fa-linkedin",
-        color: "#0A66C2",
-        isConnected: true,
-        userId: demoUser.id,
-        accountId: "cafe_linkedin",
-        accessToken: "linkedin_token_123",
-        createdAt: new Date(),
-      },
-    ];
-
-    platforms.forEach(platform => this.platforms.set(platform.id, platform));
-
-    // Create sample posts
-    const posts: Post[] = [
-      {
-        id: randomUUID(),
-        userId: demoUser.id,
-        content: "🥞 Weekend brunch is here! Join us for fluffy pancakes, fresh fruit, and the best coffee in town. Perfect way to start your Saturday! #WeekendBrunch #CafeLife #FreshEats",
-        platforms: ["Facebook", "Instagram"],
-        status: "pending",
-        scheduledFor: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000), // 2 days from now
-        publishedAt: null,
-        mediaUrls: ["https://example.com/brunch-image.jpg"],
-        aiGenerated: true,
-        approvedBy: null,
-        rejectionReason: null,
-        engagementData: null,
-        createdAt: new Date(Date.now() - 2 * 60 * 60 * 1000), // 2 hours ago
-        updatedAt: new Date(Date.now() - 2 * 60 * 60 * 1000),
-      },
-      {
-        id: randomUUID(),
-        userId: demoUser.id,
-        content: "☕ Coffee Tip Tuesday: Did you know that grinding your coffee beans right before brewing preserves the oils and gives you the freshest flavor? Try it and taste the difference! #CoffeeTips #FreshBrew",
-        platforms: ["X (Twitter)", "LinkedIn"],
-        status: "pending",
-        scheduledFor: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000), // 3 days from now
-        publishedAt: null,
-        mediaUrls: [],
-        aiGenerated: false,
-        approvedBy: null,
-        rejectionReason: null,
-        engagementData: null,
-        createdAt: new Date(Date.now() - 5 * 60 * 60 * 1000), // 5 hours ago
-        updatedAt: new Date(Date.now() - 5 * 60 * 60 * 1000),
-      },
-      {
-        id: randomUUID(),
-        userId: demoUser.id,
-        content: "✨ Watch our skilled barista create the perfect latte art! Each cup is crafted with love and precision. What's your favorite latte art design? 🎨☕ #LatteArt #BehindTheScenes #CoffeeArt",
-        platforms: ["Instagram"],
-        status: "pending",
-        scheduledFor: new Date(Date.now() + 4 * 24 * 60 * 60 * 1000), // 4 days from now
-        publishedAt: null,
-        mediaUrls: ["https://example.com/latte-art-video.mp4"],
-        aiGenerated: true,
-        approvedBy: null,
-        rejectionReason: null,
-        engagementData: null,
-        createdAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-        updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-      },
-      {
-        id: randomUUID(),
-        userId: demoUser.id,
-        content: "☕ Start your Monday with our signature blend! What's your go-to morning coffee order? #MondayMotivation #CoffeeLovers",
-        platforms: ["Instagram", "Facebook", "X (Twitter)"],
-        status: "published",
-        scheduledFor: null,
-        publishedAt: new Date(Date.now() - 24 * 60 * 60 * 1000), // 1 day ago
-        mediaUrls: ["https://example.com/monday-coffee.jpg"],
-        aiGenerated: true,
-        approvedBy: null,
-        rejectionReason: null,
-        engagementData: {
-          likes: 324,
-          comments: 45,
-          shares: 12,
-          clicks: 89,
-          reach: 1580,
-        },
-        createdAt: new Date(Date.now() - 25 * 60 * 60 * 1000),
-        updatedAt: new Date(Date.now() - 24 * 60 * 60 * 1000),
-      },
-    ];
-
-    posts.forEach(post => this.posts.set(post.id, post));
+    // NO FAKE PLATFORMS - User must connect real platforms
+    // NO FAKE POSTS - All content must be created by user
+    // NO FAKE ANALYTICS - All metrics must come from real platform data
   }
 
   // Users

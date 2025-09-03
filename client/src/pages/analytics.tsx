@@ -98,9 +98,8 @@ export default function Analytics() {
                 {analyticsData?.metrics.totalReach.toLocaleString() || "0"}
               </p>
               <p className="text-sm text-muted-foreground">Total Reach</p>
-              <div className="flex items-center justify-center mt-1">
-                <TrendingUp className="w-3 h-3 text-green-600 mr-1" />
-                <span className="text-xs text-green-600">+18% from last period</span>
+              <div className="mt-1">
+                <span className="text-xs text-muted-foreground">Real-time data</span>
               </div>
             </div>
 
@@ -112,9 +111,8 @@ export default function Analytics() {
                 {analyticsData?.metrics.engagement.toLocaleString() || "0"}
               </p>
               <p className="text-sm text-muted-foreground">Engagement</p>
-              <div className="flex items-center justify-center mt-1">
-                <TrendingUp className="w-3 h-3 text-green-600 mr-1" />
-                <span className="text-xs text-green-600">+23% from last period</span>
+              <div className="mt-1">
+                <span className="text-xs text-muted-foreground">All interactions</span>
               </div>
             </div>
 
@@ -126,9 +124,8 @@ export default function Analytics() {
                 {analyticsData?.metrics.newFollowers.toLocaleString() || "0"}
               </p>
               <p className="text-sm text-muted-foreground">New Followers</p>
-              <div className="flex items-center justify-center mt-1">
-                <TrendingUp className="w-3 h-3 text-green-600 mr-1" />
-                <span className="text-xs text-green-600">+12% from last period</span>
+              <div className="mt-1">
+                <span className="text-xs text-muted-foreground">Across platforms</span>
               </div>
             </div>
 
@@ -140,9 +137,8 @@ export default function Analytics() {
                 {analyticsData?.metrics.clickRate}%
               </p>
               <p className="text-sm text-muted-foreground">Click Rate</p>
-              <div className="flex items-center justify-center mt-1">
-                <TrendingDown className="w-3 h-3 text-red-600 mr-1" />
-                <span className="text-xs text-red-600">-2% from last period</span>
+              <div className="mt-1">
+                <span className="text-xs text-muted-foreground">Link clicks</span>
               </div>
             </div>
           </div>
