@@ -9,6 +9,7 @@ export interface IStorage {
   
   // Platforms
   getPlatformsByUserId(userId: string): Promise<Platform[]>;
+  getPlatformById(id: string): Promise<Platform | undefined>;
   createPlatform(platform: InsertPlatform): Promise<Platform>;
   updatePlatform(id: string, updates: Partial<Platform>): Promise<Platform | undefined>;
   
@@ -77,7 +78,7 @@ export class MemStorage implements IStorage {
     };
     this.users.set(demoUser.id, demoUser);
 
-    // NO FAKE PLATFORMS - User must connect real platforms
+    // NO FAKE PLATFORMS - User must connect real platforms through OAuth
     // NO FAKE POSTS - All content must be created by user
     // NO FAKE ANALYTICS - All metrics must come from real platform data
   }
@@ -113,6 +114,10 @@ export class MemStorage implements IStorage {
   // Platforms
   async getPlatformsByUserId(userId: string): Promise<Platform[]> {
     return Array.from(this.platforms.values()).filter(platform => platform.userId === userId);
+  }
+
+  async getPlatformById(id: string): Promise<Platform | undefined> {
+    return this.platforms.get(id);
   }
 
   async createPlatform(insertPlatform: InsertPlatform): Promise<Platform> {

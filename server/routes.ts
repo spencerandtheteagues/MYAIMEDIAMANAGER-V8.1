@@ -5,6 +5,7 @@ import { insertPostSchema, insertAiSuggestionSchema, insertCampaignSchema } from
 import { z } from "zod";
 import { aiService } from "./ai-service";
 import aiRoutes from "./aiRoutes";
+import { generateXAuthUrl, handleXOAuthCallback, postToXWithOAuth } from "./x-oauth";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Wire up the new AI routes exactly as specified
@@ -43,15 +44,6 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // Get user's connected platforms
-  app.get("/api/platforms", async (req, res) => {
-    try {
-      const platforms = await storage.getPlatformsByUserId("demo-user-1");
-      res.json(platforms);
-    } catch (error) {
-      res.status(500).json({ message: "Failed to get platforms" });
-    }
-  });
 
   // Get user's posts
   app.get("/api/posts", async (req, res) => {
@@ -440,6 +432,80 @@ export async function registerRoutes(app: Express): Promise<Server> {
       res.json(dashboardData);
     } catch (error) {
       res.status(500).json({ message: "Failed to get analytics" });
+    }
+  });
+
+  // X.com OAuth endpoints
+  app.get("/api/platforms/x/connect", async (req, res) => {
+    try {
+      const userId = "demo-user-1"; // In production, get from session
+      const { url, state, codeVerifier } = generateXAuthUrl(userId);
+      
+      // In production, store codeVerifier securely (session/database)
+      // For now, we'll pass it back to the client
+      res.json({ 
+        authUrl: url, 
+        state,
+        codeVerifier // Client needs to store this for callback
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to generate auth URL" });
+    }
+  });
+
+  // OAuth callback endpoint
+  app.get("/api/auth/x/callback", async (req, res) => {
+    try {
+      const { code, state } = req.query;
+      // In production, get codeVerifier from session
+      const codeVerifier = req.query.code_verifier as string;
+      
+      if (!code || !state) {
+        return res.status(400).json({ message: "Missing required parameters" });
+      }
+      
+      const result = await handleXOAuthCallback(
+        code as string,
+        state as string,
+        codeVerifier
+      );
+      
+      if (result.success) {
+        // Redirect to success page
+        res.redirect("/platforms?connected=x");
+      } else {
+        res.redirect("/platforms?error=" + encodeURIComponent(result.error || "Connection failed"));
+      }
+    } catch (error) {
+      res.redirect("/platforms?error=Connection%20failed");
+    }
+  });
+
+  // Post to X endpoint
+  app.post("/api/platforms/x/post", async (req, res) => {
+    try {
+      const { content, platformId } = req.body;
+      
+      // Get platform from storage
+      const platform = await storage.getPlatformById(platformId);
+      if (!platform || !platform.accessToken) {
+        return res.status(400).json({ message: "Platform not connected" });
+      }
+      
+      // Post to X
+      const result = await postToXWithOAuth(platform.accessToken, content);
+      
+      if (result.success) {
+        res.json({ 
+          success: true, 
+          tweetId: result.tweetId,
+          url: `https://x.com/i/web/status/${result.tweetId}`
+        });
+      } else {
+        res.status(500).json({ message: result.error });
+      }
+    } catch (error) {
+      res.status(500).json({ message: "Failed to post to X" });
     }
   });
 

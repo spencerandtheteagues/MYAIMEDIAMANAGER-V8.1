@@ -21,35 +21,28 @@ router.post("/text", async (req, res) => {
       throw new Error("AI service not configured. Please set GEMINI_API_KEY.");
     }
     
-    const response = await (ai.models as any).generateContent({
-      model: "gemini-2.5-pro",
-      contents: [
-        ...(system ? [{ role: "system", parts: [{ text: system }] }] : []),
-        { role: "user", parts: [{ text: prompt || "Say ready." }] }
-      ],
-      generationConfig: { temperature, maxOutputTokens }
-    });
+    const fullPrompt = system ? `${system}\n\n${prompt || "Say ready."}` : (prompt || "Say ready.");
     
-    // SDK exposes a .text string property
-    res.json({ text: response.text });
+    const model = ai.getGenerativeModel({ model: "gemini-pro" });
+    const result = await model.generateContent(fullPrompt);
+    const response = await result.response;
+    
+    // Get text from response
+    const text = response.text();
+    res.json({ text });
   } catch (e: any) {
     console.error("TEXT ERR", e);
     
     // Fallback to gemini-1.5-pro if 2.5 not available
     if (e?.message?.includes("not found") || e?.message?.includes("not available")) {
       try {
-        const response = await (ai!.models as any).generateContent({
-          model: "gemini-1.5-pro",
-          contents: [
-            ...(req.body?.system ? [{ role: "system", parts: [{ text: req.body.system }] }] : []),
-            { role: "user", parts: [{ text: req.body?.prompt || "Say ready." }] }
-          ],
-          generationConfig: { 
-            temperature: req.body?.temperature || 0.9, 
-            maxOutputTokens: req.body?.maxOutputTokens || 2048 
-          }
-        });
-        return res.json({ text: response.text });
+        const fallbackPrompt = req.body?.system ? `${req.body.system}\n\n${req.body?.prompt || "Say ready."}` : (req.body?.prompt || "Say ready.");
+        
+        const model = ai!.getGenerativeModel({ model: "gemini-pro" });
+        const result = await model.generateContent(fallbackPrompt);
+        const response = await result.response;
+        const text = response.text();
+        return res.json({ text });
       } catch (fallbackErr: any) {
         console.error("TEXT FALLBACK ERR", fallbackErr);
       }
