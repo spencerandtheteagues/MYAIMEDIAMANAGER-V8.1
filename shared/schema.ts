@@ -16,6 +16,7 @@ export const users = pgTable("users", {
   credits: integer("credits").notNull().default(50),
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
+  isPaid: boolean("is_paid").notNull().default(false),
   createdAt: timestamp("created_at").defaultNow(),
 });
 
@@ -43,13 +44,15 @@ export const campaigns = pgTable("campaigns", {
   campaignGoals: text("campaign_goals").notNull(),
   brandTone: text("brand_tone").notNull(),
   keyMessages: json("key_messages").$type<string[]>().default([]),
+  platforms: json("platforms").$type<string[]>().notNull().default([]),
   visualStyle: text("visual_style").notNull(),
   colorScheme: text("color_scheme"),
   callToAction: text("call_to_action").notNull(),
   status: text("status").notNull().default("draft"), // draft, generating, review, active, completed, paused
-  startDate: date("start_date").notNull(),
-  endDate: date("end_date").notNull(),
+  startDate: timestamp("start_date"),
+  endDate: timestamp("end_date"),
   postsPerDay: integer("posts_per_day").notNull().default(2),
+  totalPosts: integer("total_posts").notNull().default(14),
   generationProgress: integer("generation_progress").default(0),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -78,6 +81,11 @@ export const posts = pgTable("posts", {
     shares: number;
     clicks: number;
     reach: number;
+  }>(),
+  metadata: json("metadata").$type<{
+    day?: number;
+    slot?: number;
+    campaignPost?: boolean;
   }>(),
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),

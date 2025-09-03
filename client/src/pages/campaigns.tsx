@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "../lib/queryClient";
 import { Button } from "@/components/ui/button";
@@ -9,152 +9,213 @@ import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, For
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Calendar } from "@/components/ui/calendar";
 import { Badge } from "@/components/ui/badge";
-import { Progress } from "@/components/ui/progress";
+import { Checkbox } from "@/components/ui/checkbox";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
+import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
-import { format } from "date-fns";
+import { format, addDays, setHours, setMinutes } from "date-fns";
 import { 
   PlusCircle, 
-  Rocket, 
   Calendar as CalendarIcon, 
-  Target, 
-  Palette, 
-  MessageSquare,
+  Clock,
   Loader2,
-  Play,
-  Pause,
   CheckCircle,
   XCircle,
-  Edit,
+  AlertCircle,
+  Image,
+  FileText,
+  Trash2,
   Eye,
+  Play,
+  CreditCard,
+  Upload,
   Sparkles
 } from "lucide-react";
 import type { Campaign, Post } from "@shared/schema";
 
 const createCampaignSchema = z.object({
   name: z.string().min(1, "Campaign name is required"),
-  description: z.string().optional(),
-  platform: z.string().min(1, "Platform is required"),
+  platforms: z.array(z.string()).min(1, "Select at least one platform"),
   businessName: z.string().min(1, "Business name is required"),
   productName: z.string().optional(),
   targetAudience: z.string().min(1, "Target audience is required"),
   campaignGoals: z.string().min(1, "Campaign goals are required"),
   brandTone: z.string().min(1, "Brand tone is required"),
-  keyMessages: z.array(z.string()).default([]),
-  visualStyle: z.string().min(1, "Visual style is required"),
-  colorScheme: z.string().optional(),
+  keyMessages: z.string().optional(),
   callToAction: z.string().min(1, "Call to action is required"),
+  contentType: z.enum(["text", "image"]),
+  postingSchedule: z.enum(["auto", "manual"]),
+  manualTimes: z.array(z.object({
+    hour: z.string(),
+    minute: z.string()
+  })).optional(),
   startDate: z.string().min(1, "Start date is required"),
-  endDate: z.string().optional(),
 });
 
 type CreateCampaignForm = z.infer<typeof createCampaignSchema>;
+
+// Best posting times for social media engagement
+const BEST_POSTING_TIMES = [
+  { hour: 9, minute: 0 },   // 9:00 AM
+  { hour: 19, minute: 0 },  // 7:00 PM
+];
+
+interface CampaignPost {
+  id: string;
+  day: number;
+  slot: number;
+  content: string;
+  imageUrl?: string;
+  scheduledTime: Date;
+  status: "pending" | "approved" | "deleted";
+  platforms: string[];
+}
 
 export default function Campaigns() {
   const { toast } = useToast();
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
-  const [isPreviewOpen, setIsPreviewOpen] = useState(false);
-  const [keyMessageInput, setKeyMessageInput] = useState("");
+  const [campaignPosts, setCampaignPosts] = useState<CampaignPost[]>([]);
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [uploadedImages, setUploadedImages] = useState<{ [key: string]: string }>({});
+  const [manualContent, setManualContent] = useState<{ [key: string]: string }>({});
   
   const form = useForm<CreateCampaignForm>({
     resolver: zodResolver(createCampaignSchema),
     defaultValues: {
       name: "",
-      description: "",
-      platform: "",
+      platforms: [],
       businessName: "",
       productName: "",
       targetAudience: "",
       campaignGoals: "",
-      brandTone: "",
-      keyMessages: [],
-      visualStyle: "",
-      colorScheme: "",
+      brandTone: "professional",
+      keyMessages: "",
       callToAction: "",
+      contentType: "text",
+      postingSchedule: "auto",
+      manualTimes: [
+        { hour: "9", minute: "00" },
+        { hour: "19", minute: "00" }
+      ],
       startDate: format(new Date(), "yyyy-MM-dd"),
     },
+  });
+
+  const { data: user } = useQuery({
+    queryKey: ["/api/user"],
   });
 
   const { data: campaigns, isLoading } = useQuery<Campaign[]>({
     queryKey: ["/api/campaigns"],
   });
 
-  const { data: campaignPosts } = useQuery<Post[]>({
-    queryKey: ["/api/campaigns", selectedCampaign?.id, "posts"],
-    enabled: !!selectedCampaign,
+  const { data: approvalQueue } = useQuery<Campaign[]>({
+    queryKey: ["/api/campaigns/approval-queue"],
   });
 
   const createCampaignMutation = useMutation({
     mutationFn: async (data: CreateCampaignForm) => {
+      // Check if user is paid
+      if (!user?.isPaid) {
+        throw new Error("Campaign creation requires a paid account");
+      }
+
+      setIsGenerating(true);
+      
+      // Generate all 14 posts at once
+      const posts: CampaignPost[] = [];
+      const startDate = new Date(data.startDate);
+      
+      for (let day = 0; day < 7; day++) {
+        for (let slot = 0; slot < 2; slot++) {
+          const postDate = addDays(startDate, day);
+          let scheduledTime: Date;
+          
+          if (data.postingSchedule === "auto") {
+            const time = BEST_POSTING_TIMES[slot];
+            scheduledTime = setMinutes(setHours(postDate, time.hour), time.minute);
+          } else {
+            const time = data.manualTimes?.[slot] || BEST_POSTING_TIMES[slot];
+            scheduledTime = setMinutes(setHours(postDate, parseInt(time.hour)), parseInt(time.minute));
+          }
+          
+          posts.push({
+            id: `post-${day}-${slot}`,
+            day: day + 1,
+            slot: slot + 1,
+            content: "",
+            scheduledTime,
+            status: "pending",
+            platforms: data.platforms,
+          });
+        }
+      }
+      
+      // Create campaign
       const response = await apiRequest("POST", "/api/campaigns", {
         ...data,
         postsPerDay: 2,
-        status: "draft",
+        totalPosts: 14,
+        status: "generating",
       });
-      return response.json();
+      
+      const campaign = await response.json();
+      
+      // Generate content for all posts
+      const generatedPosts = await apiRequest("POST", `/api/campaigns/${campaign.id}/generate-all`, {
+        posts,
+        contentType: data.contentType,
+        businessName: data.businessName,
+        productName: data.productName,
+        targetAudience: data.targetAudience,
+        brandTone: data.brandTone,
+        keyMessages: data.keyMessages,
+        callToAction: data.callToAction,
+      });
+      
+      return { campaign, posts: await generatedPosts.json() };
     },
-    onSuccess: () => {
+    onSuccess: ({ campaign, posts }) => {
+      setCampaignPosts(posts);
+      setSelectedCampaign(campaign);
+      setIsGenerating(false);
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       setIsCreateDialogOpen(false);
       form.reset();
       toast({
         title: "Campaign created",
-        description: "Your campaign has been created successfully.",
+        description: "All 14 posts have been generated. Please review and approve them.",
       });
     },
-    onError: () => {
+    onError: (error: any) => {
+      setIsGenerating(false);
       toast({
         title: "Error",
-        description: "Failed to create campaign. Please try again.",
+        description: error.message || "Failed to create campaign. Please try again.",
         variant: "destructive",
       });
     },
   });
 
-  const generateCampaignMutation = useMutation({
-    mutationFn: async (campaignId: string) => {
-      const response = await apiRequest("POST", `/api/campaigns/${campaignId}/generate`);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaign?.id, "posts"] });
-      toast({
-        title: "Generation started",
-        description: "AI is generating content for your campaign. This may take a few minutes.",
-      });
-    },
-  });
-
-  const updateCampaignStatusMutation = useMutation({
-    mutationFn: async ({ id, status }: { id: string; status: string }) => {
-      const response = await apiRequest("PATCH", `/api/campaigns/${id}`, { status });
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
-      toast({
-        title: "Campaign updated",
-        description: "Campaign status has been updated.",
-      });
-    },
-  });
-
   const approvePostMutation = useMutation({
-    mutationFn: async (postId: string) => {
-      const response = await apiRequest("PATCH", `/api/posts/${postId}`, { 
+    mutationFn: async ({ campaignId, postId }: { campaignId: string; postId: string }) => {
+      const response = await apiRequest("PATCH", `/api/campaigns/${campaignId}/posts/${postId}`, { 
         status: "approved" 
       });
       return response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/campaigns", selectedCampaign?.id, "posts"] });
+    onSuccess: (_, { postId }) => {
+      setCampaignPosts(prev => 
+        prev.map(post => 
+          post.id === postId ? { ...post, status: "approved" } : post
+        )
+      );
       toast({
         title: "Post approved",
         description: "The post has been approved for publishing.",
@@ -162,34 +223,63 @@ export default function Campaigns() {
     },
   });
 
-  const handleAddKeyMessage = () => {
-    if (keyMessageInput.trim()) {
-      const currentMessages = form.getValues("keyMessages");
-      form.setValue("keyMessages", [...currentMessages, keyMessageInput.trim()]);
-      setKeyMessageInput("");
+  const deletePostMutation = useMutation({
+    mutationFn: async ({ campaignId, postId }: { campaignId: string; postId: string }) => {
+      const response = await apiRequest("DELETE", `/api/campaigns/${campaignId}/posts/${postId}`);
+      return response.json();
+    },
+    onSuccess: (_, { postId }) => {
+      setCampaignPosts(prev => 
+        prev.map(post => 
+          post.id === postId ? { ...post, status: "deleted" } : post
+        )
+      );
+      toast({
+        title: "Post deleted",
+        description: "The post has been removed from the campaign.",
+      });
+    },
+  });
+
+  const approveCampaignMutation = useMutation({
+    mutationFn: async (campaignId: string) => {
+      const response = await apiRequest("POST", `/api/campaigns/${campaignId}/approve`);
+      return response.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
+      queryClient.invalidateQueries({ queryKey: ["/api/campaigns/approval-queue"] });
+      toast({
+        title: "Campaign approved",
+        description: "The campaign has been approved and will start posting automatically.",
+      });
+      setSelectedCampaign(null);
+    },
+  });
+
+  const handleImageUpload = (postId: string, event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setUploadedImages(prev => ({
+          ...prev,
+          [postId]: reader.result as string
+        }));
+      };
+      reader.readAsDataURL(file);
     }
   };
 
-  const handleRemoveKeyMessage = (index: number) => {
-    const currentMessages = form.getValues("keyMessages");
-    form.setValue("keyMessages", currentMessages.filter((_, i) => i !== index));
-  };
-
-  const getCampaignStatusColor = (status: string) => {
-    switch (status) {
-      case "draft": return "bg-gray-500";
-      case "generating": return "bg-blue-500";
-      case "review": return "bg-yellow-500";
-      case "active": return "bg-green-500";
-      case "completed": return "bg-purple-500";
-      case "paused": return "bg-orange-500";
-      default: return "bg-gray-500";
-    }
+  const handleManualContentChange = (postId: string, content: string) => {
+    setManualContent(prev => ({
+      ...prev,
+      [postId]: content
+    }));
   };
 
   const activeCampaigns = campaigns?.filter(c => c.status === "active") || [];
-  const draftCampaigns = campaigns?.filter(c => c.status === "draft") || [];
-  const reviewCampaigns = campaigns?.filter(c => c.status === "review") || [];
+  const pendingApproval = approvalQueue || [];
 
   return (
     <div className="p-8 space-y-8">
@@ -197,25 +287,37 @@ export default function Campaigns() {
         <div>
           <h1 className="text-3xl font-bold text-foreground">Campaigns</h1>
           <p className="text-muted-foreground mt-2">
-            Create and manage automated content campaigns
+            Create 7-day automated campaigns with up to 14 posts
           </p>
         </div>
-        <Button onClick={() => setIsCreateDialogOpen(true)}>
+        <Button 
+          onClick={() => setIsCreateDialogOpen(true)}
+          disabled={!user?.isPaid}
+        >
           <PlusCircle className="w-4 h-4 mr-2" />
           New Campaign
         </Button>
       </div>
 
+      {!user?.isPaid && (
+        <Alert>
+          <CreditCard className="w-4 h-4" />
+          <AlertDescription>
+            Campaign creation requires a paid account. Upgrade to create automated campaigns.
+          </AlertDescription>
+        </Alert>
+      )}
+
       <Tabs defaultValue="active" className="space-y-6">
         <TabsList>
           <TabsTrigger value="active">
-            Active ({activeCampaigns.length})
+            Active Campaigns ({activeCampaigns.length})
           </TabsTrigger>
-          <TabsTrigger value="draft">
-            Drafts ({draftCampaigns.length})
+          <TabsTrigger value="approval">
+            Pending Approval ({pendingApproval.length})
           </TabsTrigger>
-          <TabsTrigger value="review">
-            Review ({reviewCampaigns.length})
+          <TabsTrigger value="calendar">
+            Campaign Calendar
           </TabsTrigger>
         </TabsList>
 
@@ -223,150 +325,280 @@ export default function Campaigns() {
           {activeCampaigns.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <Rocket className="w-12 h-12 text-muted-foreground mb-4" />
+                <CalendarIcon className="w-12 h-12 text-muted-foreground mb-4" />
                 <p className="text-muted-foreground">No active campaigns</p>
               </CardContent>
             </Card>
           ) : (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
               {activeCampaigns.map((campaign) => (
-                <CampaignCard
-                  key={campaign.id}
-                  campaign={campaign}
-                  onView={() => {
-                    setSelectedCampaign(campaign);
-                    setIsPreviewOpen(true);
-                  }}
-                  onStatusChange={(status) => 
-                    updateCampaignStatusMutation.mutate({ id: campaign.id, status })
-                  }
-                />
+                <Card key={campaign.id}>
+                  <CardHeader>
+                    <CardTitle>{campaign.name}</CardTitle>
+                    <CardDescription>
+                      {campaign.platforms.join(", ")}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-2">
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Progress</span>
+                        <span>{campaign.generationProgress || 0}%</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-muted-foreground">Posts</span>
+                        <span>{campaign.totalPosts || 14} total</span>
+                      </div>
+                      <Badge className="bg-green-500">Active</Badge>
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           )}
         </TabsContent>
 
-        <TabsContent value="draft" className="space-y-4">
-          {draftCampaigns.length === 0 ? (
+        <TabsContent value="approval" className="space-y-4">
+          {pendingApproval.length === 0 ? (
             <Card>
               <CardContent className="flex flex-col items-center justify-center py-12">
-                <Edit className="w-12 h-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No draft campaigns</p>
+                <CheckCircle className="w-12 h-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">No campaigns pending approval</p>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {draftCampaigns.map((campaign) => (
-                <CampaignCard
-                  key={campaign.id}
-                  campaign={campaign}
-                  onView={() => {
-                    setSelectedCampaign(campaign);
-                    setIsPreviewOpen(true);
-                  }}
-                  onGenerate={() => generateCampaignMutation.mutate(campaign.id)}
-                  onStatusChange={(status) => 
-                    updateCampaignStatusMutation.mutate({ id: campaign.id, status })
-                  }
-                />
+            <div className="space-y-4">
+              {pendingApproval.map((campaign) => (
+                <Card key={campaign.id}>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle>{campaign.name}</CardTitle>
+                        <CardDescription>
+                          {campaign.platforms.join(", ")} • 14 posts ready
+                        </CardDescription>
+                      </div>
+                      <Button 
+                        onClick={() => approveCampaignMutation.mutate(campaign.id)}
+                        className="bg-green-600 hover:bg-green-700"
+                      >
+                        <Play className="w-4 h-4 mr-2" />
+                        Approve & Start Campaign
+                      </Button>
+                    </div>
+                  </CardHeader>
+                </Card>
               ))}
             </div>
           )}
         </TabsContent>
 
-        <TabsContent value="review" className="space-y-4">
-          {reviewCampaigns.length === 0 ? (
+        <TabsContent value="calendar" className="space-y-4">
+          {selectedCampaign && campaignPosts.length > 0 ? (
             <Card>
-              <CardContent className="flex flex-col items-center justify-center py-12">
-                <Eye className="w-12 h-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground">No campaigns in review</p>
+              <CardHeader>
+                <CardTitle>{selectedCampaign.name} - 7 Day Calendar</CardTitle>
+                <CardDescription>
+                  Review and approve individual posts before launching the campaign
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="grid grid-cols-7 gap-4">
+                  {[...Array(7)].map((_, dayIndex) => {
+                    const dayPosts = campaignPosts.filter(p => p.day === dayIndex + 1);
+                    return (
+                      <div key={dayIndex} className="border rounded-lg p-4">
+                        <div className="font-semibold mb-3 text-center">
+                          Day {dayIndex + 1}
+                        </div>
+                        {dayPosts.map((post) => (
+                          <div key={post.id} className="mb-4 p-3 border rounded">
+                            <div className="text-xs text-muted-foreground mb-2">
+                              <Clock className="w-3 h-3 inline mr-1" />
+                              {format(post.scheduledTime, "h:mm a")}
+                            </div>
+                            
+                            {post.content ? (
+                              <p className="text-sm mb-2 line-clamp-3">{post.content}</p>
+                            ) : (
+                              <div className="space-y-2 mb-2">
+                                <Textarea
+                                  placeholder="Enter post content..."
+                                  value={manualContent[post.id] || ""}
+                                  onChange={(e) => handleManualContentChange(post.id, e.target.value)}
+                                  className="text-sm h-20"
+                                />
+                              </div>
+                            )}
+                            
+                            {post.imageUrl && (
+                              <img 
+                                src={post.imageUrl} 
+                                alt="Post" 
+                                className="w-full h-20 object-cover rounded mb-2"
+                              />
+                            )}
+                            
+                            {!post.imageUrl && uploadedImages[post.id] && (
+                              <img 
+                                src={uploadedImages[post.id]} 
+                                alt="Uploaded" 
+                                className="w-full h-20 object-cover rounded mb-2"
+                              />
+                            )}
+                            
+                            {form.watch("contentType") === "image" && !post.imageUrl && !uploadedImages[post.id] && (
+                              <div className="mb-2">
+                                <input
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={(e) => handleImageUpload(post.id, e)}
+                                  className="hidden"
+                                  id={`upload-${post.id}`}
+                                />
+                                <label htmlFor={`upload-${post.id}`}>
+                                  <Button variant="outline" size="sm" asChild>
+                                    <span>
+                                      <Upload className="w-3 h-3 mr-1" />
+                                      Upload
+                                    </span>
+                                  </Button>
+                                </label>
+                              </div>
+                            )}
+                            
+                            <div className="flex gap-1">
+                              {post.status === "pending" && (
+                                <>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={() => approvePostMutation.mutate({
+                                      campaignId: selectedCampaign.id,
+                                      postId: post.id
+                                    })}
+                                  >
+                                    <CheckCircle className="w-3 h-3" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={() => deletePostMutation.mutate({
+                                      campaignId: selectedCampaign.id,
+                                      postId: post.id
+                                    })}
+                                  >
+                                    <Trash2 className="w-3 h-3" />
+                                  </Button>
+                                </>
+                              )}
+                              {post.status === "approved" && (
+                                <Badge className="w-full justify-center bg-green-500">
+                                  <CheckCircle className="w-3 h-3 mr-1" />
+                                  Approved
+                                </Badge>
+                              )}
+                              {post.status === "deleted" && (
+                                <Badge className="w-full justify-center bg-red-500">
+                                  <XCircle className="w-3 h-3 mr-1" />
+                                  Deleted
+                                </Badge>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+                
+                <div className="mt-6 flex justify-end">
+                  <Button 
+                    onClick={() => approveCampaignMutation.mutate(selectedCampaign.id)}
+                    className="bg-green-600 hover:bg-green-700"
+                    disabled={campaignPosts.filter(p => p.status === "approved").length === 0}
+                  >
+                    <Play className="w-4 h-4 mr-2" />
+                    Send to Approval Queue
+                  </Button>
+                </div>
               </CardContent>
             </Card>
           ) : (
-            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-              {reviewCampaigns.map((campaign) => (
-                <CampaignCard
-                  key={campaign.id}
-                  campaign={campaign}
-                  onView={() => {
-                    setSelectedCampaign(campaign);
-                    setIsPreviewOpen(true);
-                  }}
-                  onStatusChange={(status) => 
-                    updateCampaignStatusMutation.mutate({ id: campaign.id, status })
-                  }
-                />
-              ))}
-            </div>
+            <Card>
+              <CardContent className="flex flex-col items-center justify-center py-12">
+                <CalendarIcon className="w-12 h-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground">Create a campaign to see the calendar view</p>
+              </CardContent>
+            </Card>
           )}
         </TabsContent>
       </Tabs>
 
       {/* Create Campaign Dialog */}
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
-        <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Create New Campaign</DialogTitle>
+            <DialogTitle>Create 7-Day Campaign</DialogTitle>
             <DialogDescription>
-              Set up an automated campaign that generates and schedules content
+              Generate 14 posts (2 per day) for a week-long campaign
             </DialogDescription>
           </DialogHeader>
 
+          {isGenerating && (
+            <Alert>
+              <Loader2 className="w-4 h-4 animate-spin" />
+              <AlertDescription>
+                <strong>Generating your campaign...</strong><br />
+                This may take a few minutes as we're creating 14 unique posts with AI.
+                {form.watch("contentType") === "image" && " Images are being generated for each post."}
+              </AlertDescription>
+            </Alert>
+          )}
+
           <Form {...form}>
             <form onSubmit={form.handleSubmit((data) => createCampaignMutation.mutate(data))} className="space-y-6">
-              <div className="grid grid-cols-2 gap-4">
-                <FormField
-                  control={form.control}
-                  name="name"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Campaign Name</FormLabel>
-                      <FormControl>
-                        <Input placeholder="Summer Sale Campaign" {...field} />
-                      </FormControl>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-
-                <FormField
-                  control={form.control}
-                  name="platform"
-                  render={({ field }) => (
-                    <FormItem>
-                      <FormLabel>Platform</FormLabel>
-                      <Select onValueChange={field.onChange} defaultValue={field.value}>
-                        <FormControl>
-                          <SelectTrigger>
-                            <SelectValue placeholder="Select platform" />
-                          </SelectTrigger>
-                        </FormControl>
-                        <SelectContent>
-                          <SelectItem value="Instagram">Instagram</SelectItem>
-                          <SelectItem value="Facebook">Facebook</SelectItem>
-                          <SelectItem value="X">X (Twitter)</SelectItem>
-                          <SelectItem value="LinkedIn">LinkedIn</SelectItem>
-                          <SelectItem value="TikTok">TikTok</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      <FormMessage />
-                    </FormItem>
-                  )}
-                />
-              </div>
+              <FormField
+                control={form.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Campaign Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="Summer Sale Campaign" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
 
               <FormField
                 control={form.control}
-                name="description"
+                name="platforms"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Description</FormLabel>
-                    <FormControl>
-                      <Textarea 
-                        placeholder="Describe your campaign objectives..." 
-                        {...field} 
-                      />
-                    </FormControl>
+                    <FormLabel>Platforms</FormLabel>
+                    <FormDescription>
+                      Select one or more platforms to post to
+                    </FormDescription>
+                    <div className="grid grid-cols-3 gap-4">
+                      {["Instagram", "Facebook", "X (Twitter)", "LinkedIn", "TikTok"].map((platform) => (
+                        <label key={platform} className="flex items-center space-x-2">
+                          <Checkbox
+                            checked={field.value?.includes(platform)}
+                            onCheckedChange={(checked) => {
+                              const updated = checked
+                                ? [...(field.value || []), platform]
+                                : (field.value || []).filter((p) => p !== platform);
+                              field.onChange(updated);
+                            }}
+                          />
+                          <span className="text-sm">{platform}</span>
+                        </label>
+                      ))}
+                    </div>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -392,7 +624,7 @@ export default function Campaigns() {
                   name="productName"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Product/Service Name</FormLabel>
+                      <FormLabel>Product/Service</FormLabel>
                       <FormControl>
                         <Input placeholder="Optional" {...field} />
                       </FormControl>
@@ -410,13 +642,10 @@ export default function Campaigns() {
                     <FormLabel>Target Audience</FormLabel>
                     <FormControl>
                       <Textarea 
-                        placeholder="Young professionals aged 25-40 interested in sustainable living..." 
+                        placeholder="Young professionals interested in tech..." 
                         {...field} 
                       />
                     </FormControl>
-                    <FormDescription>
-                      Describe your ideal customer demographics and interests
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
@@ -430,7 +659,7 @@ export default function Campaigns() {
                     <FormLabel>Campaign Goals</FormLabel>
                     <FormControl>
                       <Textarea 
-                        placeholder="Increase brand awareness, drive website traffic, generate leads..." 
+                        placeholder="Increase brand awareness, drive traffic..." 
                         {...field} 
                       />
                     </FormControl>
@@ -449,7 +678,7 @@ export default function Campaigns() {
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select tone" />
+                            <SelectValue />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
@@ -458,7 +687,6 @@ export default function Campaigns() {
                           <SelectItem value="casual">Casual</SelectItem>
                           <SelectItem value="inspirational">Inspirational</SelectItem>
                           <SelectItem value="humorous">Humorous</SelectItem>
-                          <SelectItem value="authoritative">Authoritative</SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -468,23 +696,25 @@ export default function Campaigns() {
 
                 <FormField
                   control={form.control}
-                  name="visualStyle"
+                  name="contentType"
                   render={({ field }) => (
                     <FormItem>
-                      <FormLabel>Visual Style</FormLabel>
+                      <FormLabel>Content Type</FormLabel>
                       <Select onValueChange={field.onChange} defaultValue={field.value}>
                         <FormControl>
                           <SelectTrigger>
-                            <SelectValue placeholder="Select style" />
+                            <SelectValue />
                           </SelectTrigger>
                         </FormControl>
                         <SelectContent>
-                          <SelectItem value="modern">Modern</SelectItem>
-                          <SelectItem value="minimalist">Minimalist</SelectItem>
-                          <SelectItem value="colorful">Colorful</SelectItem>
-                          <SelectItem value="vintage">Vintage</SelectItem>
-                          <SelectItem value="corporate">Corporate</SelectItem>
-                          <SelectItem value="artistic">Artistic</SelectItem>
+                          <SelectItem value="text">
+                            <FileText className="w-4 h-4 inline mr-2" />
+                            Text Only
+                          </SelectItem>
+                          <SelectItem value="image">
+                            <Image className="w-4 h-4 inline mr-2" />
+                            Image + Text
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                       <FormMessage />
@@ -495,54 +725,20 @@ export default function Campaigns() {
 
               <FormField
                 control={form.control}
-                name="colorScheme"
+                name="keyMessages"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Color Scheme</FormLabel>
+                    <FormLabel>Key Messages</FormLabel>
                     <FormControl>
-                      <Input placeholder="Blue and white, earth tones, vibrant rainbow..." {...field} />
+                      <Textarea 
+                        placeholder="Limited time offer, Free shipping, Premium quality..." 
+                        {...field} 
+                      />
                     </FormControl>
-                    <FormDescription>
-                      Describe your preferred color palette
-                    </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
-
-              <div>
-                <FormLabel>Key Messages</FormLabel>
-                <div className="flex gap-2 mt-2">
-                  <Input
-                    placeholder="Add a key message..."
-                    value={keyMessageInput}
-                    onChange={(e) => setKeyMessageInput(e.target.value)}
-                    onKeyPress={(e) => {
-                      if (e.key === "Enter") {
-                        e.preventDefault();
-                        handleAddKeyMessage();
-                      }
-                    }}
-                  />
-                  <Button type="button" onClick={handleAddKeyMessage}>
-                    Add
-                  </Button>
-                </div>
-                <div className="flex flex-wrap gap-2 mt-3">
-                  {form.watch("keyMessages").map((message, index) => (
-                    <Badge key={index} variant="secondary">
-                      {message}
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveKeyMessage(index)}
-                        className="ml-2 text-xs hover:text-destructive"
-                      >
-                        ×
-                      </button>
-                    </Badge>
-                  ))}
-                </div>
-              </div>
 
               <FormField
                 control={form.control}
@@ -551,7 +747,7 @@ export default function Campaigns() {
                   <FormItem>
                     <FormLabel>Call to Action</FormLabel>
                     <FormControl>
-                      <Input placeholder="Shop Now, Learn More, Sign Up Today..." {...field} />
+                      <Input placeholder="Shop Now, Learn More, Sign Up..." {...field} />
                     </FormControl>
                     <FormMessage />
                   </FormItem>
@@ -560,274 +756,126 @@ export default function Campaigns() {
 
               <FormField
                 control={form.control}
+                name="postingSchedule"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Posting Schedule</FormLabel>
+                    <RadioGroup onValueChange={field.onChange} defaultValue={field.value}>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="auto" id="auto" />
+                        <label htmlFor="auto" className="text-sm font-normal">
+                          Auto (posts at optimal times: 9 AM & 7 PM)
+                        </label>
+                      </div>
+                      <div className="flex items-center space-x-2">
+                        <RadioGroupItem value="manual" id="manual" />
+                        <label htmlFor="manual" className="text-sm font-normal">
+                          Manual (choose your times)
+                        </label>
+                      </div>
+                    </RadioGroup>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+
+              {form.watch("postingSchedule") === "manual" && (
+                <div className="space-y-2">
+                  <FormLabel>Manual Posting Times</FormLabel>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="text-sm text-muted-foreground">First Post Time</label>
+                      <div className="flex gap-2">
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          max="23" 
+                          placeholder="09"
+                          value={form.watch("manualTimes.0.hour")}
+                          onChange={(e) => form.setValue("manualTimes.0.hour", e.target.value)}
+                        />
+                        <span>:</span>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          max="59" 
+                          placeholder="00"
+                          value={form.watch("manualTimes.0.minute")}
+                          onChange={(e) => form.setValue("manualTimes.0.minute", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-sm text-muted-foreground">Second Post Time</label>
+                      <div className="flex gap-2">
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          max="23" 
+                          placeholder="19"
+                          value={form.watch("manualTimes.1.hour")}
+                          onChange={(e) => form.setValue("manualTimes.1.hour", e.target.value)}
+                        />
+                        <span>:</span>
+                        <Input 
+                          type="number" 
+                          min="0" 
+                          max="59" 
+                          placeholder="00"
+                          value={form.watch("manualTimes.1.minute")}
+                          onChange={(e) => form.setValue("manualTimes.1.minute", e.target.value)}
+                        />
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              <FormField
+                control={form.control}
                 name="startDate"
                 render={({ field }) => (
                   <FormItem>
-                    <FormLabel>Start Date</FormLabel>
+                    <FormLabel>Campaign Start Date</FormLabel>
                     <FormControl>
                       <Input type="date" {...field} />
                     </FormControl>
                     <FormDescription>
-                      Campaign will run for 7 days with 2 posts per day (14 total)
+                      Campaign will run for 7 days with 2 posts per day (14 total posts)
                     </FormDescription>
                     <FormMessage />
                   </FormItem>
                 )}
               />
 
+              <Alert>
+                <AlertCircle className="w-4 h-4" />
+                <AlertDescription>
+                  <strong>Note:</strong> Campaign creation may take several minutes as we generate 
+                  {form.watch("contentType") === "image" ? " 14 unique images and" : ""} 14 text captions 
+                  optimized for your selected platforms.
+                </AlertDescription>
+              </Alert>
+
               <DialogFooter>
                 <Button type="button" variant="outline" onClick={() => setIsCreateDialogOpen(false)}>
                   Cancel
                 </Button>
-                <Button type="submit" disabled={createCampaignMutation.isPending}>
-                  {createCampaignMutation.isPending && (
+                <Button 
+                  type="submit" 
+                  disabled={createCampaignMutation.isPending || isGenerating || !user?.isPaid}
+                >
+                  {(createCampaignMutation.isPending || isGenerating) && (
                     <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                   )}
-                  Create Campaign
+                  <Sparkles className="w-4 h-4 mr-2" />
+                  Generate Campaign (14 Credits)
                 </Button>
               </DialogFooter>
             </form>
           </Form>
         </DialogContent>
       </Dialog>
-
-      {/* Campaign Preview Dialog */}
-      {selectedCampaign && (
-        <CampaignPreviewDialog
-          campaign={selectedCampaign}
-          posts={campaignPosts || []}
-          isOpen={isPreviewOpen}
-          onClose={() => setIsPreviewOpen(false)}
-          onApprovePost={approvePostMutation.mutate}
-        />
-      )}
     </div>
   );
-}
-
-interface CampaignCardProps {
-  campaign: Campaign;
-  onView: () => void;
-  onGenerate?: () => void;
-  onStatusChange: (status: string) => void;
-}
-
-function CampaignCard({ campaign, onView, onGenerate, onStatusChange }: CampaignCardProps) {
-  return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-start justify-between">
-          <div>
-            <CardTitle className="text-lg">{campaign.name}</CardTitle>
-            <CardDescription className="mt-1">
-              {campaign.platform} • {campaign.postsPerDay * 7} posts
-            </CardDescription>
-          </div>
-          <Badge className={getCampaignStatusColor(campaign.status)}>
-            {campaign.status}
-          </Badge>
-        </div>
-      </CardHeader>
-      <CardContent>
-        <div className="space-y-3">
-          <div className="text-sm text-muted-foreground">
-            {campaign.description || "No description"}
-          </div>
-          
-          {campaign.status === "generating" && (
-            <Progress value={campaign.generationProgress} className="h-2" />
-          )}
-
-          <div className="flex items-center justify-between text-xs text-muted-foreground">
-            <span>Starts {format(new Date(campaign.startDate), "MMM d")}</span>
-            <span>{campaign.businessName}</span>
-          </div>
-
-          <div className="flex gap-2">
-            <Button size="sm" variant="outline" onClick={onView}>
-              <Eye className="w-4 h-4 mr-1" />
-              View
-            </Button>
-            
-            {campaign.status === "draft" && onGenerate && (
-              <Button size="sm" onClick={onGenerate}>
-                <Sparkles className="w-4 h-4 mr-1" />
-                Generate
-              </Button>
-            )}
-            
-            {campaign.status === "review" && (
-              <Button size="sm" onClick={() => onStatusChange("active")}>
-                <Play className="w-4 h-4 mr-1" />
-                Activate
-              </Button>
-            )}
-            
-            {campaign.status === "active" && (
-              <Button size="sm" variant="outline" onClick={() => onStatusChange("paused")}>
-                <Pause className="w-4 h-4 mr-1" />
-                Pause
-              </Button>
-            )}
-          </div>
-        </div>
-      </CardContent>
-    </Card>
-  );
-}
-
-interface CampaignPreviewDialogProps {
-  campaign: Campaign;
-  posts: Post[];
-  isOpen: boolean;
-  onClose: () => void;
-  onApprovePost: (postId: string) => void;
-}
-
-function CampaignPreviewDialog({ 
-  campaign, 
-  posts, 
-  isOpen, 
-  onClose, 
-  onApprovePost 
-}: CampaignPreviewDialogProps) {
-  const [editingPost, setEditingPost] = useState<string | null>(null);
-  const [editedContent, setEditedContent] = useState<{ [key: string]: string }>({});
-
-  const handleEditPost = (postId: string, content: string) => {
-    setEditingPost(postId);
-    setEditedContent({ ...editedContent, [postId]: content });
-  };
-
-  const handleSaveEdit = async (postId: string) => {
-    await apiRequest("PATCH", `/api/posts/${postId}`, {
-      content: editedContent[postId],
-    });
-    setEditingPost(null);
-    queryClient.invalidateQueries({ queryKey: ["/api/campaigns", campaign.id, "posts"] });
-  };
-
-  return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-6xl max-h-[90vh]">
-        <DialogHeader>
-          <DialogTitle>{campaign.name}</DialogTitle>
-          <DialogDescription>
-            Preview and manage campaign posts
-          </DialogDescription>
-        </DialogHeader>
-
-        <ScrollArea className="h-[60vh] pr-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            {posts.map((post, index) => (
-              <Card key={post.id}>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <CardTitle className="text-sm">
-                      Day {Math.floor(index / 2) + 1} - Post {(index % 2) + 1}
-                    </CardTitle>
-                    <Badge variant={post.status === "approved" ? "default" : "outline"}>
-                      {post.status}
-                    </Badge>
-                  </div>
-                  {post.scheduledFor && (
-                    <CardDescription>
-                      {format(new Date(post.scheduledFor), "MMM d, yyyy h:mm a")}
-                    </CardDescription>
-                  )}
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  {post.imageUrl && (
-                    <div className="aspect-square bg-muted rounded-lg flex items-center justify-center">
-                      {post.imageUrl.startsWith("placeholder://") ? (
-                        <div className="text-center p-4">
-                          <Palette className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-xs text-muted-foreground">Image will be generated</p>
-                        </div>
-                      ) : (
-                        <img 
-                          src={post.imageUrl} 
-                          alt="Post" 
-                          className="w-full h-full object-cover rounded-lg" 
-                        />
-                      )}
-                    </div>
-                  )}
-                  
-                  {editingPost === post.id ? (
-                    <div className="space-y-2">
-                      <Textarea
-                        value={editedContent[post.id] || post.content}
-                        onChange={(e) => setEditedContent({ 
-                          ...editedContent, 
-                          [post.id]: e.target.value 
-                        })}
-                        className="min-h-[100px]"
-                      />
-                      <div className="flex gap-2">
-                        <Button 
-                          size="sm" 
-                          onClick={() => handleSaveEdit(post.id)}
-                        >
-                          Save
-                        </Button>
-                        <Button 
-                          size="sm" 
-                          variant="outline"
-                          onClick={() => setEditingPost(null)}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  ) : (
-                    <div>
-                      <p className="text-sm">{post.content}</p>
-                      <div className="flex gap-2 mt-3">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => handleEditPost(post.id, post.content)}
-                        >
-                          <Edit className="w-3 h-3 mr-1" />
-                          Edit
-                        </Button>
-                        {post.status !== "approved" && (
-                          <Button
-                            size="sm"
-                            onClick={() => onApprovePost(post.id)}
-                          >
-                            <CheckCircle className="w-3 h-3 mr-1" />
-                            Approve
-                          </Button>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            ))}
-          </div>
-        </ScrollArea>
-
-        <DialogFooter>
-          <Button variant="outline" onClick={onClose}>
-            Close
-          </Button>
-        </DialogFooter>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
-function getCampaignStatusColor(status: string) {
-  switch (status) {
-    case "draft": return "";
-    case "generating": return "bg-blue-500";
-    case "review": return "bg-yellow-500";
-    case "active": return "bg-green-500";
-    case "completed": return "bg-purple-500";
-    case "paused": return "bg-orange-500";
-    default: return "";
-  }
 }

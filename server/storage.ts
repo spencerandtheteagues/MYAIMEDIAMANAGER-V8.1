@@ -6,6 +6,7 @@ export interface IStorage {
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
   
   // Platforms
   getPlatformsByUserId(userId: string): Promise<Platform[]>;
@@ -15,6 +16,7 @@ export interface IStorage {
   
   // Campaigns
   getCampaignsByUserId(userId: string): Promise<Campaign[]>;
+  getCampaignsByStatus(userId: string, status: string): Promise<Campaign[]>;
   getCampaign(id: string): Promise<Campaign | undefined>;
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | undefined>;
@@ -76,7 +78,8 @@ export class MemStorage implements IStorage {
       stripeSubscriptionId: null,
       createdAt: new Date(),
     };
-    this.users.set(demoUser.id, demoUser);
+    const demoUserWithPaid = { ...demoUser, isPaid: true } as User & { isPaid: boolean };
+    this.users.set(demoUser.id, demoUserWithPaid as any);
 
     // NO FAKE PLATFORMS - User must connect real platforms through OAuth
     // NO FAKE POSTS - All content must be created by user
@@ -109,6 +112,15 @@ export class MemStorage implements IStorage {
     };
     this.users.set(id, user);
     return user;
+  }
+
+  async updateUser(id: string, updates: Partial<User>): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    const updatedUser = { ...user, ...updates };
+    this.users.set(id, updatedUser);
+    return updatedUser;
   }
 
   // Platforms
@@ -151,6 +163,12 @@ export class MemStorage implements IStorage {
       .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
   }
 
+  async getCampaignsByStatus(userId: string, status: string): Promise<Campaign[]> {
+    return Array.from(this.campaigns.values())
+      .filter(campaign => campaign.userId === userId && campaign.status === status)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
   async getCampaign(id: string): Promise<Campaign | undefined> {
     return this.campaigns.get(id);
   }
@@ -160,7 +178,7 @@ export class MemStorage implements IStorage {
     const campaign: Campaign = {
       ...insertCampaign,
       id,
-      keyMessages: insertCampaign.keyMessages ?? [],
+      keyMessages: Array.isArray(insertCampaign.keyMessages) ? insertCampaign.keyMessages : [],
       generationProgress: 0,
       createdAt: new Date(),
       updatedAt: new Date(),
@@ -216,7 +234,7 @@ export class MemStorage implements IStorage {
       ...insertPost,
       id,
       publishedAt: null,
-      mediaUrls: insertPost.mediaUrls ?? [],
+      mediaUrls: Array.isArray(insertPost.mediaUrls) ? insertPost.mediaUrls : [],
       approvedBy: null,
       rejectionReason: null,
       engagementData: null,
@@ -253,7 +271,7 @@ export class MemStorage implements IStorage {
       id,
       userId: insertSuggestion.userId,
       prompt: insertSuggestion.prompt,
-      suggestions: insertSuggestion.suggestions,
+      suggestions: Array.isArray(insertSuggestion.suggestions) ? insertSuggestion.suggestions : [],
       selected: insertSuggestion.selected ?? null,
       createdAt: new Date(),
     };

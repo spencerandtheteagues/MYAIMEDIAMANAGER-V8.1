@@ -464,6 +464,208 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Campaign endpoints
+  app.get("/api/campaigns", async (req, res) => {
+    try {
+      const userId = "demo-user-1";
+      const campaigns = await storage.getCampaignsByUserId(userId);
+      res.json(campaigns);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get campaigns" });
+    }
+  });
+
+  app.get("/api/campaigns/approval-queue", async (req, res) => {
+    try {
+      const userId = "demo-user-1";
+      const campaigns = await storage.getCampaignsByStatus(userId, "pending_approval");
+      res.json(campaigns);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get approval queue" });
+    }
+  });
+
+  app.post("/api/campaigns", async (req, res) => {
+    try {
+      const userId = "demo-user-1";
+      const user = await storage.getUser(userId);
+      
+      // Check if user is paid
+      if (!user?.isPaid) {
+        return res.status(403).json({ message: "Campaign creation requires a paid account" });
+      }
+      
+      const campaignData = {
+        ...req.body,
+        userId,
+        status: "generating",
+        totalPosts: 14,
+        generationProgress: 0,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+      
+      const campaign = await storage.createCampaign(campaignData);
+      res.json(campaign);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to create campaign" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/generate-all", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const { posts, contentType, businessName, productName, targetAudience, brandTone, keyMessages, callToAction } = req.body;
+      
+      const generatedPosts = [];
+      
+      for (const post of posts) {
+        // Generate unique content for each post
+        const prompt = `Create a ${brandTone} social media post for ${businessName} ${productName || ''} 
+          targeting ${targetAudience}. Key messages: ${keyMessages}. 
+          Call to action: ${callToAction}. 
+          This is post ${post.slot} for day ${post.day} of a 7-day campaign.`;
+        
+        // Generate text content
+        const contentResult = await aiService.generateContent({
+          topic: prompt,
+          tone: brandTone,
+          platform: post.platforms[0],
+          includeHashtags: true,
+          includeEmojis: true,
+          length: "medium",
+        });
+        
+        let imageUrl = null;
+        if (contentType === "image") {
+          // Generate image for each post
+          const imageResult = await aiService.generateImage({
+            prompt: `${businessName} ${productName || ''} promotional image, ${brandTone} style`,
+            style: "modern",
+            aspectRatio: post.platforms[0] === "Instagram" ? "1:1" : "16:9",
+          });
+          imageUrl = imageResult.url;
+        }
+        
+        generatedPosts.push({
+          ...post,
+          content: contentResult[0],
+          imageUrl,
+        });
+        
+        // Update campaign progress
+        const progress = Math.round((generatedPosts.length / 14) * 100);
+        await storage.updateCampaign(id, { generationProgress: progress });
+      }
+      
+      // Save posts to storage
+      for (const post of generatedPosts) {
+        await storage.createPost({
+          userId: "demo-user-1",
+          campaignId: id,
+          content: post.content,
+          platforms: post.platforms,
+          status: "draft",
+          scheduledFor: post.scheduledTime,
+          mediaUrls: post.imageUrl ? [post.imageUrl] : [],
+          aiGenerated: true,
+          metadata: {
+            day: post.day,
+            slot: post.slot,
+            campaignPost: true,
+          }
+        });
+      }
+      
+      await storage.updateCampaign(id, { 
+        status: "review",
+        generationProgress: 100 
+      });
+      
+      res.json(generatedPosts);
+    } catch (error) {
+      console.error("Campaign generation error:", error);
+      res.status(500).json({ message: "Failed to generate campaign posts" });
+    }
+  });
+
+  app.patch("/api/campaigns/:campaignId/posts/:postId", async (req, res) => {
+    try {
+      const { postId } = req.params;
+      const { status } = req.body;
+      
+      const post = await storage.updatePost(postId, { status });
+      res.json(post);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update post" });
+    }
+  });
+
+  app.delete("/api/campaigns/:campaignId/posts/:postId", async (req, res) => {
+    try {
+      const { postId } = req.params;
+      await storage.deletePost(postId);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to delete post" });
+    }
+  });
+
+  app.post("/api/campaigns/:id/approve", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const userId = "demo-user-1";
+      
+      // Get all campaign posts
+      const posts = await storage.getPostsByCampaignId(id);
+      
+      // Check if there are approved posts
+      const approvedPosts = posts.filter(p => p.status === "approved");
+      if (approvedPosts.length === 0) {
+        return res.status(400).json({ message: "No approved posts in campaign" });
+      }
+      
+      // Deduct credits (14 credits for campaign)
+      const user = await storage.getUser(userId);
+      if (user && user.credits !== undefined && user.credits < 14) {
+        return res.status(403).json({ message: "Insufficient credits" });
+      }
+      
+      await storage.updateUser(userId, { 
+        credits: (user?.credits || 100) - 14 
+      });
+      
+      // Update campaign status to active
+      const campaign = await storage.updateCampaign(id, { 
+        status: "active",
+        startDate: new Date(),
+      });
+      
+      // Schedule all approved posts
+      for (const post of approvedPosts) {
+        await storage.updatePost(post.id, { 
+          status: "scheduled" 
+        });
+      }
+      
+      res.json(campaign);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to approve campaign" });
+    }
+  });
+
+  app.patch("/api/campaigns/:id", async (req, res) => {
+    try {
+      const { id } = req.params;
+      const updates = req.body;
+      
+      const campaign = await storage.updateCampaign(id, updates);
+      res.json(campaign);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to update campaign" });
+    }
+  });
+
   // X.com OAuth endpoints
   app.get("/api/platforms/x/connect", async (req, res) => {
     try {
