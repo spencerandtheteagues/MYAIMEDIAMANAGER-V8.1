@@ -1,12 +1,25 @@
-import { type User, type InsertUser, type Platform, type InsertPlatform, type Post, type InsertPost, type AiSuggestion, type InsertAiSuggestion, type Analytics, type InsertAnalytics, type Campaign, type InsertCampaign } from "@shared/schema";
+import { 
+  type User, type InsertUser, type UpsertUser,
+  type Platform, type InsertPlatform, 
+  type Post, type InsertPost, 
+  type AiSuggestion, type InsertAiSuggestion, 
+  type Analytics, type InsertAnalytics, 
+  type Campaign, type InsertCampaign,
+  type CreditTransaction, type InsertCreditTransaction,
+  type SubscriptionPlan, type InsertSubscriptionPlan,
+  type AdminAction, type InsertAdminAction
+} from "@shared/schema";
 import { randomUUID } from "crypto";
 
 export interface IStorage {
   // Users
   getUser(id: string): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
   updateUser(id: string, updates: Partial<User>): Promise<User | undefined>;
+  upsertUser(user: UpsertUser): Promise<User>;
+  getAllUsers(): Promise<User[]>;
   
   // Platforms
   getPlatformsByUserId(userId: string): Promise<Platform[]>;
@@ -39,6 +52,20 @@ export interface IStorage {
   getAnalyticsByUserId(userId: string): Promise<Analytics[]>;
   getAnalyticsByUserAndDateRange(userId: string, startDate: Date, endDate: Date): Promise<Analytics[]>;
   createAnalytics(analytics: InsertAnalytics): Promise<Analytics>;
+  
+  // Credit Transactions
+  getCreditTransactionsByUserId(userId: string): Promise<CreditTransaction[]>;
+  createCreditTransaction(transaction: InsertCreditTransaction): Promise<CreditTransaction>;
+  
+  // Subscription Plans
+  getSubscriptionPlans(): Promise<SubscriptionPlan[]>;
+  getSubscriptionPlanByTier(tier: string): Promise<SubscriptionPlan | undefined>;
+  createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan>;
+  updateSubscriptionPlan(id: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | undefined>;
+  
+  // Admin Actions
+  logAdminAction(action: InsertAdminAction): Promise<AdminAction>;
+  getAdminActionsByTargetUser(userId: string): Promise<AdminAction[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -48,6 +75,9 @@ export class MemStorage implements IStorage {
   private posts: Map<string, Post>;
   private aiSuggestions: Map<string, AiSuggestion>;
   private analytics: Map<string, Analytics>;
+  private creditTransactions: Map<string, CreditTransaction>;
+  private subscriptionPlans: Map<string, SubscriptionPlan>;
+  private adminActions: Map<string, AdminAction>;
 
   constructor() {
     this.users = new Map();
@@ -56,9 +86,13 @@ export class MemStorage implements IStorage {
     this.posts = new Map();
     this.aiSuggestions = new Map();
     this.analytics = new Map();
+    this.creditTransactions = new Map();
+    this.subscriptionPlans = new Map();
+    this.adminActions = new Map();
     
     // Initialize with demo user and data
     this.initializeDemoData();
+    this.initializeSubscriptionPlans();
   }
 
   private initializeDemoData() {
@@ -84,6 +118,92 @@ export class MemStorage implements IStorage {
     // NO FAKE PLATFORMS - User must connect real platforms through OAuth
     // NO FAKE POSTS - All content must be created by user
     // NO FAKE ANALYTICS - All metrics must come from real platform data
+  }
+
+  private initializeSubscriptionPlans() {
+    const plans: SubscriptionPlan[] = [
+      {
+        id: "plan-free",
+        tier: "free",
+        name: "Free Trial",
+        priceMonthly: "0",
+        creditsPerMonth: 50,
+        features: [
+          "50 free credits to start",
+          "Text post generation",
+          "Image generation (5 credits each)",
+          "Basic scheduling",
+          "Manual uploads only after credits expire"
+        ] as any,
+        stripePriceId: null,
+        maxCampaigns: 0,
+        hasVideoGeneration: false,
+        hasAiAssistant: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: "plan-starter",
+        tier: "starter",
+        name: "Starter",
+        priceMonthly: "29",
+        creditsPerMonth: 500,
+        features: [
+          "500 credits per month",
+          "All content types",
+          "Basic campaigns (up to 7 posts)",
+          "Priority support"
+        ] as any,
+        stripePriceId: null,
+        maxCampaigns: 5,
+        hasVideoGeneration: true,
+        hasAiAssistant: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: "plan-professional",
+        tier: "professional",
+        name: "Professional",
+        priceMonthly: "99",
+        creditsPerMonth: 2000,
+        features: [
+          "2000 credits per month",
+          "Advanced campaigns (up to 14 posts)",
+          "Analytics dashboard",
+          "Team collaboration",
+          "Priority support"
+        ] as any,
+        stripePriceId: null,
+        maxCampaigns: 20,
+        hasVideoGeneration: true,
+        hasAiAssistant: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      },
+      {
+        id: "plan-enterprise",
+        tier: "enterprise",
+        name: "Enterprise",
+        priceMonthly: "299",
+        creditsPerMonth: 999999999,
+        features: [
+          "Unlimited credits",
+          "Unlimited campaigns",
+          "Custom integrations",
+          "Dedicated support",
+          "Admin dashboard"
+        ] as any,
+        stripePriceId: null,
+        maxCampaigns: 999,
+        hasVideoGeneration: true,
+        hasAiAssistant: true,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      }
+    ];
+    
+    plans.forEach(plan => this.subscriptionPlans.set(plan.id, plan));
   }
 
   // Users
@@ -121,6 +241,57 @@ export class MemStorage implements IStorage {
     const updatedUser = { ...user, ...updates };
     this.users.set(id, updatedUser);
     return updatedUser;
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.email === email);
+  }
+
+  async upsertUser(upsertUser: UpsertUser): Promise<User> {
+    const existingUser = await this.getUser(upsertUser.id);
+    
+    if (existingUser) {
+      const updatedUser = { ...existingUser, ...upsertUser, updatedAt: new Date() };
+      this.users.set(upsertUser.id, updatedUser);
+      return updatedUser;
+    } else {
+      const newUser: User = {
+        id: upsertUser.id,
+        email: upsertUser.email ?? null,
+        username: upsertUser.email?.split('@')[0] ?? upsertUser.id,
+        password: null,
+        fullName: `${upsertUser.firstName || ''} ${upsertUser.lastName || ''}`.trim() || null,
+        businessName: null,
+        avatar: upsertUser.profileImageUrl ?? null,
+        googleAvatar: upsertUser.profileImageUrl ?? null,
+        firstName: upsertUser.firstName ?? null,
+        lastName: upsertUser.lastName ?? null,
+        profileImageUrl: upsertUser.profileImageUrl ?? null,
+        role: "user",
+        tier: "free",
+        credits: 50,
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        isAdmin: false,
+        accountStatus: "active",
+        subscriptionStatus: "trial",
+        freeCreditsUsed: false,
+        totalCreditsUsed: 0,
+        isPaid: false,
+        trialStartDate: new Date(),
+        trialEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastLoginAt: new Date()
+      };
+      this.users.set(newUser.id, newUser);
+      return newUser;
+    }
+  }
+
+  async getAllUsers(): Promise<User[]> {
+    return Array.from(this.users.values())
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
   }
 
   // Platforms
@@ -305,6 +476,83 @@ export class MemStorage implements IStorage {
     };
     this.analytics.set(id, analytics);
     return analytics;
+  }
+
+  // Credit Transactions
+  async getCreditTransactionsByUserId(userId: string): Promise<CreditTransaction[]> {
+    return Array.from(this.creditTransactions.values())
+      .filter(tx => tx.userId === userId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async createCreditTransaction(transaction: InsertCreditTransaction): Promise<CreditTransaction> {
+    const id = randomUUID();
+    const creditTransaction: CreditTransaction = {
+      ...transaction,
+      id,
+      createdAt: new Date(),
+    };
+    this.creditTransactions.set(id, creditTransaction);
+    
+    // Update user credits
+    const user = await this.getUser(transaction.userId);
+    if (user) {
+      await this.updateUser(transaction.userId, {
+        credits: (user.credits || 0) + transaction.amount
+      });
+    }
+    
+    return creditTransaction;
+  }
+
+  // Subscription Plans
+  async getSubscriptionPlans(): Promise<SubscriptionPlan[]> {
+    return Array.from(this.subscriptionPlans.values());
+  }
+
+  async getSubscriptionPlanByTier(tier: string): Promise<SubscriptionPlan | undefined> {
+    return Array.from(this.subscriptionPlans.values()).find(plan => plan.tier === tier);
+  }
+
+  async createSubscriptionPlan(plan: InsertSubscriptionPlan): Promise<SubscriptionPlan> {
+    const id = randomUUID();
+    const subscriptionPlan: SubscriptionPlan = {
+      ...plan,
+      id,
+      features: plan.features || [],
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.subscriptionPlans.set(id, subscriptionPlan);
+    return subscriptionPlan;
+  }
+
+  async updateSubscriptionPlan(id: string, updates: Partial<SubscriptionPlan>): Promise<SubscriptionPlan | undefined> {
+    const plan = this.subscriptionPlans.get(id);
+    if (!plan) return undefined;
+    
+    const updatedPlan = { ...plan, ...updates };
+    this.subscriptionPlans.set(id, updatedPlan);
+    return updatedPlan;
+  }
+
+  // Admin Actions
+  async logAdminAction(action: InsertAdminAction): Promise<AdminAction> {
+    const id = randomUUID();
+    const adminAction: AdminAction = {
+      ...action,
+      id,
+      details: action.details || null,
+      createdAt: new Date(),
+    };
+    this.adminActions.set(id, adminAction);
+    return adminAction;
+  }
+
+  async getAdminActionsByTargetUser(userId: string): Promise<AdminAction[]> {
+    return Array.from(this.adminActions.values())
+      .filter(action => action.targetUserId === userId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
   }
 }
 

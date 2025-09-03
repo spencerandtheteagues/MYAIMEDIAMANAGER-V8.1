@@ -61,6 +61,16 @@ router.post("/image", async (req, res) => {
       prompt,
       aspectRatio = "1:1",     // 1:1, 3:4, 4:3, 9:16, 16:9
       count = 1,               // up to 4
+      // Additional context for caption generation
+      businessName,
+      productName,
+      targetAudience,
+      brandTone,
+      keyMessages,
+      callToAction,
+      isAdvertisement,
+      additionalContext,
+      manualCaption,
     } = req.body || {};
 
     if (!ai) {
@@ -102,7 +112,44 @@ router.post("/image", async (req, res) => {
     });
 
     console.log(`Successfully generated ${images.length} images`);
-    res.json({ images, watermark: "SynthID" });
+    
+    // Generate AI caption if no manual caption provided
+    let caption = manualCaption || "";
+    if (!caption && ai) {
+      try {
+        // Build caption prompt based on context
+        let captionPrompt = "Generate a social media caption for an image about: ";
+        
+        if (isAdvertisement) {
+          captionPrompt = `Create a compelling ${brandTone || 'professional'} advertisement caption for ${businessName || 'a business'}. `;
+          if (productName) captionPrompt += `Product: ${productName}. `;
+          if (targetAudience) captionPrompt += `Target audience: ${targetAudience}. `;
+          if (keyMessages) captionPrompt += `Key messages: ${keyMessages}. `;
+          if (callToAction) captionPrompt += `Call to action: ${callToAction}. `;
+          captionPrompt += "Make it engaging and conversion-focused. Include relevant emojis and hashtags.";
+        } else {
+          // Personal content
+          captionPrompt = `Create a ${brandTone || 'casual'} social media caption. Context: ${prompt}. `;
+          if (additionalContext) captionPrompt += additionalContext;
+          captionPrompt += " Make it authentic and engaging. Include relevant emojis and hashtags.";
+        }
+        
+        const captionResult = await (ai.models as any).generateContent({
+          model: "gemini-pro",
+          contents: captionPrompt
+        });
+        
+        caption = captionResult.text || captionResult.response?.text || "";
+      } catch (captionErr) {
+        console.error("Caption generation error:", captionErr);
+        // Fallback caption
+        caption = isAdvertisement 
+          ? `✨ ${businessName || 'Amazing'} ${productName || 'product'} ${callToAction || 'available now'}! #business #quality`
+          : `📸 ${prompt || 'Beautiful moment'} #photography #life`;
+      }
+    }
+    
+    res.json({ images, caption, watermark: "SynthID" });
   } catch (e: any) {
     console.error("IMAGE ERR", e);
     
@@ -138,7 +185,21 @@ router.post("/image", async (req, res) => {
 // IMPORTANT: Veo returns a long-running operation you must poll.
 router.post("/video/start", async (req, res) => {
   try {
-    const { prompt, aspectRatio = "16:9", fast = true } = req.body || {};
+    const { 
+      prompt, 
+      aspectRatio = "16:9", 
+      fast = true,
+      // Additional context for caption generation
+      businessName,
+      productName,
+      targetAudience,
+      brandTone,
+      keyMessages,
+      callToAction,
+      isAdvertisement,
+      additionalContext,
+      manualCaption,
+    } = req.body || {};
     const model = fast ? "veo-3.0-fast-generate-001" : "veo-3.0-generate-001";
 
     if (!ai) {
@@ -157,7 +218,49 @@ router.post("/video/start", async (req, res) => {
     });
 
     console.log("Video generation started with operation:", (op as any).name || (op as any).operation);
-    res.json({ operationName: (op as any).name || (op as any).operation || "" });
+    
+    // Generate AI caption for video
+    let caption = manualCaption || "";
+    if (!caption && ai) {
+      try {
+        let captionPrompt = "Generate a social media caption for a video about: ";
+        
+        if (isAdvertisement) {
+          captionPrompt = `Create a compelling ${brandTone || 'professional'} video advertisement caption for ${businessName || 'a business'}. `;
+          if (productName) captionPrompt += `Product: ${productName}. `;
+          if (targetAudience) captionPrompt += `Target audience: ${targetAudience}. `;
+          if (keyMessages) captionPrompt += `Key messages: ${keyMessages}. `;
+          if (callToAction) captionPrompt += `Call to action: ${callToAction}. `;
+          captionPrompt += "Make it dynamic, engaging and conversion-focused. Include relevant emojis, hashtags, and encourage viewers to watch.";
+        } else {
+          captionPrompt = `Create a ${brandTone || 'casual'} social media video caption. Context: ${prompt}. `;
+          if (additionalContext) captionPrompt += additionalContext;
+          captionPrompt += " Make it authentic, engaging, and encourage viewers to watch. Include relevant emojis and hashtags.";
+        }
+        
+        const captionResult = await (ai.models as any).generateContent({
+          model: "gemini-pro",
+          contents: captionPrompt
+        });
+        
+        caption = captionResult.text || captionResult.response?.text || "";
+      } catch (captionErr) {
+        console.error("Video caption generation error:", captionErr);
+        caption = isAdvertisement 
+          ? `🎬 ${businessName || 'Exciting'} ${productName || 'announcement'}! ${callToAction || 'Watch now'}! #video #business`
+          : `🎥 ${prompt || 'Check this out'} #video #content`;
+      }
+    }
+    
+    // Store caption with operation for later retrieval
+    if ((global as any).videoOperations) {
+      const opName = (op as any).name || (op as any).operation || "";
+      if ((global as any).videoOperations[opName]) {
+        (global as any).videoOperations[opName].caption = caption;
+      }
+    }
+    
+    res.json({ operationName: (op as any).name || (op as any).operation || "", caption });
   } catch (e: any) {
     console.error("VIDEO START ERR", e);
     

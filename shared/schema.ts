@@ -1,23 +1,60 @@
 import { sql } from "drizzle-orm";
-import { pgTable, text, varchar, timestamp, boolean, json, integer, real, date } from "drizzle-orm/pg-core";
+import { pgTable, text, varchar, timestamp, boolean, json, jsonb, integer, real, date, index, decimal } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
+// Session storage table for Replit Auth
+export const sessions = pgTable(
+  "sessions",
+  {
+    sid: varchar("sid").primaryKey(),
+    sess: jsonb("sess").notNull(),
+    expire: timestamp("expire").notNull(),
+  },
+  (table) => [index("IDX_session_expire").on(table.expire)],
+);
+
 export const users = pgTable("users", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  // Authentication fields
+  email: text("email").unique(),
   username: text("username").notNull().unique(),
-  password: text("password").notNull(),
-  fullName: text("full_name").notNull(),
+  password: text("password"),
+  firstName: text("first_name"),
+  lastName: text("last_name"),
+  fullName: text("full_name"),
+  profileImageUrl: text("profile_image_url"),
+  
+  // Business info
   businessName: text("business_name"),
   avatar: text("avatar"),
   googleAvatar: text("google_avatar"),
+  
+  // Roles and status
   role: text("role").notNull().default("user"), // admin, user
-  tier: text("tier").notNull().default("free"), // free, starter, professional, enterprise
-  credits: integer("credits").notNull().default(50),
+  isAdmin: boolean("is_admin").notNull().default(false),
+  accountStatus: text("account_status").notNull().default("active"), // active, frozen, deleted
+  
+  // Subscription and billing
+  tier: text("tier").notNull().default("free"), // free, starter, professional, enterprise, pay_as_you_go
+  subscriptionStatus: text("subscription_status").notNull().default("trial"), // trial, active, cancelled, expired
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
+  
+  // Credits system
+  credits: integer("credits").notNull().default(50),
+  freeCreditsUsed: boolean("free_credits_used").notNull().default(false),
+  totalCreditsUsed: integer("total_credits_used").notNull().default(0),
+  
+  // Trial tracking
+  trialStartDate: timestamp("trial_start_date").defaultNow(),
+  trialEndDate: timestamp("trial_end_date").default(sql`NOW() + INTERVAL '7 days'`),
   isPaid: boolean("is_paid").notNull().default(false),
+  
+  // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+  lastLoginAt: timestamp("last_login_at"),
 });
 
 export const platforms = pgTable("platforms", {
@@ -185,11 +222,50 @@ export const insertAnalyticsSchema = createInsertSchema(analytics).pick({
   date: true,
 });
 
+// Credit transactions table
+export const creditTransactions = pgTable("credit_transactions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id),
+  amount: integer("amount").notNull(), // Positive for additions, negative for usage
+  type: text("type").notNull(), // purchase, usage, refund, admin_adjustment, bonus
+  description: text("description"),
+  stripePaymentIntentId: text("stripe_payment_intent_id"),
+  createdAt: timestamp("created_at").defaultNow(),
+  createdBy: varchar("created_by"), // Admin user ID if admin adjustment
+});
+
+// Subscription plans table
+export const subscriptionPlans = pgTable("subscription_plans", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  name: text("name").notNull(),
+  tier: text("tier").notNull(), // starter, professional, enterprise
+  priceMonthly: decimal("price_monthly", { precision: 10, scale: 2 }).notNull(),
+  creditsPerMonth: integer("credits_per_month").notNull(),
+  features: jsonb("features").notNull().default([]), // Array of feature strings
+  stripePriceId: text("stripe_price_id"),
+  maxCampaigns: integer("max_campaigns").default(0),
+  hasVideoGeneration: boolean("has_video_generation").default(false),
+  hasAiAssistant: boolean("has_ai_assistant").default(true),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
+// Admin actions log
+export const adminActions = pgTable("admin_actions", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  adminUserId: varchar("admin_user_id").references(() => users.id),
+  targetUserId: varchar("target_user_id").references(() => users.id),
+  action: text("action").notNull(), // add_credits, remove_credits, freeze_account, delete_account, change_tier, process_refund
+  details: jsonb("details"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Types
 export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type UpsertUser = typeof users.$inferInsert;
 export type UserRole = "admin" | "user";
-export type UserTier = "free" | "starter" | "professional" | "enterprise";
+export type UserTier = "free" | "starter" | "professional" | "enterprise" | "pay_as_you_go";
 export type Platform = typeof platforms.$inferSelect;
 export type InsertPlatform = z.infer<typeof insertPlatformSchema>;
 export type Campaign = typeof campaigns.$inferSelect;
@@ -200,3 +276,9 @@ export type AiSuggestion = typeof aiSuggestions.$inferSelect;
 export type InsertAiSuggestion = z.infer<typeof insertAiSuggestionSchema>;
 export type Analytics = typeof analytics.$inferSelect;
 export type InsertAnalytics = z.infer<typeof insertAnalyticsSchema>;
+export type CreditTransaction = typeof creditTransactions.$inferSelect;
+export type InsertCreditTransaction = typeof creditTransactions.$inferInsert;
+export type SubscriptionPlan = typeof subscriptionPlans.$inferSelect;
+export type InsertSubscriptionPlan = typeof subscriptionPlans.$inferInsert;
+export type AdminAction = typeof adminActions.$inferSelect;
+export type InsertAdminAction = typeof adminActions.$inferInsert;

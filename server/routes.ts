@@ -6,14 +6,40 @@ import { z } from "zod";
 import { aiService } from "./ai-service";
 import aiRoutes from "./aiRoutes";
 import { generateXAuthUrl, handleXOAuthCallback, postToXWithOAuth } from "./x-oauth";
+import { setupAuth, isAuthenticated } from "./replitAuth";
+import stripeRoutes from "./stripeRoutes";
+import adminRoutes from "./adminRoutes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth middleware
+  await setupAuth(app);
+  
   // Wire up the new AI routes exactly as specified
-  app.use("/api/ai", aiRoutes);
-  // Get current user (demo user for now)
-  app.get("/api/user", async (req, res) => {
+  app.use("/api/ai", isAuthenticated, aiRoutes);
+  
+  // Wire up Stripe billing routes
+  app.use("/api/billing", stripeRoutes);
+  
+  // Wire up admin routes
+  app.use("/api/admin", adminRoutes);
+  
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
     try {
-      const user = await storage.getUser("demo-user-1");
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+  
+  // Get current user (authenticated version)
+  app.get("/api/user", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -24,9 +50,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get connected platforms status - REAL CONNECTION STATUS
-  app.get("/api/platforms", async (req, res) => {
+  app.get("/api/platforms", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = "demo-user-1";
+      const userId = req.user.claims.sub;
       const platforms = await storage.getPlatformsByUserId(userId);
       
       // Return REAL platform connection status
@@ -46,15 +72,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
 
   // Get user's posts
-  app.get("/api/posts", async (req, res) => {
+  app.get("/api/posts", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const { status } = req.query;
       let posts;
       
       if (status && typeof status === "string") {
-        posts = await storage.getPostsByStatus("demo-user-1", status);
+        posts = await storage.getPostsByStatus(userId, status);
       } else {
-        posts = await storage.getPostsByUserId("demo-user-1");
+        posts = await storage.getPostsByUserId(userId);
       }
       
       res.json(posts);
@@ -64,9 +91,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get draft posts
-  app.get("/api/posts/draft", async (req, res) => {
+  app.get("/api/posts/draft", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = "demo-user-1";
+      const userId = req.user.claims.sub;
       const posts = await storage.getPostsByStatus(userId, "draft");
       res.json(posts);
     } catch (error) {
@@ -75,9 +102,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get campaigns
-  app.get("/api/campaigns", async (req, res) => {
+  app.get("/api/campaigns", isAuthenticated, async (req: any, res) => {
     try {
-      const campaigns = await storage.getCampaignsByUserId("demo-user-1");
+      const userId = req.user.claims.sub;
+      const campaigns = await storage.getCampaignsByUserId(userId);
       res.json(campaigns);
     } catch (error) {
       res.status(500).json({ message: "Failed to get campaigns" });
@@ -85,7 +113,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get campaign by ID
-  app.get("/api/campaigns/:id", async (req, res) => {
+  app.get("/api/campaigns/:id", isAuthenticated, async (req: any, res) => {
     try {
       const campaign = await storage.getCampaign(req.params.id);
       if (!campaign) {
@@ -98,7 +126,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get posts for a campaign
-  app.get("/api/campaigns/:id/posts", async (req, res) => {
+  app.get("/api/campaigns/:id/posts", isAuthenticated, async (req: any, res) => {
     try {
       const posts = await storage.getPostsByCampaignId(req.params.id);
       res.json(posts);
@@ -108,11 +136,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create campaign
-  app.post("/api/campaigns", async (req, res) => {
+  app.post("/api/campaigns", isAuthenticated, async (req: any, res) => {
     try {
+      const userId = req.user.claims.sub;
       const campaignData = insertCampaignSchema.parse({
         ...req.body,
-        userId: "demo-user-1",
+        userId,
         startDate: req.body.startDate,
         endDate: req.body.endDate || new Date(new Date(req.body.startDate).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
       });
@@ -128,7 +157,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update campaign
-  app.patch("/api/campaigns/:id", async (req, res) => {
+  app.patch("/api/campaigns/:id", isAuthenticated, async (req: any, res) => {
     try {
       const campaign = await storage.updateCampaign(req.params.id, req.body);
       if (!campaign) {
@@ -141,7 +170,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate campaign content
-  app.post("/api/campaigns/:id/generate", async (req, res) => {
+  app.post("/api/campaigns/:id/generate", isAuthenticated, async (req: any, res) => {
     try {
       const campaign = await storage.getCampaign(req.params.id);
       if (!campaign) {
@@ -234,9 +263,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new post
-  app.post("/api/posts", async (req, res) => {
+  app.post("/api/posts", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = "demo-user-1"; // In production, get from session
+      const userId = req.user.claims.sub;
       
       // Extract media URLs from the request
       const mediaUrls = [];
@@ -281,7 +310,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update post
-  app.patch("/api/posts/:id", async (req, res) => {
+  app.patch("/api/posts/:id", isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -303,7 +332,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete post
-  app.delete("/api/posts/:id", async (req, res) => {
+  app.delete("/api/posts/:id", isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
       const deleted = await storage.deletePost(id);
@@ -319,7 +348,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Publish a post immediately
-  app.post("/api/posts/:id/publish", async (req, res) => {
+  app.post("/api/posts/:id/publish", isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
       const post = await storage.getPost(id);
@@ -344,7 +373,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate AI content suggestions
-  app.post("/api/ai/suggestions", async (req, res) => {
+  app.post("/api/ai/suggestions", isAuthenticated, async (req: any, res) => {
     try {
       const { prompt } = req.body;
       
@@ -356,7 +385,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const suggestions = await generateAISuggestions(prompt);
       
       const aiSuggestion = await storage.createAiSuggestion({
-        userId: "demo-user-1",
+        userId: req.user.claims.sub,
         prompt,
         suggestions,
         selected: false,
@@ -369,7 +398,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate AI content with enhanced parameters
-  app.post("/api/ai/generate", async (req, res) => {
+  app.post("/api/ai/generate", isAuthenticated, async (req: any, res) => {
     try {
       const {
         topic,
@@ -442,9 +471,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get dashboard analytics - REAL DATA ONLY
-  app.get("/api/analytics/dashboard", async (req, res) => {
+  app.get("/api/analytics/dashboard", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = "demo-user-1";
+      const userId = req.user.claims.sub;
       
       // Get REAL data from storage
       const [posts, platforms] = await Promise.all([
@@ -506,9 +535,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Campaign endpoints
-  app.get("/api/campaigns", async (req, res) => {
+  app.get("/api/campaigns", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = "demo-user-1";
+      const userId = req.user.claims.sub;
       const campaigns = await storage.getCampaignsByUserId(userId);
       res.json(campaigns);
     } catch (error) {
@@ -516,9 +545,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.get("/api/campaigns/approval-queue", async (req, res) => {
+  app.get("/api/campaigns/approval-queue", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = "demo-user-1";
+      const userId = req.user.claims.sub;
       const campaigns = await storage.getCampaignsByStatus(userId, "pending_approval");
       res.json(campaigns);
     } catch (error) {
@@ -526,9 +555,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/campaigns", async (req, res) => {
+  app.post("/api/campaigns", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = "demo-user-1";
+      const userId = req.user.claims.sub;
       const user = await storage.getUser(userId);
       
       // Check if user is paid
@@ -553,7 +582,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/campaigns/:id/generate-all", async (req, res) => {
+  app.post("/api/campaigns/:id/generate-all", isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
       const { posts, contentType, businessName, productName, targetAudience, brandTone, keyMessages, callToAction } = req.body;
@@ -602,7 +631,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Save posts to storage
       for (const post of generatedPosts) {
         await storage.createPost({
-          userId: "demo-user-1",
+          userId: req.user.claims.sub,
           campaignId: id,
           content: post.content,
           platforms: post.platforms,
@@ -630,7 +659,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/campaigns/:campaignId/posts/:postId", async (req, res) => {
+  app.patch("/api/campaigns/:campaignId/posts/:postId", isAuthenticated, async (req: any, res) => {
     try {
       const { postId } = req.params;
       const { status } = req.body;
@@ -642,7 +671,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/campaigns/:campaignId/posts/:postId", async (req, res) => {
+  app.delete("/api/campaigns/:campaignId/posts/:postId", isAuthenticated, async (req: any, res) => {
     try {
       const { postId } = req.params;
       await storage.deletePost(postId);
@@ -652,10 +681,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/campaigns/:id/approve", async (req, res) => {
+  app.post("/api/campaigns/:id/approve", isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
-      const userId = "demo-user-1";
+      const userId = req.user.claims.sub;
       
       // Get all campaign posts
       const posts = await storage.getPostsByCampaignId(id);
@@ -695,7 +724,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/campaigns/:id", async (req, res) => {
+  app.patch("/api/campaigns/:id", isAuthenticated, async (req: any, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -708,9 +737,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // X.com OAuth endpoints
-  app.get("/api/platforms/x/connect", async (req, res) => {
+  app.get("/api/platforms/x/connect", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = "demo-user-1"; // In production, get from session
+      const userId = req.user.claims.sub; // In production, get from session
       const { url, state, codeVerifier } = generateXAuthUrl(userId);
       
       // In production, store codeVerifier securely (session/database)
@@ -726,7 +755,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OAuth callback endpoint
-  app.get("/api/auth/x/callback", async (req, res) => {
+  app.get("/api/auth/x/callback", isAuthenticated, async (req: any, res) => {
     try {
       const { code, state } = req.query;
       // In production, get codeVerifier from session
@@ -754,7 +783,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Post to X endpoint
-  app.post("/api/platforms/x/post", async (req, res) => {
+  app.post("/api/platforms/x/post", isAuthenticated, async (req: any, res) => {
     try {
       const { content, platformId } = req.body;
       

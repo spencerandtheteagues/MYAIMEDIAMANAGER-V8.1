@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -22,6 +23,10 @@ import PlatformSelector from "../components/content/platform-selector";
 import AiSuggestions from "../components/content/ai-suggestions";
 
 export default function CreateContent() {
+  const [location] = useLocation();
+  const urlParams = new URLSearchParams(location.split('?')[1] || '');
+  const typeParam = urlParams.get('type');
+  
   const [content, setContent] = useState("");
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>(["Instagram", "Facebook"]);
   const [scheduleOption, setScheduleOption] = useState("approval");
@@ -29,8 +34,8 @@ export default function CreateContent() {
   const [aiSuggestions, setAiSuggestions] = useState<string[]>([]);
   
   
-  // Content type selection
-  const [contentType, setContentType] = useState("text-image");
+  // Content type selection - initialize from URL param if present
+  const [contentType, setContentType] = useState(typeParam || "text-image");
   
   // Enhanced AI input fields
   const [businessName, setBusinessName] = useState("");
@@ -74,6 +79,8 @@ export default function CreateContent() {
   const [generatedVideo, setGeneratedVideo] = useState<string | null>(null);
   const [uploadedImage, setUploadedImage] = useState<string | null>(null);
   const [uploadedVideo, setUploadedVideo] = useState<string | null>(null);
+  const [generatedImageCaption, setGeneratedImageCaption] = useState<string>("");
+  const [generatedVideoCaption, setGeneratedVideoCaption] = useState<string>("");
   
   // File input refs
   const imageInputRef = useRef<HTMLInputElement>(null);
@@ -81,6 +88,13 @@ export default function CreateContent() {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Update content type when URL param changes
+  useEffect(() => {
+    if (typeParam && ['text', 'text-image', 'text-video'].includes(typeParam)) {
+      setContentType(typeParam);
+    }
+  }, [typeParam]);
 
 
   const createPostMutation = useMutation({
@@ -156,7 +170,16 @@ export default function CreateContent() {
         prompt: prompt.trim(),
         aspectRatio: aspectRatioMap[selectedPlatforms[0]] || "1:1",
         count: 1,
-        negativePrompt: "blurry, watermark, low quality"
+        // Send all context fields for caption generation
+        businessName,
+        productName,
+        targetAudience,
+        brandTone,
+        keyMessages,
+        callToAction,
+        isAdvertisement,
+        additionalContext,
+        manualCaption: content, // Use existing content as manual caption if provided
       });
       return response.json();
     },
@@ -164,9 +187,16 @@ export default function CreateContent() {
       if (data.images && data.images[0]) {
         setGeneratedImage(data.images[0]);
       }
+      if (data.caption) {
+        setGeneratedImageCaption(data.caption);
+        // If no manual content was entered, use the generated caption
+        if (!content) {
+          setContent(data.caption);
+        }
+      }
       toast({
         title: "Image Generated",
-        description: "AI has created a custom image for your content (SynthID watermarked)",
+        description: "AI has created a custom image with caption",
       });
     },
     onError: (error: any) => {
@@ -186,13 +216,32 @@ export default function CreateContent() {
       
       const aspectRatio = selectedPlatforms[0] === "TikTok" ? "9:16" : "16:9";
       
-      // Start video generation
+      // Start video generation with all context
       const startResponse = await apiRequest("POST", "/api/ai/video/start", {
         prompt: prompt.trim(),
         aspectRatio,
         fast: true, // Use fast model for quicker generation
+        // Send all context fields for caption generation
+        businessName,
+        productName,
+        targetAudience,
+        brandTone,
+        keyMessages,
+        callToAction,
+        isAdvertisement,
+        additionalContext,
+        manualCaption: content, // Use existing content as manual caption if provided
       });
-      const { operationName } = await startResponse.json();
+      const { operationName, caption } = await startResponse.json();
+      
+      // Store caption immediately
+      if (caption) {
+        setGeneratedVideoCaption(caption);
+        // If no manual content was entered, use the generated caption
+        if (!content) {
+          setContent(caption);
+        }
+      }
       
       // Show initial toast
       toast({
@@ -292,6 +341,8 @@ export default function CreateContent() {
     setGeneratedVideo(null);
     setUploadedImage(null);
     setUploadedVideo(null);
+    setGeneratedImageCaption("");
+    setGeneratedVideoCaption("");
   };
 
   const handleSubmit = () => {
@@ -934,6 +985,13 @@ export default function CreateContent() {
                   {/* Image Preview Box */}
                   {(generatedImage || uploadedImage) && (
                     <div className="border border-primary/30 rounded-lg p-4 bg-background/50">
+                      {/* Display AI-generated caption if available */}
+                      {generatedImageCaption && (
+                        <div className="mb-4 p-3 bg-primary/10 rounded-lg">
+                          <Label className="text-xs text-primary mb-1 block">AI-Generated Caption</Label>
+                          <p className="text-sm text-foreground">{generatedImageCaption}</p>
+                        </div>
+                      )}
                       <div className="flex justify-between items-center mb-3">
                         <Label className="text-sm">Image Preview</Label>
                         <div className="flex gap-2">
@@ -1235,6 +1293,13 @@ export default function CreateContent() {
                   {/* Video Preview Box */}
                   {(generatedVideo || uploadedVideo) && (
                     <div className="border border-primary/30 rounded-lg p-4 bg-background/50">
+                      {/* Display AI-generated caption if available */}
+                      {generatedVideoCaption && (
+                        <div className="mb-4 p-3 bg-primary/10 rounded-lg">
+                          <Label className="text-xs text-primary mb-1 block">AI-Generated Caption</Label>
+                          <p className="text-sm text-foreground">{generatedVideoCaption}</p>
+                        </div>
+                      )}
                       <div className="flex justify-between items-center mb-3">
                         <Label className="text-sm">Video Preview</Label>
                         <div className="flex gap-2">

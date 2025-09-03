@@ -1,13 +1,24 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { ChevronLeft, ChevronRight, Plus, Edit, Trash2 } from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { ChevronLeft, ChevronRight, Plus, Edit, Trash2, Clock, Archive } from "lucide-react";
 import type { Post } from "@shared/schema";
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [location, setLocation] = useLocation();
+  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
   
   const { data: scheduledPosts } = useQuery<Post[]>({
     queryKey: ["/api/posts", "scheduled"],
@@ -117,10 +128,60 @@ export default function Calendar() {
                   <ChevronRight className="w-4 h-4" />
                 </Button>
               </div>
-              <Button>
-                <Plus className="w-4 h-4 mr-2" />
-                Schedule Post
-              </Button>
+              <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
+                <DialogTrigger asChild>
+                  <Button>
+                    <Plus className="w-4 h-4 mr-2" />
+                    Schedule Post
+                  </Button>
+                </DialogTrigger>
+                <DialogContent>
+                  <DialogHeader>
+                    <DialogTitle>Schedule Content</DialogTitle>
+                    <DialogDescription>
+                      Choose where to select content from
+                    </DialogDescription>
+                  </DialogHeader>
+                  <div className="space-y-3 mt-4">
+                    <Button
+                      className="w-full justify-start"
+                      variant="outline"
+                      onClick={() => {
+                        setShowScheduleDialog(false);
+                        setLocation('/approval');
+                      }}
+                    >
+                      <Clock className="w-4 h-4 mr-2" />
+                      From Approval Queue
+                      <span className="ml-auto text-xs text-muted-foreground">Pending posts</span>
+                    </Button>
+                    <Button
+                      className="w-full justify-start"
+                      variant="outline"
+                      onClick={() => {
+                        setShowScheduleDialog(false);
+                        setLocation('/library');
+                      }}
+                    >
+                      <Archive className="w-4 h-4 mr-2" />
+                      From Content Library
+                      <span className="ml-auto text-xs text-muted-foreground">Saved drafts</span>
+                    </Button>
+                    <Button
+                      className="w-full justify-start"
+                      variant="outline"
+                      onClick={() => {
+                        setShowScheduleDialog(false);
+                        setLocation('/create');
+                      }}
+                    >
+                      <Plus className="w-4 h-4 mr-2" />
+                      Create New Post
+                      <span className="ml-auto text-xs text-muted-foreground">Start fresh</span>
+                    </Button>
+                  </div>
+                </DialogContent>
+              </Dialog>
             </div>
           </div>
         </CardHeader>

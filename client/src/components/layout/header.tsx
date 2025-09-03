@@ -120,7 +120,7 @@ export default function Header() {
               <DropdownMenuSeparator />
               <DropdownMenuItem 
                 onClick={() => {
-                  setLocation('/create');
+                  setLocation('/create?type=text');
                   setIsQuickCreateOpen(false);
                 }}
                 className="cursor-pointer"
@@ -130,7 +130,7 @@ export default function Header() {
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => {
-                  setLocation('/create');
+                  setLocation('/create?type=text-image');
                   setIsQuickCreateOpen(false);
                 }}
                 className="cursor-pointer"
@@ -140,7 +140,7 @@ export default function Header() {
               </DropdownMenuItem>
               <DropdownMenuItem 
                 onClick={() => {
-                  setLocation('/create');
+                  setLocation('/create?type=text-video');
                   setIsQuickCreateOpen(false);
                 }}
                 className="cursor-pointer"
