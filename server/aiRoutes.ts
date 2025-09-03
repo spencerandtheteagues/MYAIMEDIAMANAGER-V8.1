@@ -23,12 +23,13 @@ router.post("/text", async (req, res) => {
     
     const fullPrompt = system ? `${system}\n\n${prompt || "Say ready."}` : (prompt || "Say ready.");
     
-    const model = ai.getGenerativeModel({ model: "gemini-pro" });
-    const result = await model.generateContent(fullPrompt);
-    const response = await result.response;
+    const result = await (ai.models as any).generateContent({
+      model: "gemini-pro",
+      contents: fullPrompt
+    });
     
     // Get text from response
-    const text = response.text();
+    const text = result.text || result.response?.text || "";
     res.json({ text });
   } catch (e: any) {
     console.error("TEXT ERR", e);
@@ -38,10 +39,11 @@ router.post("/text", async (req, res) => {
       try {
         const fallbackPrompt = req.body?.system ? `${req.body.system}\n\n${req.body?.prompt || "Say ready."}` : (req.body?.prompt || "Say ready.");
         
-        const model = ai!.getGenerativeModel({ model: "gemini-pro" });
-        const result = await model.generateContent(fallbackPrompt);
-        const response = await result.response;
-        const text = response.text();
+        const result = await (ai!.models as any).generateContent({
+          model: "gemini-pro",
+          contents: fallbackPrompt
+        });
+        const text = result.text || result.response?.text || "";
         return res.json({ text });
       } catch (fallbackErr: any) {
         console.error("TEXT FALLBACK ERR", fallbackErr);
@@ -59,33 +61,47 @@ router.post("/image", async (req, res) => {
       prompt,
       aspectRatio = "1:1",     // 1:1, 3:4, 4:3, 9:16, 16:9
       count = 1,               // up to 4
-      negativePrompt
     } = req.body || {};
 
     if (!ai) {
       throw new Error("AI service not configured. Please set GEMINI_API_KEY.");
     }
 
-    const r = await (ai.models as any).generateImages({
+    console.log(`Image generation request: prompt="${prompt}", aspectRatio="${aspectRatio}", count=${count}`);
+
+    // Set a longer timeout for image generation (30 seconds)
+    const timeout = new Promise((_, reject) => 
+      setTimeout(() => reject(new Error('Image generation timeout after 30 seconds')), 30000)
+    );
+
+    const generateImages = (ai.models as any).generateImages({
       model: "imagen-4.0-generate-001",
       prompt,
       n: Math.min(Math.max(count, 1), 4),
       config: {
         aspectRatio,
-        outputMimeType: "image/png",
-        negativePrompt
+        outputMimeType: "image/png"
+        // Note: negativePrompt removed as it's not supported
       }
     });
 
+    // Race between generation and timeout
+    const r = await Promise.race([generateImages, timeout]);
+
+    console.log("Image generation response received:", r ? "success" : "empty");
+
     // Response shape: generatedImages[].image.imageBytes (Uint8Array or base64)
-    const images = (r?.generatedImages || []).map((g: any) => {
+    const images = (r?.generatedImages || []).map((g: any, idx: number) => {
       const bytes = g?.image?.imageBytes;
+      console.log(`Processing image ${idx + 1}: has bytes = ${!!bytes}, type = ${typeof bytes}`);
+      
       const b64 = Buffer.isBuffer(bytes)
         ? bytes.toString("base64")
         : (typeof bytes === "string" ? bytes : Buffer.from(bytes || []).toString("base64"));
       return `data:image/png;base64,${b64}`;
     });
 
+    console.log(`Successfully generated ${images.length} images`);
     res.json({ images, watermark: "SynthID" });
   } catch (e: any) {
     console.error("IMAGE ERR", e);
@@ -122,19 +138,25 @@ router.post("/image", async (req, res) => {
 // IMPORTANT: Veo returns a long-running operation you must poll.
 router.post("/video/start", async (req, res) => {
   try {
-    const { prompt, aspectRatio = "16:9", fast = true, negativePrompt } = req.body || {};
+    const { prompt, aspectRatio = "16:9", fast = true } = req.body || {};
     const model = fast ? "veo-3.0-fast-generate-001" : "veo-3.0-generate-001";
 
     if (!ai) {
       throw new Error("AI service not configured. Please set GEMINI_API_KEY.");
     }
 
+    console.log(`Video generation request: prompt="${prompt}", aspectRatio="${aspectRatio}", model="${model}"`);
+
     const op = await (ai.models as any).generateVideos({
       model,
       prompt,
-      config: { aspectRatio, negativePrompt }
+      config: { 
+        aspectRatio 
+        // Note: negativePrompt removed as it's not supported
+      }
     });
 
+    console.log("Video generation started with operation:", (op as any).name || (op as any).operation);
     res.json({ operationName: (op as any).name || (op as any).operation || "" });
   } catch (e: any) {
     console.error("VIDEO START ERR", e);
