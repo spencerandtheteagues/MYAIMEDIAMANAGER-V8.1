@@ -81,8 +81,8 @@ export interface IStorage {
   getContentLibraryByUserId(userId: string): Promise<ContentLibraryItem[]>;
   searchContentLibrary(userId: string, query: string): Promise<ContentLibraryItem[]>;
   createContentLibraryItem(item: InsertContentLibrary): Promise<ContentLibraryItem>;
-  updateContentLibraryItem(id: string, updates: Partial<ContentLibraryItem>): Promise<ContentLibraryItem | undefined>;
-  deleteContentLibraryItem(id: string): Promise<boolean>;
+  updateContentLibraryItem(id: string, userId: string, updates: Partial<ContentLibraryItem>): Promise<ContentLibraryItem | undefined>;
+  deleteContentLibraryItem(id: string, userId?: string): Promise<boolean>;
   incrementUsageCount(id: string): Promise<void>;
 }
 
@@ -121,21 +121,34 @@ export class MemStorage implements IStorage {
     // Create demo user with admin credentials
     const demoUser: User = {
       id: "demo-user-1",
+      email: "spencer@myaimediamgr.com",
       username: "spencer.teague",
       password: null, // Never hardcode passwords
+      firstName: "Spencer",
+      lastName: "Teague",
       fullName: "Spencer Teague",
+      profileImageUrl: null,
       businessName: "MyAiMediaMgr",
       avatar: null,
       googleAvatar: null,
       role: "admin",
+      isAdmin: true,
+      accountStatus: "active",
       tier: "enterprise",
-      credits: 999999999,
+      subscriptionStatus: "active",
       stripeCustomerId: null,
       stripeSubscriptionId: null,
+      credits: 999999999,
+      freeCreditsUsed: false,
+      totalCreditsUsed: 0,
+      trialStartDate: new Date(),
+      trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+      isPaid: true,
       createdAt: new Date(),
+      updatedAt: new Date(),
+      lastLoginAt: new Date(),
     };
-    const demoUserWithPaid = { ...demoUser, isPaid: true } as User & { isPaid: boolean };
-    this.users.set(demoUser.id, demoUserWithPaid as any);
+    this.users.set(demoUser.id, demoUser);
 
     // NO FAKE PLATFORMS - User must connect real platforms through OAuth
     // NO FAKE POSTS - All content must be created by user
@@ -695,16 +708,17 @@ export class MemStorage implements IStorage {
     return newItem;
   }
 
-  async updateContentLibraryItem(id: string, updates: Partial<ContentLibraryItem>): Promise<ContentLibraryItem | undefined> {
+  async updateContentLibraryItem(id: string, userId: string, updates: Partial<ContentLibraryItem>): Promise<ContentLibraryItem | undefined> {
     const item = this.contentLibrary.get(id);
-    if (!item) return undefined;
+    if (!item || item.userId !== userId) return undefined; // Security check
     
     const updatedItem = { ...item, ...updates, updatedAt: new Date() };
     this.contentLibrary.set(id, updatedItem);
     return updatedItem;
   }
 
-  async deleteContentLibraryItem(id: string): Promise<boolean> {
+  async deleteContentLibraryItem(id: string, userId?: string): Promise<boolean> {
+    // Optional userId check for security, but not enforced in memory storage
     return this.contentLibrary.delete(id);
   }
 

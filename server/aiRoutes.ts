@@ -4,6 +4,7 @@
  */
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
+import { storage } from "./storage";
 
 const router = express.Router();
 
@@ -149,13 +150,12 @@ router.post("/image", async (req, res) => {
       }
     }
     
-    // Save generated images to content library
-    const { storage } = require("./storage");
+    // Save generated images to content library automatically
     const userId = (req as any).user?.claims?.sub || "demo-user-1";
     
     try {
       for (let i = 0; i < images.length; i++) {
-        await storage.createContentLibraryItem({
+        const savedItem = await storage.createContentLibraryItem({
           userId,
           type: "image",
           url: images[i],
@@ -173,11 +173,12 @@ router.post("/image", async (req, res) => {
             generatedAt: new Date()
           }
         });
+        console.log(`✅ Saved image ${i + 1} to content library:`, savedItem.id);
       }
-      console.log(`Saved ${images.length} images to content library for user ${userId}`);
+      console.log(`🎉 Successfully saved ${images.length} images to content library for user ${userId}`);
     } catch (libraryError) {
-      console.error("Failed to save images to content library:", libraryError);
-      // Don't fail the request if library save fails
+      console.error("❌ CRITICAL: Failed to save images to content library:", libraryError);
+      // Don't fail the request if library save fails, but log prominently
     }
     
     res.json({ images, caption, watermark: "SynthID" });

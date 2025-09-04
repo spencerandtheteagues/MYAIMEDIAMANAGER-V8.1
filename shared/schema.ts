@@ -192,19 +192,14 @@ export const insertCampaignSchema = createInsertSchema(campaigns).pick({
   postsPerDay: true,
 });
 
-export const insertPostSchema = createInsertSchema(posts).pick({
-  userId: true,
-  campaignId: true,
-  content: true,
-  imageUrl: true,
-  videoUrl: true,
-  imagePrompt: true,
-  videoPrompt: true,
-  platforms: true,
-  status: true,
-  scheduledFor: true,
-  mediaUrls: true,
-  aiGenerated: true,
+export const insertPostSchema = createInsertSchema(posts).omit({
+  id: true,
+  publishedAt: true,
+  approvedBy: true,
+  rejectionReason: true,
+  engagementData: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 export const insertAiSuggestionSchema = createInsertSchema(aiSuggestions).pick({
@@ -302,18 +297,10 @@ export const insertNotificationSchema = createInsertSchema(notifications).pick({
   read: true,
 });
 
-export const insertContentLibrarySchema = createInsertSchema(contentLibrary).pick({
-  userId: true,
-  type: true,
-  url: true,
-  thumbnail: true,
-  caption: true,
-  metadata: true,
-  tags: true,
-  businessName: true,
-  productName: true,
-  platform: true,
-  usageCount: true,
+export const insertContentLibrarySchema = createInsertSchema(contentLibrary).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
 });
 
 // Types

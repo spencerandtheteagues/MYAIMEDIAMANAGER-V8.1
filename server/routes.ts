@@ -60,18 +60,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       // Create a default demo user if none exists
       const newDemoUser = await storage.createUser({
-        id: "demo-user-1",
         username: "spencer.teague",
         fullName: "Spencer Teague",
-        email: "spencer@myaimediamgr.com",
+        businessName: "MyAiMediaMgr Demo",
         role: "admin",
         tier: "enterprise",
         credits: 1000,
-        stripeCustomerId: null,
-        businessName: "MyAiMediaMgr Demo",
-        phoneNumber: null,
-        avatar: null,
-        createdAt: new Date(),
       });
       res.json(newDemoUser);
     } catch (error) {
