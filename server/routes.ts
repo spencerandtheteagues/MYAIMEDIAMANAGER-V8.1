@@ -70,6 +70,81 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Connect platform with API keys
+  app.post("/api/platforms/connect-api", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const { platform, apiKey, apiSecret, accessToken, accessTokenSecret, pageId, clientId, clientSecret } = req.body;
+      
+      if (!platform) {
+        return res.status(400).json({ message: "Platform name is required" });
+      }
+      
+      // Validate required fields based on platform
+      const requiredFields: Record<string, string[]> = {
+        "X.com": ["apiKey", "apiSecret", "accessToken", "accessTokenSecret"],
+        "Instagram": ["clientId", "clientSecret", "accessToken"],
+        "Facebook": ["pageId", "accessToken"],
+        "TikTok": ["clientId", "clientSecret"],
+        "LinkedIn": ["clientId", "clientSecret", "accessToken"]
+      };
+      
+      const required = requiredFields[platform];
+      if (!required) {
+        return res.status(400).json({ message: "Invalid platform" });
+      }
+      
+      for (const field of required) {
+        if (!req.body[field]) {
+          return res.status(400).json({ message: `${field} is required for ${platform}` });
+        }
+      }
+      
+      // Create platform connection
+      const platformData = {
+        userId,
+        name: platform === "X.com" ? "X (Twitter)" : platform,
+        isConnected: true,
+        credentials: {
+          apiKey: apiKey || null,
+          apiSecret: apiSecret || null,
+          accessToken: accessToken || null,
+          accessTokenSecret: accessTokenSecret || null,
+          pageId: pageId || null,
+          clientId: clientId || null,
+          clientSecret: clientSecret || null
+        }
+      };
+      
+      await storage.createPlatform(platformData);
+      res.json({ success: true, message: `Successfully connected to ${platform}` });
+    } catch (error) {
+      console.error("Error connecting platform:", error);
+      res.status(500).json({ message: "Failed to connect platform" });
+    }
+  });
+
+  // Disconnect platform
+  app.delete("/api/platforms/:platformName", isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const platformName = req.params.platformName === "X.com" ? "X (Twitter)" : req.params.platformName;
+      
+      const platforms = await storage.getPlatformsByUserId(userId);
+      const platform = platforms.find(p => p.name === platformName);
+      
+      if (!platform) {
+        return res.status(404).json({ message: "Platform not found" });
+      }
+      
+      await storage.deletePlatform(platform.id);
+      res.json({ success: true, message: `Disconnected from ${platformName}` });
+    } catch (error) {
+      console.error("Error disconnecting platform:", error);
+      res.status(500).json({ message: "Failed to disconnect platform" });
+    }
+  });
+
 
   // Get user's posts
   app.get("/api/posts", isAuthenticated, async (req: any, res) => {

@@ -3,7 +3,10 @@ import { useQuery, useMutation } from "@tanstack/react-query";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { CheckCircle, XCircle, ExternalLink } from "lucide-react";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import { CheckCircle, XCircle, ExternalLink, Key, AlertCircle, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { SiX, SiInstagram, SiFacebook, SiTiktok, SiLinkedin } from "react-icons/si";
@@ -27,6 +30,18 @@ const platformIcons = {
 export default function Platforms() {
   const { toast } = useToast();
   const [connectingPlatform, setConnectingPlatform] = useState<string | null>(null);
+  const [apiKeyDialogOpen, setApiKeyDialogOpen] = useState(false);
+  const [selectedPlatform, setSelectedPlatform] = useState<string | null>(null);
+  const [apiCredentials, setApiCredentials] = useState({
+    apiKey: '',
+    apiSecret: '',
+    accessToken: '',
+    accessTokenSecret: '',
+    pageId: '',
+    clientId: '',
+    clientSecret: '',
+  });
+  const [isVerifying, setIsVerifying] = useState(false);
 
   const { data: platforms = [], isLoading } = useQuery<Platform[]>({
     queryKey: ["/api/platforms"],
@@ -79,6 +94,68 @@ export default function Platforms() {
     connectXMutation.mutate();
   };
 
+  const connectWithApiKeysMutation = useMutation({
+    mutationFn: async (data: any) => {
+      const response = await apiRequest("POST", "/api/platforms/connect-api", data);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Platform Connected",
+        description: `Successfully connected to ${selectedPlatform}`,
+      });
+      setApiKeyDialogOpen(false);
+      queryClient.invalidateQueries({ queryKey: ["/api/platforms"] });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Connection Failed",
+        description: error.message || "Failed to connect platform. Check your credentials.",
+        variant: "destructive",
+      });
+    },
+  });
+
+  const handleDisconnect = async (platformName: string) => {
+    try {
+      await apiRequest("DELETE", `/api/platforms/${platformName}`);
+      toast({
+        title: "Platform Disconnected",
+        description: `Successfully disconnected from ${platformName}`,
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/platforms"] });
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to disconnect platform",
+        variant: "destructive",
+      });
+    }
+  };
+
+  const handleApiKeySubmit = async () => {
+    setIsVerifying(true);
+    const platform = platformData.find(p => p.name === selectedPlatform);
+    
+    if (!platform) return;
+    
+    const credentials: any = {
+      platform: selectedPlatform,
+    };
+    
+    platform.requiredFields.forEach((field: string) => {
+      if (apiCredentials[field as keyof typeof apiCredentials]) {
+        credentials[field] = apiCredentials[field as keyof typeof apiCredentials];
+      }
+    });
+    
+    try {
+      await connectWithApiKeysMutation.mutateAsync(credentials);
+    } finally {
+      setIsVerifying(false);
+    }
+  };
+
   // Check for OAuth callback params
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -116,27 +193,42 @@ export default function Platforms() {
     { 
       name: "X.com", 
       description: "Connect to post tweets and threads",
-      oauthAvailable: true 
+      oauthAvailable: true,
+      apiKeyAvailable: true,
+      requiredFields: ['apiKey', 'apiSecret', 'accessToken', 'accessTokenSecret'],
+      instructions: 'Get your API keys from developer.x.com'
     },
     { 
       name: "Instagram", 
       description: "Share photos and stories",
-      oauthAvailable: false 
+      oauthAvailable: false,
+      apiKeyAvailable: true,
+      requiredFields: ['clientId', 'clientSecret', 'accessToken'],
+      instructions: 'Set up Instagram Basic Display API at developers.facebook.com'
     },
     { 
       name: "Facebook", 
       description: "Connect with your community",
-      oauthAvailable: false 
+      oauthAvailable: false,
+      apiKeyAvailable: true,
+      requiredFields: ['pageId', 'accessToken'],
+      instructions: 'Create a Facebook App and get Page Access Token'
     },
     { 
       name: "TikTok", 
       description: "Create and share short videos",
-      oauthAvailable: false 
+      oauthAvailable: false,
+      apiKeyAvailable: true,
+      requiredFields: ['clientId', 'clientSecret'],
+      instructions: 'Register for TikTok API access at developers.tiktok.com'
     },
     { 
       name: "LinkedIn", 
       description: "Professional networking and content",
-      oauthAvailable: false 
+      oauthAvailable: false,
+      apiKeyAvailable: true,
+      requiredFields: ['clientId', 'clientSecret', 'accessToken'],
+      instructions: 'Create LinkedIn App at developer.linkedin.com'
     },
   ];
 
@@ -206,27 +298,58 @@ export default function Platforms() {
                     )}
                   </div>
                   <div className="flex space-x-2">
-                    {!isConnected && platform.oauthAvailable && (
-                      <Button
-                        onClick={() => platform.name === "X.com" && handleConnectX()}
-                        disabled={connectingPlatform === platform.name}
-                        data-testid={`button-connect-${platform.name.toLowerCase()}`}
-                      >
-                        {connectingPlatform === platform.name ? (
-                          <>
-                            <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full mr-2" />
-                            Connecting...
-                          </>
-                        ) : (
-                          <>
-                            <ExternalLink className="w-4 h-4 mr-2" />
-                            Connect Account
-                          </>
+                    {!isConnected && (
+                      <>
+                        {platform.oauthAvailable && (
+                          <Button
+                            onClick={() => platform.name === "X.com" && handleConnectX()}
+                            disabled={connectingPlatform === platform.name}
+                            variant="default"
+                            data-testid={`button-oauth-${platform.name.toLowerCase()}`}
+                          >
+                            {connectingPlatform === platform.name ? (
+                              <>
+                                <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                                Connecting...
+                              </>
+                            ) : (
+                              <>
+                                <ExternalLink className="w-4 h-4 mr-2" />
+                                OAuth Connect
+                              </>
+                            )}
+                          </Button>
                         )}
-                      </Button>
+                        {platform.apiKeyAvailable && (
+                          <Button
+                            onClick={() => {
+                              setSelectedPlatform(platform.name);
+                              setApiKeyDialogOpen(true);
+                              setApiCredentials({
+                                apiKey: '',
+                                apiSecret: '',
+                                accessToken: '',
+                                accessTokenSecret: '',
+                                pageId: '',
+                                clientId: '',
+                                clientSecret: '',
+                              });
+                            }}
+                            variant="outline"
+                            data-testid={`button-apikey-${platform.name.toLowerCase()}`}
+                          >
+                            <Key className="w-4 h-4 mr-2" />
+                            API Keys
+                          </Button>
+                        )}
+                      </>
                     )}
                     {isConnected && (
-                      <Button variant="destructive" size="sm">
+                      <Button 
+                        variant="destructive" 
+                        size="sm"
+                        onClick={() => handleDisconnect(platform.name)}
+                      >
                         Disconnect
                       </Button>
                     )}
@@ -278,6 +401,208 @@ export default function Platforms() {
           </div>
         </CardContent>
       </Card>
+
+      {/* API Key Dialog */}
+      <Dialog open={apiKeyDialogOpen} onOpenChange={setApiKeyDialogOpen}>
+        <DialogContent className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>Connect {selectedPlatform} with API Keys</DialogTitle>
+            <DialogDescription>
+              {platformData.find(p => p.name === selectedPlatform)?.instructions}
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            {selectedPlatform === "X.com" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="apiKey">API Key (Consumer Key)</Label>
+                  <Input
+                    id="apiKey"
+                    value={apiCredentials.apiKey}
+                    onChange={(e) => setApiCredentials({...apiCredentials, apiKey: e.target.value})}
+                    placeholder="Enter your X API Key"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="apiSecret">API Secret (Consumer Secret)</Label>
+                  <Input
+                    id="apiSecret"
+                    type="password"
+                    value={apiCredentials.apiSecret}
+                    onChange={(e) => setApiCredentials({...apiCredentials, apiSecret: e.target.value})}
+                    placeholder="Enter your X API Secret"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="accessToken">Access Token</Label>
+                  <Input
+                    id="accessToken"
+                    value={apiCredentials.accessToken}
+                    onChange={(e) => setApiCredentials({...apiCredentials, accessToken: e.target.value})}
+                    placeholder="Enter your Access Token"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="accessTokenSecret">Access Token Secret</Label>
+                  <Input
+                    id="accessTokenSecret"
+                    type="password"
+                    value={apiCredentials.accessTokenSecret}
+                    onChange={(e) => setApiCredentials({...apiCredentials, accessTokenSecret: e.target.value})}
+                    placeholder="Enter your Access Token Secret"
+                  />
+                </div>
+              </>
+            )}
+            
+            {selectedPlatform === "Instagram" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="clientId">Client ID</Label>
+                  <Input
+                    id="clientId"
+                    value={apiCredentials.clientId}
+                    onChange={(e) => setApiCredentials({...apiCredentials, clientId: e.target.value})}
+                    placeholder="Enter your Instagram Client ID"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clientSecret">Client Secret</Label>
+                  <Input
+                    id="clientSecret"
+                    type="password"
+                    value={apiCredentials.clientSecret}
+                    onChange={(e) => setApiCredentials({...apiCredentials, clientSecret: e.target.value})}
+                    placeholder="Enter your Instagram Client Secret"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="accessToken">Access Token</Label>
+                  <Input
+                    id="accessToken"
+                    value={apiCredentials.accessToken}
+                    onChange={(e) => setApiCredentials({...apiCredentials, accessToken: e.target.value})}
+                    placeholder="Enter your Access Token"
+                  />
+                </div>
+              </>
+            )}
+            
+            {selectedPlatform === "Facebook" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="pageId">Page ID</Label>
+                  <Input
+                    id="pageId"
+                    value={apiCredentials.pageId}
+                    onChange={(e) => setApiCredentials({...apiCredentials, pageId: e.target.value})}
+                    placeholder="Enter your Facebook Page ID"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="accessToken">Page Access Token</Label>
+                  <Input
+                    id="accessToken"
+                    type="password"
+                    value={apiCredentials.accessToken}
+                    onChange={(e) => setApiCredentials({...apiCredentials, accessToken: e.target.value})}
+                    placeholder="Enter your Page Access Token"
+                  />
+                </div>
+              </>
+            )}
+            
+            {selectedPlatform === "TikTok" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="clientId">Client ID</Label>
+                  <Input
+                    id="clientId"
+                    value={apiCredentials.clientId}
+                    onChange={(e) => setApiCredentials({...apiCredentials, clientId: e.target.value})}
+                    placeholder="Enter your TikTok Client ID"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clientSecret">Client Secret</Label>
+                  <Input
+                    id="clientSecret"
+                    type="password"
+                    value={apiCredentials.clientSecret}
+                    onChange={(e) => setApiCredentials({...apiCredentials, clientSecret: e.target.value})}
+                    placeholder="Enter your TikTok Client Secret"
+                  />
+                </div>
+              </>
+            )}
+            
+            {selectedPlatform === "LinkedIn" && (
+              <>
+                <div className="space-y-2">
+                  <Label htmlFor="clientId">Client ID</Label>
+                  <Input
+                    id="clientId"
+                    value={apiCredentials.clientId}
+                    onChange={(e) => setApiCredentials({...apiCredentials, clientId: e.target.value})}
+                    placeholder="Enter your LinkedIn Client ID"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="clientSecret">Client Secret</Label>
+                  <Input
+                    id="clientSecret"
+                    type="password"
+                    value={apiCredentials.clientSecret}
+                    onChange={(e) => setApiCredentials({...apiCredentials, clientSecret: e.target.value})}
+                    placeholder="Enter your LinkedIn Client Secret"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="accessToken">Access Token</Label>
+                  <Input
+                    id="accessToken"
+                    value={apiCredentials.accessToken}
+                    onChange={(e) => setApiCredentials({...apiCredentials, accessToken: e.target.value})}
+                    placeholder="Enter your Access Token"
+                  />
+                </div>
+              </>
+            )}
+            
+            <div className="bg-amber-50 dark:bg-amber-950 p-3 rounded-lg">
+              <div className="flex items-start space-x-2">
+                <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5" />
+                <p className="text-sm text-amber-800 dark:text-amber-200">
+                  Your API credentials are encrypted and stored securely. They are only used to post content on your behalf.
+                </p>
+              </div>
+            </div>
+          </div>
+          
+          <DialogFooter>
+            <Button 
+              variant="outline" 
+              onClick={() => setApiKeyDialogOpen(false)}
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleApiKeySubmit}
+              disabled={isVerifying}
+            >
+              {isVerifying ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Verifying...
+                </>
+              ) : (
+                'Connect Platform'
+              )}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

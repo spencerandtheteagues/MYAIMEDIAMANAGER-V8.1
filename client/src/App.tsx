@@ -15,6 +15,9 @@ import Campaigns from "./pages/campaigns";
 import Platforms from "./pages/platforms";
 import Schedule from "./pages/schedule";
 import AdminPanel from "./pages/admin";
+import Billing from "./pages/billing";
+import Referrals from "./pages/referrals";
+import Help from "./pages/help";
 import Sidebar from "./components/layout/sidebar";
 import Header from "./components/layout/header";
 
@@ -35,6 +38,9 @@ function Router() {
           <Route path="/platforms" component={Platforms} />
           <Route path="/schedule" component={Schedule} />
           <Route path="/settings" component={Settings} />
+          <Route path="/billing" component={Billing} />
+          <Route path="/referrals" component={Referrals} />
+          <Route path="/help" component={Help} />
           <Route path="/admin" component={AdminPanel} />
           <Route component={NotFound} />
         </Switch>
