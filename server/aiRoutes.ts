@@ -149,6 +149,37 @@ router.post("/image", async (req, res) => {
       }
     }
     
+    // Save generated images to content library
+    const { storage } = require("./storage");
+    const userId = (req as any).user?.claims?.sub || "demo-user-1";
+    
+    try {
+      for (let i = 0; i < images.length; i++) {
+        await storage.createContentLibraryItem({
+          userId,
+          type: "image",
+          url: images[i],
+          thumbnail: images[i],
+          caption: caption || null,
+          businessName: businessName || null,
+          productName: productName || null,
+          platform: null, // Can be set when used
+          tags: ["ai_generated", "imagen_4"],
+          metadata: {
+            prompt: prompt || "",
+            aspectRatio,
+            brandTone,
+            isAdvertisement,
+            generatedAt: new Date()
+          }
+        });
+      }
+      console.log(`Saved ${images.length} images to content library for user ${userId}`);
+    } catch (libraryError) {
+      console.error("Failed to save images to content library:", libraryError);
+      // Don't fail the request if library save fails
+    }
+    
     res.json({ images, caption, watermark: "SynthID" });
   } catch (e: any) {
     console.error("IMAGE ERR", e);
