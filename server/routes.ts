@@ -277,16 +277,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Update campaign status to generating
-      await storage.updateCampaign(campaign.id, { status: "generating" });
+      await storage.updateCampaign(campaign.id, { status: "generating", generationProgress: 0 });
+      
+      console.log(`🚀 Starting campaign generation: ${campaign.id} - Creating 14 posts (7 days × 2 posts/day)`);
 
       // Generate campaign posts asynchronously
       (async () => {
         try {
           const startDate = new Date(campaign.startDate);
-          const endDate = new Date(campaign.endDate || startDate);
-          const days = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-          const totalPosts = Math.min(days * 2, 14); // 2 posts per day, max 14 posts
-
+          // ALWAYS create exactly 14 posts (7 days × 2 posts/day)
+          const totalPosts = 14;
+          
+          console.log(`📝 Generating ${totalPosts} posts for campaign...`);
+          
           const posts = [];
           for (let i = 0; i < totalPosts; i++) {
             const dayOffset = Math.floor(i / 2);
@@ -306,14 +309,39 @@ export async function registerRoutes(app: Express): Promise<Server> {
               length: "medium",
             });
 
-            let imageUrl = null;
-            if (campaign.visualStyle) {
-              const imageResult = await aiService.generateImage({
-                prompt: `${campaign.businessName} ${campaign.productName || ''} ${campaign.visualStyle}`,
-                style: campaign.visualStyle,
-                aspectRatio: campaign.platform === "Instagram" ? "1:1" : "16:9",
-              });
-              imageUrl = imageResult.url;
+            // ALWAYS generate image for campaign posts
+            console.log(`🎨 Generating image ${i + 1}/${totalPosts}...`);
+            const imageResult = await aiService.generateImage({
+              prompt: `${campaign.businessName} ${campaign.productName || 'product'} promotional content, ${campaign.visualStyle || 'modern'} style, day ${dayOffset + 1} of campaign`,
+              style: campaign.visualStyle || 'modern',
+              aspectRatio: campaign.platform === "Instagram" ? "1:1" : "16:9",
+            });
+            const imageUrl = imageResult.url;
+            
+            // Auto-save to content library
+            if (imageUrl) {
+              try {
+                const savedItem = await storage.createContentLibraryItem({
+                  userId: campaign.userId,
+                  type: "image",
+                  url: imageUrl,
+                  thumbnail: imageUrl,
+                  caption: contentSuggestions[0],
+                  businessName: campaign.businessName,
+                  productName: campaign.productName,
+                  platform: campaign.platform,
+                  tags: ["campaign", "ai_generated", `day_${dayOffset + 1}`],
+                  metadata: {
+                    campaignId: campaign.id,
+                    postNumber: i + 1,
+                    scheduledFor: scheduledDate,
+                    generatedAt: new Date()
+                  }
+                });
+                console.log(`✅ Saved campaign image ${i + 1} to content library:`, savedItem.id);
+              } catch (err) {
+                console.error(`❌ Failed to save campaign image ${i + 1} to library:`, err);
+              }
             }
 
             posts.push({
@@ -346,6 +374,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
             status: "review",
             generationProgress: 100,
           });
+          
+          console.log(`✅ Campaign generation complete! Created ${posts.length} posts in approval queue`);
         } catch (error) {
           console.error("Failed to generate campaign:", error);
           await storage.updateCampaign(campaign.id, { 

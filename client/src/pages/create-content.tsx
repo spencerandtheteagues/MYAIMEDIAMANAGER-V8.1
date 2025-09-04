@@ -61,7 +61,7 @@ export default function CreateContent() {
   const [imageResolution, setImageResolution] = useState("1080p");
   
   // Video generation fields
-  const [videoDuration, setVideoDuration] = useState("15");
+  const videoDuration = "8"; // Fixed 8 seconds for Veo 3
   const [videoStyle, setVideoStyle] = useState("cinematic");
   const [videoTransitions, setVideoTransitions] = useState("smooth");
   const [videoMusic, setVideoMusic] = useState("upbeat");
@@ -1138,27 +1138,16 @@ export default function CreateContent() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label htmlFor="videoDuration">
-                        <Clock className="w-4 h-4 inline mr-1" />
-                        Duration
-                      </Label>
-                      <Select value={videoDuration} onValueChange={setVideoDuration}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="5">5 seconds</SelectItem>
-                          <SelectItem value="10">10 seconds</SelectItem>
-                          <SelectItem value="15">15 seconds</SelectItem>
-                          <SelectItem value="30">30 seconds</SelectItem>
-                          <SelectItem value="60">60 seconds</SelectItem>
-                          <SelectItem value="90">90 seconds</SelectItem>
-                          <SelectItem value="120">2 minutes</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  {/* Fixed 8 second duration for Veo 3 */}
+                  <div className="bg-secondary/50 border border-primary/20 rounded-lg p-3 mb-4">
+                    <div className="flex items-center gap-2">
+                      <Clock className="w-4 h-4 text-primary" />
+                      <span className="text-sm font-medium">Duration: 8 seconds</span>
+                      <Badge variant="secondary" className="ml-auto">Veo 3 Standard</Badge>
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <div>
                       <Label htmlFor="videoStyle">
                         <Brush className="w-4 h-4 inline mr-1" />
