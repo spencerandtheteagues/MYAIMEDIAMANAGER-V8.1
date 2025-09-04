@@ -162,7 +162,14 @@ export const isAuthenticated: RequestHandler = async (req, res, next) => {
 };
 
 export const isAdmin: RequestHandler = async (req, res, next) => {
+  // Allow demo mode for Spencer (admin)
   if (!req.isAuthenticated()) {
+    // In demo mode, check if it's the demo admin user
+    const demoUser = await storage.getUser("demo-user-1");
+    if (demoUser && demoUser.role === "admin") {
+      req.user = { claims: { sub: "demo-user-1" } } as any;
+      return next();
+    }
     return res.status(401).json({ message: "Unauthorized" });
   }
 
@@ -174,7 +181,7 @@ export const isAdmin: RequestHandler = async (req, res, next) => {
   }
 
   const dbUser = await storage.getUser(userId);
-  if (!dbUser || !dbUser.isAdmin) {
+  if (!dbUser || (!dbUser.isAdmin && dbUser.role !== "admin")) {
     return res.status(403).json({ message: "Admin access required" });
   }
 

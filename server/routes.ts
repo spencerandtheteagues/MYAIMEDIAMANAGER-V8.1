@@ -1190,6 +1190,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Admin endpoints  
+  app.get("/api/admin/users", async (req, res) => {
+    const userId = getUserId(req);
+    
+    // Spencer (demo-user-1) is always admin in demo mode
+    if (userId !== "demo-user-1") {
+      return res.status(401).json({ message: "Unauthorized" });
+    }
+    
+    const users = await storage.getAllUsers();
+    res.json(users);
+  });
+
   const httpServer = createServer(app);
   return httpServer;
 }

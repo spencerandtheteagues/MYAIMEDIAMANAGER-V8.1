@@ -28,7 +28,7 @@ export default function AdminPanel() {
 
   // Notification form state
   const [notificationForm, setNotificationForm] = useState({
-    userId: "" as string,
+    userId: "all" as string,
     title: "",
     message: "",
     type: "admin_message" as string,
@@ -39,7 +39,7 @@ export default function AdminPanel() {
   const sendNotificationMutation = useMutation({
     mutationFn: async (data: typeof notificationForm) => {
       return await apiRequest("POST", "/api/notifications", {
-        userId: data.userId || undefined,
+        userId: data.userId === "all" ? undefined : data.userId,
         title: data.title,
         message: data.message,
         type: data.type,
@@ -49,11 +49,11 @@ export default function AdminPanel() {
     onSuccess: () => {
       toast({
         title: "Notification Sent",
-        description: notificationForm.userId ? "Notification sent to user" : "Global notification sent to all users",
+        description: notificationForm.userId === "all" ? "Global notification sent to all users" : "Notification sent to user",
       });
       // Reset form
       setNotificationForm({
-        userId: "",
+        userId: "all",
         title: "",
         message: "",
         type: "admin_message",
@@ -164,7 +164,7 @@ export default function AdminPanel() {
                 <SelectValue placeholder="Select user (leave empty for all users)" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="" data-testid="option-all-users">All Users (Global Notification)</SelectItem>
+                <SelectItem value="all" data-testid="option-all-users">All Users (Global Notification)</SelectItem>
                 {users.map((user) => (
                   <SelectItem key={user.id} value={user.id} data-testid={`option-user-${user.id}`}>
                     {user.fullName || user.username} ({user.email || user.username})
@@ -234,7 +234,7 @@ export default function AdminPanel() {
           >
             <Send className="h-4 w-4 mr-2" />
             {sendNotificationMutation.isPending ? "Sending..." : 
-             notificationForm.userId ? "Send to User" : "Send to All Users"}
+             notificationForm.userId === "all" ? "Send to All Users" : "Send to User"}
           </Button>
         </CardContent>
       </Card>
