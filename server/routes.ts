@@ -30,9 +30,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/admin", adminRoutes);
   
   // Auth routes
-  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+  app.get('/api/auth/user', async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || "demo-user-1";
       const user = await storage.getUser(userId);
       res.json(user);
     } catch (error) {
@@ -95,9 +95,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Connect platform with API keys
-  app.post("/api/platforms/connect-api", isAuthenticated, async (req: any, res) => {
+  app.post("/api/platforms/connect-api", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || "demo-user-1";
       const { platform, apiKey, apiSecret, accessToken, accessTokenSecret, pageId, clientId, clientSecret } = req.body;
       
       if (!platform) {
@@ -149,9 +149,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Disconnect platform
-  app.delete("/api/platforms/:platformName", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/platforms/:platformName", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || "demo-user-1";
       const platformName = req.params.platformName === "X.com" ? "X (Twitter)" : req.params.platformName;
       
       const platforms = await storage.getPlatformsByUserId(userId);
@@ -190,9 +190,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get draft posts
-  app.get("/api/posts/draft", isAuthenticated, async (req: any, res) => {
+  app.get("/api/posts/draft", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || "demo-user-1";
       const posts = await storage.getPostsByStatus(userId, "draft");
       res.json(posts);
     } catch (error) {
@@ -201,9 +201,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get campaigns
-  app.get("/api/campaigns", isAuthenticated, async (req: any, res) => {
+  app.get("/api/campaigns", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || "demo-user-1";
       const campaigns = await storage.getCampaignsByUserId(userId);
       res.json(campaigns);
     } catch (error) {
@@ -212,7 +212,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get campaign by ID
-  app.get("/api/campaigns/:id", isAuthenticated, async (req: any, res) => {
+  app.get("/api/campaigns/:id", async (req: any, res) => {
     try {
       const campaign = await storage.getCampaign(req.params.id);
       if (!campaign) {
@@ -225,7 +225,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Get posts for a campaign
-  app.get("/api/campaigns/:id/posts", isAuthenticated, async (req: any, res) => {
+  app.get("/api/campaigns/:id/posts", async (req: any, res) => {
     try {
       const posts = await storage.getPostsByCampaignId(req.params.id);
       res.json(posts);
@@ -235,14 +235,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create campaign
-  app.post("/api/campaigns", isAuthenticated, async (req: any, res) => {
+  app.post("/api/campaigns", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || "demo-user-1";
       const campaignData = insertCampaignSchema.parse({
         ...req.body,
         userId,
-        startDate: req.body.startDate,
-        endDate: req.body.endDate || new Date(new Date(req.body.startDate).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+        startDate: new Date(req.body.startDate),
+        endDate: new Date(req.body.endDate || new Date(new Date(req.body.startDate).getTime() + 7 * 24 * 60 * 60 * 1000).toISOString()),
       });
       
       const campaign = await storage.createCampaign(campaignData);
@@ -256,7 +256,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update campaign
-  app.patch("/api/campaigns/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/campaigns/:id", async (req: any, res) => {
     try {
       const campaign = await storage.updateCampaign(req.params.id, req.body);
       if (!campaign) {
@@ -269,7 +269,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate campaign content
-  app.post("/api/campaigns/:id/generate", isAuthenticated, async (req: any, res) => {
+  app.post("/api/campaigns/:id/generate", async (req: any, res) => {
     try {
       const campaign = await storage.getCampaign(req.params.id);
       if (!campaign) {
@@ -362,9 +362,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Create new post
-  app.post("/api/posts", isAuthenticated, async (req: any, res) => {
+  app.post("/api/posts", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || "demo-user-1";
       
       // Extract media URLs from the request
       const mediaUrls = [];
@@ -409,7 +409,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Update post
-  app.patch("/api/posts/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/posts/:id", async (req: any, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -431,7 +431,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Delete post
-  app.delete("/api/posts/:id", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/posts/:id", async (req: any, res) => {
     try {
       const { id } = req.params;
       const deleted = await storage.deletePost(id);
@@ -447,7 +447,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Publish a post immediately
-  app.post("/api/posts/:id/publish", isAuthenticated, async (req: any, res) => {
+  app.post("/api/posts/:id/publish", async (req: any, res) => {
     try {
       const { id } = req.params;
       const post = await storage.getPost(id);
@@ -472,7 +472,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate AI content suggestions
-  app.post("/api/ai/suggestions", isAuthenticated, async (req: any, res) => {
+  app.post("/api/ai/suggestions", async (req: any, res) => {
     try {
       const { prompt } = req.body;
       
@@ -497,7 +497,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Generate AI content with enhanced parameters
-  app.post("/api/ai/generate", isAuthenticated, async (req: any, res) => {
+  app.post("/api/ai/generate", async (req: any, res) => {
     try {
       const {
         topic,
@@ -579,7 +579,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Auto-save generated media to content library
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || "demo-user-1";
       
       if (imageUrl) {
         await storage.createContentLibraryItem({
@@ -693,9 +693,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Notification endpoints
-  app.get("/api/notifications", isAuthenticated, async (req: any, res) => {
+  app.get("/api/notifications", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || "demo-user-1";
       const notifications = await storage.getNotificationsByUserId(userId);
       res.json(notifications);
     } catch (error) {
@@ -715,7 +715,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/notifications/:id/read", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/notifications/:id/read", async (req: any, res) => {
     try {
       const notification = await storage.markNotificationAsRead(req.params.id);
       if (!notification) {
@@ -728,9 +728,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/notifications/read-all", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/notifications/read-all", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || "demo-user-1";
       await storage.markAllNotificationsAsRead(userId);
       res.json({ message: "All notifications marked as read" });
     } catch (error) {
@@ -740,9 +740,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Admin notification endpoint - send notification to specific user or all users
-  app.post("/api/notifications", isAuthenticated, async (req: any, res) => {
+  app.post("/api/notifications", async (req: any, res) => {
     try {
-      const adminUserId = req.user.claims.sub;
+      const adminUserId = req.user?.claims?.sub || "demo-user-1";
       const user = await storage.getUser(adminUserId);
       
       // Check if user is admin
@@ -932,7 +932,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/campaigns/:id/generate-all", isAuthenticated, async (req: any, res) => {
+  app.post("/api/campaigns/:id/generate-all", async (req: any, res) => {
     try {
       const { id } = req.params;
       const { posts, contentType, businessName, productName, targetAudience, brandTone, keyMessages, callToAction } = req.body;
@@ -1009,7 +1009,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/campaigns/:campaignId/posts/:postId", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/campaigns/:campaignId/posts/:postId", async (req: any, res) => {
     try {
       const { postId } = req.params;
       const { status } = req.body;
@@ -1021,7 +1021,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.delete("/api/campaigns/:campaignId/posts/:postId", isAuthenticated, async (req: any, res) => {
+  app.delete("/api/campaigns/:campaignId/posts/:postId", async (req: any, res) => {
     try {
       const { postId } = req.params;
       await storage.deletePost(postId);
@@ -1031,10 +1031,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.post("/api/campaigns/:id/approve", isAuthenticated, async (req: any, res) => {
+  app.post("/api/campaigns/:id/approve", async (req: any, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user.claims.sub;
+      const userId = req.user?.claims?.sub || "demo-user-1";
       
       // Get all campaign posts
       const posts = await storage.getPostsByCampaignId(id);
@@ -1074,7 +1074,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  app.patch("/api/campaigns/:id", isAuthenticated, async (req: any, res) => {
+  app.patch("/api/campaigns/:id", async (req: any, res) => {
     try {
       const { id } = req.params;
       const updates = req.body;
@@ -1087,9 +1087,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // X.com OAuth endpoints
-  app.get("/api/platforms/x/connect", isAuthenticated, async (req: any, res) => {
+  app.get("/api/platforms/x/connect", async (req: any, res) => {
     try {
-      const userId = req.user.claims.sub; // In production, get from session
+      const userId = req.user?.claims?.sub || "demo-user-1"; // Works in demo mode
       const { url, state, codeVerifier } = generateXAuthUrl(userId);
       
       // In production, store codeVerifier securely (session/database)
@@ -1105,7 +1105,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // OAuth callback endpoint
-  app.get("/api/auth/x/callback", isAuthenticated, async (req: any, res) => {
+  app.get("/api/auth/x/callback", async (req: any, res) => {
     try {
       const { code, state } = req.query;
       // In production, get codeVerifier from session
@@ -1133,7 +1133,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // Post to X endpoint
-  app.post("/api/platforms/x/post", isAuthenticated, async (req: any, res) => {
+  app.post("/api/platforms/x/post", async (req: any, res) => {
     try {
       const { content, platformId } = req.body;
       
