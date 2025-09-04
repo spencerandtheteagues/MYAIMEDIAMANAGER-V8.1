@@ -122,7 +122,7 @@ export class MemStorage implements IStorage {
     const demoUser: User = {
       id: "demo-user-1",
       username: "spencer.teague",
-      password: "TheMoonKey8!",
+      password: null, // Never hardcode passwords
       fullName: "Spencer Teague",
       businessName: "MyAiMediaMgr",
       avatar: null,
@@ -230,7 +230,13 @@ export class MemStorage implements IStorage {
 
   // Users
   async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+    const user = this.users.get(id);
+    if (user) {
+      // Never return password in user data
+      const { password, ...userWithoutPassword } = user;
+      return userWithoutPassword as User;
+    }
+    return undefined;
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
@@ -313,6 +319,11 @@ export class MemStorage implements IStorage {
 
   async getAllUsers(): Promise<User[]> {
     return Array.from(this.users.values())
+      .map(user => {
+        // Never return password in user data
+        const { password, ...userWithoutPassword } = user;
+        return userWithoutPassword as User;
+      })
       .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
   }
 

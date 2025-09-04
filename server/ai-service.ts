@@ -3,7 +3,7 @@ import { GoogleGenAI } from "@google/genai";
 if (!process.env.GEMINI_API_KEY) {
   console.warn("GEMINI_API_KEY not set. AI features will be disabled.");
 } else {
-  console.log("GEMINI_API_KEY is set, length:", process.env.GEMINI_API_KEY.length);
+  console.log("GEMINI_API_KEY is configured.");
 }
 
 const genAI = process.env.GEMINI_API_KEY 
@@ -74,7 +74,7 @@ Format each post on a new line. Make each one unique and engaging.`;
       
       // Split by newlines and filter out empty lines
       const posts = text.split('\n')
-        .filter(line => line.trim().length > 0)
+        .filter((line: string) => line.trim().length > 0)
         .slice(0, 3);
       
       return posts.length > 0 ? posts : [text];
@@ -191,8 +191,8 @@ Return only the hashtags, one per line.`;
       const text = result.text || "";
       
       return text.split('\n')
-        .filter(tag => tag.trim().length > 0)
-        .map(tag => tag.trim().replace(/^#/, ''))
+        .filter((tag: string) => tag.trim().length > 0)
+        .map((tag: string) => tag.trim().replace(/^#/, ''))
         .slice(0, 5);
     } catch (error) {
       console.error("Hashtag generation error:", error);

@@ -15,6 +15,12 @@ const credentials = {
   bearerToken: process.env.X_BEARER_TOKEN || '',
 };
 
+// Validate credentials are present
+function validateCredentials(): boolean {
+  return !!(credentials.apiKey && credentials.apiKeySecret && 
+           credentials.accessToken && credentials.accessTokenSecret);
+}
+
 interface OAuthParams {
   oauth_consumer_key: string;
   oauth_nonce: string;
@@ -76,6 +82,13 @@ function generateOAuthHeader(params: OAuthParams): string {
 }
 
 export async function postToX(content: string, mediaIds?: string[]): Promise<any> {
+  if (!validateCredentials()) {
+    return {
+      success: false,
+      error: 'X.com credentials not configured. Please set X_API_KEY, X_API_KEY_SECRET, X_ACCESS_TOKEN, and X_ACCESS_TOKEN_SECRET environment variables.'
+    };
+  }
+  
   try {
     const url = 'https://api.twitter.com/2/tweets';
     const method = 'POST';
@@ -211,6 +224,11 @@ async function postToXv1(content: string): Promise<any> {
 
 // Test connection by verifying credentials
 export async function verifyXCredentials(): Promise<boolean> {
+  if (!validateCredentials()) {
+    console.error('X.com credentials not configured');
+    return false;
+  }
+  
   try {
     const url = 'https://api.twitter.com/1.1/account/verify_credentials.json';
     
@@ -226,7 +244,7 @@ export async function verifyXCredentials(): Promise<boolean> {
     oauthParams.oauth_signature = generateSignature(
       'GET',
       url,
-      oauthParams,
+      oauthParams as unknown as Record<string, string>,
       credentials.apiKeySecret,
       credentials.accessTokenSecret
     );
