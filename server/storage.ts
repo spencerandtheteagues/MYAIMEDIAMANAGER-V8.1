@@ -360,6 +360,10 @@ export class MemStorage implements IStorage {
     return updatedPlatform;
   }
 
+  async deletePlatform(id: string): Promise<void> {
+    this.platforms.delete(id);
+  }
+
   // Campaigns
   async getCampaignsByUserId(userId: string): Promise<Campaign[]> {
     return Array.from(this.campaigns.values())
