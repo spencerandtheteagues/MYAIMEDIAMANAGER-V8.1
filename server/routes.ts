@@ -6,13 +6,29 @@ import { z } from "zod";
 import { aiService } from "./ai-service";
 import aiRoutes from "./aiRoutes";
 import { generateXAuthUrl, handleXOAuthCallback, postToXWithOAuth } from "./x-oauth";
-import { setupAuth, isAuthenticated } from "./replitAuth";
+import { setupAuth as setupReplitAuth, isAuthenticated as isReplitAuthenticated } from "./replitAuth";
+import { getSession } from "./replitAuth";
+import authRoutes, { requireAuth, requireAdmin } from "./auth";
 import stripeRoutes from "./stripeRoutes";
 import adminRoutes from "./adminRoutes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
-  // Auth middleware
-  await setupAuth(app);
+  // Session middleware (always needed)
+  app.use(getSession());
+  
+  // Conditionally setup auth based on environment
+  const useReplitAuth = process.env.ENABLE_REPLIT_AUTH === 'true';
+  
+  if (useReplitAuth) {
+    // Use Replit OIDC auth
+    await setupReplitAuth(app);
+  } else {
+    // Use app auth routes
+    app.use("/api/auth", authRoutes);
+  }
+  
+  // Use appropriate auth middleware based on configuration
+  const isAuthenticated = useReplitAuth ? isReplitAuthenticated : requireAuth;
   
   // Wire up the new AI routes - allow demo access
   app.use("/api/ai", (req: any, res, next) => {
@@ -41,34 +57,40 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Get current user - allow demo mode for testing
+  // Get current user - works with both auth systems
   app.get("/api/user", async (req: any, res) => {
     try {
-      // Check if authenticated first
-      if (req.user?.claims?.sub) {
-        const user = await storage.getUser(req.user.claims.sub);
-        if (user) {
-          return res.json(user);
+      let userId: string | undefined;
+      
+      // Check for session-based auth (app auth)
+      if (req.session?.userId) {
+        userId = req.session.userId;
+      }
+      // Check for Replit auth
+      else if (req.user?.claims?.sub) {
+        userId = req.user.claims.sub;
+      }
+      // For demo/testing when not authenticated
+      else {
+        // Try to get the demo user by username since we know it exists
+        const demoUser = await storage.getUserByUsername("spencer.teague");
+        if (demoUser) {
+          return res.json(demoUser);
         }
+        
+        // If no demo user exists at all, return error
+        return res.status(401).json({ message: "Not authenticated" });
       }
       
-      // For demo/testing - return demo admin user
-      const demoUser = await storage.getUser("demo-user-1");
-      if (demoUser) {
-        return res.json(demoUser);
+      // Get the authenticated user
+      const user = await storage.getUser(userId);
+      if (user) {
+        return res.json(user);
       }
       
-      // Create a default demo user if none exists
-      const newDemoUser = await storage.createUser({
-        username: "spencer.teague",
-        fullName: "Spencer Teague",
-        businessName: "MyAiMediaMgr Demo",
-        role: "admin",
-        tier: "enterprise",
-        credits: 1000,
-      });
-      res.json(newDemoUser);
+      res.status(404).json({ message: "User not found" });
     } catch (error) {
+      console.error("Error getting user:", error);
       res.status(500).json({ message: "Failed to get user" });
     }
   });
