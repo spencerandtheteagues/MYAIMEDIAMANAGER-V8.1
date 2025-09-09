@@ -106,6 +106,7 @@ export class MemStorage implements IStorage {
   private adminActions: Map<string, AdminAction>;
   private notifications: Map<string, Notification>;
   private contentLibrary: Map<string, ContentLibraryItem>;
+  private brandProfiles: Map<string, BrandProfile>;
 
   constructor() {
     this.users = new Map();
@@ -119,6 +120,7 @@ export class MemStorage implements IStorage {
     this.adminActions = new Map();
     this.notifications = new Map();
     this.contentLibrary = new Map();
+    this.brandProfiles = new Map();
     
     // Initialize with demo user and data
     this.initializeDemoData();
@@ -747,6 +749,31 @@ export class MemStorage implements IStorage {
     if (item) {
       this.contentLibrary.set(id, { ...item, usageCount: (item.usageCount || 0) + 1, updatedAt: new Date() });
     }
+  }
+  
+  // Brand Profile methods
+  async getBrandProfile(userId: string): Promise<BrandProfile | undefined> {
+    return Array.from(this.brandProfiles.values()).find(p => p.userId === userId);
+  }
+
+  async createBrandProfile(profile: InsertBrandProfile): Promise<BrandProfile> {
+    const brandProfile: BrandProfile = {
+      id: randomUUID(),
+      ...profile,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    };
+    this.brandProfiles.set(brandProfile.id, brandProfile);
+    return brandProfile;
+  }
+
+  async updateBrandProfile(userId: string, updates: Partial<BrandProfile>): Promise<BrandProfile | undefined> {
+    const existing = await this.getBrandProfile(userId);
+    if (!existing) return undefined;
+    
+    const updated = { ...existing, ...updates, updatedAt: new Date() };
+    this.brandProfiles.set(existing.id, updated);
+    return updated;
   }
 }
 

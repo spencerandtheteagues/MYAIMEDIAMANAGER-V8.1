@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { 
   users, platforms, campaigns, posts, aiSuggestions, analytics,
-  creditTransactions, subscriptionPlans, adminActions, notifications, contentLibrary,
+  creditTransactions, subscriptionPlans, adminActions, notifications, contentLibrary, brandProfiles,
   type User, type InsertUser, type UpsertUser,
   type Platform, type InsertPlatform,
   type Campaign, type InsertCampaign,
@@ -12,7 +12,8 @@ import {
   type SubscriptionPlan, type InsertSubscriptionPlan,
   type AdminAction, type InsertAdminAction,
   type Notification, type InsertNotification,
-  type ContentLibraryItem, type InsertContentLibrary
+  type ContentLibraryItem, type InsertContentLibrary,
+  type BrandProfile, type InsertBrandProfile
 } from "@shared/schema";
 import { eq, and, gte, lte, sql, desc, asc, isNull, ne } from "drizzle-orm";
 import type { IStorage } from "./storage";
@@ -357,5 +358,25 @@ export class DbStorage implements IStorage {
         updatedAt: new Date()
       })
       .where(eq(contentLibrary.id, id));
+  }
+  
+  // Brand Profile
+  async getBrandProfile(userId: string): Promise<BrandProfile | undefined> {
+    const result = await db.select().from(brandProfiles)
+      .where(eq(brandProfiles.userId, userId));
+    return result[0];
+  }
+
+  async createBrandProfile(profile: InsertBrandProfile): Promise<BrandProfile> {
+    const result = await db.insert(brandProfiles).values(profile).returning();
+    return result[0];
+  }
+
+  async updateBrandProfile(userId: string, updates: Partial<BrandProfile>): Promise<BrandProfile | undefined> {
+    const result = await db.update(brandProfiles)
+      .set({ ...updates, updatedAt: new Date() })
+      .where(eq(brandProfiles.userId, userId))
+      .returning();
+    return result[0];
   }
 }
