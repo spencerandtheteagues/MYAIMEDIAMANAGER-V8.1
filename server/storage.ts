@@ -730,4 +730,9 @@ export class MemStorage implements IStorage {
   }
 }
 
-export const storage = new MemStorage();
+import { DbStorage } from "./storage.db";
+
+// Use DbStorage in production with DATABASE_URL, MemStorage for development
+export const storage = process.env.DATABASE_URL 
+  ? new DbStorage() 
+  : new MemStorage();
