@@ -287,6 +287,23 @@ export const contentLibrary = pgTable("content_library", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Brand Profile for quality content generation
+export const brandProfiles = pgTable("brand_profiles", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull().unique(),
+  brandName: text("brand_name").notNull(),
+  voice: text("voice"), // friendly, bold, professional, playful
+  targetAudience: text("target_audience"),
+  products: json("products").$type<string[]>().default([]),
+  valueProps: json("value_props").$type<string[]>().default([]),
+  bannedPhrases: json("banned_phrases").$type<string[]>().default([]),
+  requiredDisclaimers: json("required_disclaimers").$type<string[]>().default([]),
+  preferredCTAs: json("preferred_ctas").$type<string[]>().default([]),
+  keywords: json("keywords").$type<string[]>().default([]),
+  createdAt: timestamp("created_at").defaultNow(),
+  updatedAt: timestamp("updated_at").defaultNow(),
+});
+
 // Insert schemas for new tables
 export const insertNotificationSchema = createInsertSchema(notifications).pick({
   userId: true,
@@ -299,6 +316,12 @@ export const insertNotificationSchema = createInsertSchema(notifications).pick({
 });
 
 export const insertContentLibrarySchema = createInsertSchema(contentLibrary).omit({
+  id: true,
+  createdAt: true,
+  updatedAt: true,
+});
+
+export const insertBrandProfileSchema = createInsertSchema(brandProfiles).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
@@ -330,3 +353,5 @@ export type Notification = typeof notifications.$inferSelect;
 export type InsertNotification = z.infer<typeof insertNotificationSchema>;
 export type ContentLibraryItem = typeof contentLibrary.$inferSelect;
 export type InsertContentLibrary = z.infer<typeof insertContentLibrarySchema>;
+export type BrandProfile = typeof brandProfiles.$inferSelect;
+export type InsertBrandProfile = z.infer<typeof insertBrandProfileSchema>;

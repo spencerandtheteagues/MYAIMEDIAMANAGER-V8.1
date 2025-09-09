@@ -9,7 +9,8 @@ import {
   type SubscriptionPlan, type InsertSubscriptionPlan,
   type AdminAction, type InsertAdminAction,
   type Notification, type InsertNotification,
-  type ContentLibraryItem, type InsertContentLibrary
+  type ContentLibraryItem, type InsertContentLibrary,
+  type BrandProfile, type InsertBrandProfile
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -86,6 +87,11 @@ export interface IStorage {
   updateContentLibraryItem(id: string, userId: string, updates: Partial<ContentLibraryItem>): Promise<ContentLibraryItem | undefined>;
   deleteContentLibraryItem(id: string, userId?: string): Promise<boolean>;
   incrementUsageCount(id: string): Promise<void>;
+  
+  // Brand Profile
+  getBrandProfile(userId: string): Promise<BrandProfile | undefined>;
+  createBrandProfile(profile: InsertBrandProfile): Promise<BrandProfile>;
+  updateBrandProfile(userId: string, updates: Partial<BrandProfile>): Promise<BrandProfile | undefined>;
 }
 
 export class MemStorage implements IStorage {
