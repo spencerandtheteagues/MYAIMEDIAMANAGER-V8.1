@@ -12,6 +12,7 @@ import authRoutes, { requireAuth, requireAdmin } from "./auth";
 import stripeRoutes from "./stripeRoutes";
 import adminRoutes from "./adminRoutes";
 import healthRoutes from "./health";
+import { createApprovalRoutes } from "./approvalRoutes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health routes (no auth required)
@@ -48,6 +49,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Wire up admin routes
   app.use("/api/admin", adminRoutes);
+  
+  // Wire up approval queue routes
+  app.use(createApprovalRoutes(storage));
   
   // Auth routes
   app.get('/api/auth/user', async (req: any, res) => {

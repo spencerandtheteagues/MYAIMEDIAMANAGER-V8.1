@@ -99,13 +99,14 @@ export const posts = pgTable("posts", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   userId: varchar("user_id").references(() => users.id).notNull(),
   campaignId: varchar("campaign_id").references(() => campaigns.id),
+  contentRef: varchar("content_ref").references(() => contentLibrary.id), // Reference to content library
   content: text("content").notNull(),
   imageUrl: text("image_url"),
   videoUrl: text("video_url"),
   imagePrompt: text("image_prompt"),
   videoPrompt: text("video_prompt"),
   platforms: json("platforms").$type<string[]>().notNull(),
-  status: text("status").notNull(), // draft, pending, approved, rejected, published, scheduled
+  status: text("status").notNull(), // draft, pending_approval, approved, rejected, scheduled, posted, failed
   scheduledFor: timestamp("scheduled_for"),
   publishedAt: timestamp("published_at"),
   mediaUrls: json("media_urls").$type<string[]>().default([]),
