@@ -9,6 +9,7 @@ import { saveToLibrary } from "./library";
 import { artDirectionForImage, storyboardForVideo } from './content/templates';
 import { type BrandProfile } from '@shared/schema';
 import { type Platform } from './content/config';
+import { requireSafePrompt, moderateContent } from './content/moderation';
 
 const router = express.Router();
 
@@ -18,7 +19,7 @@ const ai = process.env.GEMINI_API_KEY
   : null;
 
 // ---- TEXT: Gemini 2.5 Pro ----
-router.post("/text", async (req, res) => {
+router.post("/text", requireSafePrompt("text"), async (req, res) => {
   try {
     const { prompt, system, temperature = 0.9, maxOutputTokens = 2048 } = req.body || {};
     
@@ -60,7 +61,7 @@ router.post("/text", async (req, res) => {
 });
 
 // ---- IMAGE: Imagen 4 ----
-router.post("/image", async (req, res) => {
+router.post("/image", requireSafePrompt("image"), async (req, res) => {
   try {
     const {
       prompt,

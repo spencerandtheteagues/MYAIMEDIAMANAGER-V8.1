@@ -3,6 +3,7 @@ import { validateContent, Candidate } from "./validators";
 import { BrandProfile, Platform, PlatformConstraints } from "./config";
 import { PostType } from "./templates";
 import { GoogleGenAI } from "@google/genai";
+import { moderateContent } from "./moderation";
 
 interface GenOpts {
   platform: Platform;
@@ -99,11 +100,54 @@ export async function generateHighQualityPost(opts: GenOpts): Promise<{
         coaching: v2.coaching 
       };
     }
+    
+    // Safety check on fixed content
+    const safety = await moderateContent(
+      fixed.caption + '\n' + fixed.hashtags.join(' '), 
+      opts.platform
+    );
+    
+    if (safety.decision === "block") {
+      return {
+        ok: false,
+        error: "content_policy_violation",
+        reasons: safety.reasons,
+        coaching: safety.coaching || []
+      };
+    }
+    
     return { 
       ok: true, 
       best: fixed, 
       candidates: candidates.map(normalizeCandidate), 
-      scores: rescored.map(s=>s.score) 
+      scores: rescored.map(s=>s.score),
+      requiresReview: safety.decision === "review"
+    };
+  }
+  
+  // 5) Safety moderation
+  const fullContent = winner.caption + '\n' + winner.hashtags.join(' ');
+  const safety = await moderateContent(fullContent, opts.platform);
+  
+  if (safety.decision === "block") {
+    // Try safe rewrite if available
+    if (safety.safeRewrite) {
+      const safeCandidate = normalizeCandidate(safety.safeRewrite);
+      return {
+        ok: true,
+        best: safeCandidate,
+        candidates: candidates.map(normalizeCandidate),
+        scores: rescored.map(s=>s.score),
+        wasRewritten: true,
+        requiresReview: true
+      };
+    }
+    
+    return {
+      ok: false,
+      error: "content_policy_violation",
+      reasons: safety.reasons,
+      coaching: safety.coaching || []
     };
   }
 
@@ -111,7 +155,8 @@ export async function generateHighQualityPost(opts: GenOpts): Promise<{
     ok: true, 
     best: winner, 
     candidates: candidates.map(normalizeCandidate), 
-    scores: rescored.map(s=>s.score) 
+    scores: rescored.map(s=>s.score),
+    requiresReview: safety.decision === "review"
   };
 }
 
