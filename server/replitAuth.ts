@@ -36,13 +36,14 @@ export function getSession() {
     tableName: "sessions",
   });
   return session({
-    secret: process.env.SESSION_SECRET,
+    secret: process.env.SESSION_SECRET || "myaimediamgr-secret-key-change-in-production",
     store: sessionStore,
     resave: false,
     saveUninitialized: false,
     cookie: {
       httpOnly: true,
-      secure: true,
+      secure: process.env.NODE_ENV === "production", // Only secure in production
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: sessionTtl,
     },
   });

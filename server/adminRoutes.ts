@@ -1,6 +1,5 @@
-import { Router } from "express";
+import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
-import { isAdmin } from "./replitAuth";
 import Stripe from "stripe";
 
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -8,6 +7,40 @@ const stripe = process.env.STRIPE_SECRET_KEY
   : null;
 
 const router = Router();
+
+// Admin authentication middleware that works with both session and Replit auth
+const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
+  try {
+    let userId: string | undefined;
+    
+    // Check for session-based auth first
+    if (req.session?.userId) {
+      userId = req.session.userId;
+    }
+    // Check for Replit auth
+    else if ((req as any).user?.claims?.sub) {
+      userId = (req as any).user.claims.sub;
+    }
+    
+    if (!userId) {
+      return res.status(401).json({ message: "Authentication required" });
+    }
+    
+    const user = await storage.getUser(userId);
+    if (!user || !user.isAdmin) {
+      return res.status(403).json({ message: "Admin access required" });
+    }
+    
+    // Store user info for route handlers
+    (req as any).adminUser = user;
+    (req as any).adminId = userId;
+    
+    next();
+  } catch (error) {
+    console.error("Admin auth error:", error);
+    res.status(500).json({ message: "Authentication error" });
+  }
+};
 
 // All admin routes require admin authentication
 router.use(isAdmin);
@@ -47,8 +80,8 @@ router.get("/users/:id", async (req, res) => {
 // Update user (admin can update any field)
 router.patch("/users/:id", async (req, res) => {
   try {
-    const adminUser = req.user as any;
-    const adminId = adminUser.claims?.sub;
+    const adminUser = (req as any).adminUser;
+    const adminId = (req as any).adminId;
     const { id } = req.params;
     const updates = req.body;
     
@@ -62,7 +95,7 @@ router.patch("/users/:id", async (req, res) => {
     
     // Log admin action
     await storage.logAdminAction({
-      adminUserId: adminId,
+      adminUserId: adminId || null,
       targetUserId: id,
       action: "update_user",
       details: updates,
@@ -77,8 +110,8 @@ router.patch("/users/:id", async (req, res) => {
 // Grant credits to user
 router.post("/users/:id/grant-credits", async (req, res) => {
   try {
-    const adminUser = req.user as any;
-    const adminId = adminUser.claims?.sub;
+    const adminUser = (req as any).adminUser;
+    const adminId = (req as any).adminId;
     const { id } = req.params;
     const { amount, reason } = req.body;
     
@@ -97,7 +130,7 @@ router.post("/users/:id/grant-credits", async (req, res) => {
     
     // Log admin action
     await storage.logAdminAction({
-      adminUserId: adminId,
+      adminUserId: adminId || null,
       targetUserId: id,
       action: "grant_credits",
       details: { amount, reason },
@@ -112,8 +145,8 @@ router.post("/users/:id/grant-credits", async (req, res) => {
 // Deduct credits from user
 router.post("/users/:id/deduct-credits", async (req, res) => {
   try {
-    const adminUser = req.user as any;
-    const adminId = adminUser.claims?.sub;
+    const adminUser = (req as any).adminUser;
+    const adminId = (req as any).adminId;
     const { id } = req.params;
     const { amount, reason } = req.body;
     
@@ -132,7 +165,7 @@ router.post("/users/:id/deduct-credits", async (req, res) => {
     
     // Log admin action
     await storage.logAdminAction({
-      adminUserId: adminId,
+      adminUserId: adminId || null,
       targetUserId: id,
       action: "deduct_credits",
       details: { amount, reason },
@@ -147,8 +180,8 @@ router.post("/users/:id/deduct-credits", async (req, res) => {
 // Freeze/unfreeze user account
 router.post("/users/:id/freeze", async (req, res) => {
   try {
-    const adminUser = req.user as any;
-    const adminId = adminUser.claims?.sub;
+    const adminUser = (req as any).adminUser;
+    const adminId = (req as any).adminId;
     const { id } = req.params;
     const { frozen, reason } = req.body;
     
@@ -161,7 +194,7 @@ router.post("/users/:id/freeze", async (req, res) => {
     
     // Log admin action
     await storage.logAdminAction({
-      adminUserId: adminId,
+      adminUserId: adminId || null,
       targetUserId: id,
       action: frozen ? "freeze_account" : "unfreeze_account",
       details: { reason },
@@ -176,8 +209,8 @@ router.post("/users/:id/freeze", async (req, res) => {
 // Change user subscription tier
 router.post("/users/:id/change-tier", async (req, res) => {
   try {
-    const adminUser = req.user as any;
-    const adminId = adminUser.claims?.sub;
+    const adminUser = (req as any).adminUser;
+    const adminId = (req as any).adminId;
     const { id } = req.params;
     const { tier, grantCredits } = req.body;
     
@@ -204,7 +237,7 @@ router.post("/users/:id/change-tier", async (req, res) => {
     
     // Log admin action
     await storage.logAdminAction({
-      adminUserId: adminId,
+      adminUserId: adminId || null,
       targetUserId: id,
       action: "change_tier",
       details: { tier, grantCredits },
@@ -219,8 +252,8 @@ router.post("/users/:id/change-tier", async (req, res) => {
 // Delete user account
 router.delete("/users/:id", async (req, res) => {
   try {
-    const adminUser = req.user as any;
-    const adminId = adminUser.claims?.sub;
+    const adminUser = (req as any).adminUser;
+    const adminId = (req as any).adminId;
     const { id } = req.params;
     
     // Prevent deleting admin accounts
@@ -240,7 +273,7 @@ router.delete("/users/:id", async (req, res) => {
     
     // Log admin action
     await storage.logAdminAction({
-      adminUserId: adminId,
+      adminUserId: adminId || null,
       targetUserId: id,
       action: "delete_account",
       details: {},
@@ -259,8 +292,8 @@ router.post("/refund", async (req, res) => {
       return res.status(500).json({ message: "Stripe not configured" });
     }
     
-    const adminUser = req.user as any;
-    const adminId = adminUser.claims?.sub;
+    const adminUser = (req as any).adminUser;
+    const adminId = (req as any).adminId;
     const { userId, amount, reason, stripePaymentIntentId } = req.body;
     
     if (!stripePaymentIntentId) {
@@ -292,7 +325,7 @@ router.post("/refund", async (req, res) => {
       
       // Log admin action
       await storage.logAdminAction({
-        adminUserId: adminId,
+        adminUserId: adminId || null,
         targetUserId: userId,
         action: "process_refund",
         details: { amount, reason, refundId: refund.id },
