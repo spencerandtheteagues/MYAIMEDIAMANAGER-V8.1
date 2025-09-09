@@ -6,6 +6,9 @@ import express from "express";
 import { GoogleGenAI } from "@google/genai";
 import { storage } from "./storage";
 import { saveToLibrary } from "./library";
+import { artDirectionForImage, storyboardForVideo } from './content/templates';
+import { type BrandProfile } from '@shared/schema';
+import { type Platform } from './content/config';
 
 const router = express.Router();
 
@@ -80,6 +83,26 @@ router.post("/image", async (req, res) => {
     }
 
     console.log(`Image generation request: prompt="${prompt}", aspectRatio="${aspectRatio}", count=${count}`);
+    
+    // Get brand profile for art direction
+    const userId = (req as any).session?.userId || (req as any).user?.claims?.sub || (req as any).user?.id;
+    let brandProfile: BrandProfile | undefined;
+    
+    if (userId && userId !== "demo-user-1") {
+      try {
+        brandProfile = await storage.getBrandProfile(userId);
+      } catch (err) {
+        console.error("Error fetching brand profile:", err);
+      }
+    }
+    
+    // Enhance prompt with art direction if brand profile exists
+    let enhancedPrompt = prompt;
+    if (brandProfile && isAdvertisement) {
+      const platform: Platform = 'instagram'; // Default, could be passed in request
+      const artDirection = artDirectionForImage(brandProfile, platform);
+      enhancedPrompt = `${prompt}. ${artDirection}`;
+    }
 
     // Set a longer timeout for image generation (30 seconds)
     const timeout = new Promise((_, reject) => 
@@ -88,7 +111,7 @@ router.post("/image", async (req, res) => {
 
     const generateImages = (ai.models as any).generateImages({
       model: "imagen-4.0-generate-001",
-      prompt,
+      prompt: enhancedPrompt,
       n: Math.min(Math.max(count, 1), 4),
       config: {
         aspectRatio,
