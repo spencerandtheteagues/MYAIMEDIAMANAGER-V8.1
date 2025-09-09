@@ -11,8 +11,12 @@ import { getSession } from "./replitAuth";
 import authRoutes, { requireAuth, requireAdmin } from "./auth";
 import stripeRoutes from "./stripeRoutes";
 import adminRoutes from "./adminRoutes";
+import healthRoutes from "./health";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Health routes (no auth required)
+  app.use("/", healthRoutes);
+  
   // Session middleware (always needed)
   app.use(getSession());
   
