@@ -36,6 +36,7 @@ export interface IStorage {
   createCampaign(campaign: InsertCampaign): Promise<Campaign>;
   updateCampaign(id: string, updates: Partial<Campaign>): Promise<Campaign | undefined>;
   deleteCampaign(id: string): Promise<boolean>;
+  getCampaigns(userId: string): Promise<Campaign[]>;
   
   // Posts
   getPostsByUserId(userId: string): Promise<Post[]>;
@@ -45,6 +46,7 @@ export interface IStorage {
   createPost(post: InsertPost): Promise<Post>;
   updatePost(id: string, updates: Partial<Post>): Promise<Post | undefined>;
   deletePost(id: string): Promise<boolean>;
+  getScheduledPostAtTime(userId: string, scheduledTime: Date): Promise<Post | undefined>;
   
   // AI Suggestions
   getAiSuggestionsByUserId(userId: string): Promise<AiSuggestion[]>;
@@ -419,6 +421,18 @@ export class MemStorage implements IStorage {
 
   async deleteCampaign(id: string): Promise<boolean> {
     return this.campaigns.delete(id);
+  }
+  
+  async getCampaigns(userId: string): Promise<Campaign[]> {
+    return this.getCampaignsByUserId(userId);
+  }
+  
+  async getScheduledPostAtTime(userId: string, scheduledTime: Date): Promise<Post | undefined> {
+    return Array.from(this.posts.values()).find(post => {
+      if (post.userId !== userId || !post.scheduledFor) return false;
+      const postTime = new Date(post.scheduledFor);
+      return Math.abs(postTime.getTime() - scheduledTime.getTime()) < 60000; // Within 1 minute
+    });
   }
 
   // Posts

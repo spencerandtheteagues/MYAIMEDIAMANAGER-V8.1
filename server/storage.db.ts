@@ -111,6 +111,25 @@ export class DbStorage implements IStorage {
     const result = await db.delete(campaigns).where(eq(campaigns.id, id)).returning();
     return result.length > 0;
   }
+  
+  async getCampaigns(userId: string): Promise<Campaign[]> {
+    return this.getCampaignsByUserId(userId);
+  }
+  
+  async getScheduledPostAtTime(userId: string, scheduledTime: Date): Promise<Post | undefined> {
+    const oneMinuteBefore = new Date(scheduledTime.getTime() - 60000);
+    const oneMinuteAfter = new Date(scheduledTime.getTime() + 60000);
+    
+    const result = await db.select().from(posts)
+      .where(
+        and(
+          eq(posts.userId, userId),
+          gte(posts.scheduledFor, oneMinuteBefore),
+          lte(posts.scheduledFor, oneMinuteAfter)
+        )
+      );
+    return result[0];
+  }
 
   // Posts
   async getPostsByUserId(userId: string): Promise<Post[]> {

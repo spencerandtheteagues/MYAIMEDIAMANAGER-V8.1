@@ -14,6 +14,7 @@ import adminRoutes from "./adminRoutes";
 import healthRoutes from "./health";
 import { createApprovalRoutes } from "./approvalRoutes";
 import { createLibraryRoutes } from "./libraryRoutes";
+import { createCampaignRoutes } from "./campaignRoutes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health routes (no auth required)
@@ -56,6 +57,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Wire up library routes
   app.use(createLibraryRoutes(storage));
+  
+  // Wire up campaign routes
+  app.use(createCampaignRoutes(storage));
   
   // Auth routes
   app.get('/api/auth/user', async (req: any, res) => {
