@@ -16,10 +16,18 @@ import { createApprovalRoutes } from "./approvalRoutes";
 import { createLibraryRoutes } from "./libraryRoutes";
 import { createCampaignRoutes } from "./campaignRoutes";
 import { createBrandRoutes } from "./brandRoutes";
+import { createFeedbackRoutes } from "./feedbackRoutes";
+import { createMetricsRoute, trackApiMetrics } from "./metrics";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Add metrics middleware
+  app.use(trackApiMetrics);
+  
   // Health routes (no auth required)
   app.use("/", healthRoutes);
+  
+  // Metrics endpoint (no auth for monitoring)
+  app.get("/metrics", createMetricsRoute());
   
   // Session middleware (always needed)
   app.use(getSession());
@@ -64,6 +72,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Wire up brand profile routes
   app.use(createBrandRoutes(storage));
+  
+  // Wire up feedback routes
+  app.use(createFeedbackRoutes(storage));
   
   // Auth routes
   app.get('/api/auth/user', async (req: any, res) => {

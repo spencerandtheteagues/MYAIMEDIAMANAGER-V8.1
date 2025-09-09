@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { 
   users, platforms, campaigns, posts, aiSuggestions, analytics,
-  creditTransactions, subscriptionPlans, adminActions, notifications, contentLibrary, brandProfiles,
+  creditTransactions, subscriptionPlans, adminActions, notifications, contentLibrary, brandProfiles, contentFeedback,
   type User, type InsertUser, type UpsertUser,
   type Platform, type InsertPlatform,
   type Campaign, type InsertCampaign,
@@ -13,7 +13,8 @@ import {
   type AdminAction, type InsertAdminAction,
   type Notification, type InsertNotification,
   type ContentLibraryItem, type InsertContentLibrary,
-  type BrandProfile, type InsertBrandProfile
+  type BrandProfile, type InsertBrandProfile,
+  type ContentFeedback, type InsertContentFeedback
 } from "@shared/schema";
 import { eq, and, gte, lte, sql, desc, asc, isNull, ne } from "drizzle-orm";
 import type { IStorage } from "./storage";
@@ -378,5 +379,22 @@ export class DbStorage implements IStorage {
       .where(eq(brandProfiles.userId, userId))
       .returning();
     return result[0];
+  }
+  
+  // Content Feedback
+  async createContentFeedback(feedback: InsertContentFeedback): Promise<ContentFeedback> {
+    const result = await db.insert(contentFeedback).values(feedback).returning();
+    return result[0];
+  }
+  
+  async getContentFeedbackByUserId(userId: string): Promise<ContentFeedback[]> {
+    return await db.select().from(contentFeedback)
+      .where(eq(contentFeedback.userId, userId))
+      .orderBy(desc(contentFeedback.createdAt));
+  }
+  
+  async getContentFeedbackByContent(contentId: string): Promise<ContentFeedback[]> {
+    return await db.select().from(contentFeedback)
+      .where(eq(contentFeedback.contentId, contentId));
   }
 }

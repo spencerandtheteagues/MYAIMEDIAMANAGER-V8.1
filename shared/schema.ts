@@ -304,6 +304,21 @@ export const brandProfiles = pgTable("brand_profiles", {
   updatedAt: timestamp("updated_at").defaultNow(),
 });
 
+// Content Feedback for improving quality
+export const contentFeedback = pgTable("content_feedback", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  userId: varchar("user_id").references(() => users.id).notNull(),
+  contentId: varchar("content_id"), // Post or AI suggestion ID
+  contentType: text("content_type"), // post, ai_suggestion, campaign_post
+  feedback: text("feedback").notNull(), // thumbs_up, thumbs_down
+  reasons: json("reasons").$type<string[]>().default([]), // too_generic, too_long, off_brand, etc
+  qualityScore: real("quality_score"), // Score at time of generation
+  platform: text("platform"),
+  postType: text("post_type"),
+  metadata: jsonb("metadata"),
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas for new tables
 export const insertNotificationSchema = createInsertSchema(notifications).pick({
   userId: true,
@@ -325,6 +340,11 @@ export const insertBrandProfileSchema = createInsertSchema(brandProfiles).omit({
   id: true,
   createdAt: true,
   updatedAt: true,
+});
+
+export const insertContentFeedbackSchema = createInsertSchema(contentFeedback).omit({
+  id: true,
+  createdAt: true,
 });
 
 // Types
@@ -355,3 +375,5 @@ export type ContentLibraryItem = typeof contentLibrary.$inferSelect;
 export type InsertContentLibrary = z.infer<typeof insertContentLibrarySchema>;
 export type BrandProfile = typeof brandProfiles.$inferSelect;
 export type InsertBrandProfile = z.infer<typeof insertBrandProfileSchema>;
+export type ContentFeedback = typeof contentFeedback.$inferSelect;
+export type InsertContentFeedback = z.infer<typeof insertContentFeedbackSchema>;

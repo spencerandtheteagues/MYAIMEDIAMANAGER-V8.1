@@ -10,7 +10,8 @@ import {
   type AdminAction, type InsertAdminAction,
   type Notification, type InsertNotification,
   type ContentLibraryItem, type InsertContentLibrary,
-  type BrandProfile, type InsertBrandProfile
+  type BrandProfile, type InsertBrandProfile,
+  type ContentFeedback, type InsertContentFeedback
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -92,6 +93,11 @@ export interface IStorage {
   getBrandProfile(userId: string): Promise<BrandProfile | undefined>;
   createBrandProfile(profile: InsertBrandProfile): Promise<BrandProfile>;
   updateBrandProfile(userId: string, updates: Partial<BrandProfile>): Promise<BrandProfile | undefined>;
+  
+  // Content Feedback
+  createContentFeedback(feedback: InsertContentFeedback): Promise<ContentFeedback>;
+  getContentFeedbackByUserId(userId: string): Promise<ContentFeedback[]>;
+  getContentFeedbackByContent(contentId: string): Promise<ContentFeedback[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -107,6 +113,7 @@ export class MemStorage implements IStorage {
   private notifications: Map<string, Notification>;
   private contentLibrary: Map<string, ContentLibraryItem>;
   private brandProfiles: Map<string, BrandProfile>;
+  private contentFeedback: Map<string, ContentFeedback>;
 
   constructor() {
     this.users = new Map();
@@ -121,6 +128,7 @@ export class MemStorage implements IStorage {
     this.notifications = new Map();
     this.contentLibrary = new Map();
     this.brandProfiles = new Map();
+    this.contentFeedback = new Map();
     
     // Initialize with demo user and data
     this.initializeDemoData();
@@ -774,6 +782,28 @@ export class MemStorage implements IStorage {
     const updated = { ...existing, ...updates, updatedAt: new Date() };
     this.brandProfiles.set(existing.id, updated);
     return updated;
+  }
+  
+  // Content Feedback methods
+  async createContentFeedback(feedback: InsertContentFeedback): Promise<ContentFeedback> {
+    const feedbackRecord: ContentFeedback = {
+      id: randomUUID(),
+      ...feedback,
+      createdAt: new Date(),
+    };
+    this.contentFeedback.set(feedbackRecord.id, feedbackRecord);
+    return feedbackRecord;
+  }
+  
+  async getContentFeedbackByUserId(userId: string): Promise<ContentFeedback[]> {
+    return Array.from(this.contentFeedback.values())
+      .filter(f => f.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async getContentFeedbackByContent(contentId: string): Promise<ContentFeedback[]> {
+    return Array.from(this.contentFeedback.values())
+      .filter(f => f.contentId === contentId);
   }
 }
 
