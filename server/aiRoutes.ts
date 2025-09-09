@@ -5,6 +5,7 @@
 import express from "express";
 import { GoogleGenAI } from "@google/genai";
 import { storage } from "./storage";
+import { saveToLibrary } from "./library";
 
 const router = express.Router();
 
@@ -150,35 +151,45 @@ router.post("/image", async (req, res) => {
       }
     }
     
-    // Save generated images to content library automatically
-    const userId = (req as any).user?.claims?.sub || "demo-user-1";
+    // Save generated images to content library automatically (NOT text)
+    const userId = (req as any).session?.userId || (req as any).user?.claims?.sub;
     
-    try {
-      for (let i = 0; i < images.length; i++) {
-        const savedItem = await storage.createContentLibraryItem({
-          userId,
-          type: "image",
-          url: images[i],
-          thumbnail: images[i],
-          caption: caption || null,
-          businessName: businessName || null,
-          productName: productName || null,
-          platform: null, // Can be set when used
-          tags: ["ai_generated", "imagen_4"],
-          metadata: {
-            prompt: prompt || "",
-            aspectRatio,
-            brandTone,
-            isAdvertisement,
-            generatedAt: new Date()
+    // Only save if we have a valid user ID (not demo user)
+    if (userId && userId !== "demo-user-1") {
+      try {
+        for (let i = 0; i < images.length; i++) {
+          // Extract base64 data from data URL
+          const base64Data = images[i].split(',')[1];
+          
+          const savedItem = await saveToLibrary(storage, {
+            userId,
+            kind: 'image',
+            bytes: base64Data,
+            mime: 'image/png',
+            prompt: prompt || '',
+            meta: {
+              aspectRatio,
+              brandTone,
+              isAdvertisement,
+              businessName,
+              productName,
+              targetAudience,
+              keyMessages,
+              callToAction,
+              caption,
+              generatedAt: new Date().toISOString()
+            }
+          });
+          
+          if (savedItem) {
+            console.log(`✅ Saved image ${i + 1} to content library:`, savedItem.id);
           }
-        });
-        console.log(`✅ Saved image ${i + 1} to content library:`, savedItem.id);
+        }
+        console.log(`🎉 Successfully saved ${images.length} images to content library for user ${userId}`);
+      } catch (libraryError) {
+        console.error("❌ Failed to save images to content library:", libraryError);
+        // Don't fail the request if library save fails
       }
-      console.log(`🎉 Successfully saved ${images.length} images to content library for user ${userId}`);
-    } catch (libraryError) {
-      console.error("❌ CRITICAL: Failed to save images to content library:", libraryError);
-      // Don't fail the request if library save fails, but log prominently
     }
     
     res.json({ images, caption, watermark: "SynthID" });

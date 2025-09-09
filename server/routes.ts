@@ -13,6 +13,7 @@ import stripeRoutes from "./stripeRoutes";
 import adminRoutes from "./adminRoutes";
 import healthRoutes from "./health";
 import { createApprovalRoutes } from "./approvalRoutes";
+import { createLibraryRoutes } from "./libraryRoutes";
 
 export async function registerRoutes(app: Express): Promise<Server> {
   // Health routes (no auth required)
@@ -52,6 +53,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Wire up approval queue routes
   app.use(createApprovalRoutes(storage));
+  
+  // Wire up library routes
+  app.use(createLibraryRoutes(storage));
   
   // Auth routes
   app.get('/api/auth/user', async (req: any, res) => {
@@ -424,17 +428,28 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new post
   app.post("/api/posts", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      // Get user ID from session or auth
+      const userId = req.session?.userId || req.user?.claims?.sub;
+      
+      // Require authentication for post creation
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
       
       // Extract media URLs from the request
       const mediaUrls = [];
       if (req.body.imageUrl) mediaUrls.push(req.body.imageUrl);
       if (req.body.videoUrl) mediaUrls.push(req.body.videoUrl);
       
+      // Support 'kind' parameter for test compatibility
+      const kind = req.body.kind || 'text';
+      
       const postData = insertPostSchema.parse({
         ...req.body,
         userId,
         mediaUrls: mediaUrls.length > 0 ? mediaUrls : undefined,
+        status: req.body.status || 'draft',
+        platforms: req.body.platforms || [],
       });
       
       // Create the post with enhanced metadata for library tracking
