@@ -175,7 +175,7 @@ router.post("/image", async (req, res) => {
     }
     
     // Save generated images to content library automatically (NOT text)
-    const userId = (req as any).session?.userId || (req as any).user?.claims?.sub;
+    // userId already declared above for brand profile
     
     // Only save if we have a valid user ID (not demo user)
     if (userId && userId !== "demo-user-1") {

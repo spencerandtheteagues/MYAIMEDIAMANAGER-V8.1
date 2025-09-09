@@ -3,6 +3,10 @@ import { z } from 'zod';
 import { requireAuth } from './auth';
 import type { IStorage } from './storage';
 import { saveToLibrary } from './library';
+import { generateHighQualityPost } from './content/quality';
+import { PostType } from './content/templates';
+import { Platform } from './content/config';
+import { BrandProfile } from '@shared/schema';
 
 const generateCampaignSchema = z.object({
   prompt: z.string().min(1, "Campaign prompt/theme is required"),
@@ -35,6 +39,28 @@ export function createCampaignRoutes(storage: IStorage) {
 
       const params = generateCampaignSchema.parse(req.body);
       
+      // Get brand profile for better content generation
+      let brandProfile = await storage.getBrandProfile(userId);
+      
+      // If no brand profile exists, create a basic one from campaign params
+      if (!brandProfile) {
+        brandProfile = {
+          id: 'temp',
+          userId,
+          brandName: params.businessName || 'Business',
+          voice: (params.brandTone as any) || 'friendly',
+          targetAudience: params.targetAudience || 'General audience',
+          products: params.productName ? [params.productName] : [],
+          valueProps: [],
+          bannedPhrases: [],
+          requiredDisclaimers: [],
+          preferredCTAs: params.callToAction ? [params.callToAction] : ['Learn More'],
+          keywords: params.keyMessages || [],
+          createdAt: new Date(),
+          updatedAt: new Date()
+        };
+      }
+      
       // Create the campaign
       const campaign = await storage.createCampaign({
         userId,
@@ -65,33 +91,73 @@ export function createCampaignRoutes(storage: IStorage) {
       const morningHour = 10; // 10:00 AM
       const afternoonHour = 16; // 4:00 PM
       
+      // Define varied post types for the campaign
+      const postTypeRotation: PostType[] = [
+        'promo', 'tutorial', 'testimonial', 'promo', 
+        'faq', 'announcement', 'promo',
+        'testimonial', 'tutorial', 'promo',
+        'seasonal', 'faq', 'promo', 'event'
+      ];
+      
+      const platforms: Platform[] = ['instagram', 'facebook', 'x'];
+      let postIndex = 0;
+      const priorCaptions: string[] = [];
+      
       for (let day = 0; day < 7; day++) {
         for (let slot = 0; slot < 2; slot++) {
           const scheduledDate = new Date(startDate);
           scheduledDate.setDate(startDate.getDate() + day);
           scheduledDate.setHours(slot === 0 ? morningHour : afternoonHour, 0, 0, 0);
           
-          // Create post content based on day and slot
-          const postType = Math.random() > 0.3 ? 'image' : 'text'; // 70% image, 30% text
-          const dayThemes = [
-            'Monday motivation',
-            'Tuesday tips',
-            'Wednesday wisdom',
-            'Thursday thoughts',
-            'Friday features',
-            'Saturday spotlight',
-            'Sunday stories'
-          ];
+          // Rotate through post types and platforms
+          const postType = postTypeRotation[postIndex % postTypeRotation.length];
+          const platform = platforms[postIndex % platforms.length];
           
-          const slotThemes = slot === 0 ? 'morning energy' : 'afternoon engagement';
-          const dayOfWeek = scheduledDate.getDay();
-          const dayTheme = dayThemes[dayOfWeek === 0 ? 6 : dayOfWeek - 1];
+          // Generate high-quality content using the quality engine
+          let content = '';
+          let hashtags: string[] = [];
+          
+          try {
+            const result = await generateHighQualityPost({
+              platform,
+              postType,
+              brand: brandProfile,
+              campaignTheme: params.prompt,
+              product: params.productName,
+              desiredTone: brandProfile.voice,
+              callToAction: params.callToAction,
+              priorCaptions
+            });
+            
+            if (result.ok) {
+              content = result.best.caption;
+              hashtags = result.best.hashtags;
+              if (result.best.cta) {
+                content += `\n\n${result.best.cta}`;
+              }
+              priorCaptions.push(result.best.caption);
+            } else {
+              // Fallback content
+              content = `${params.prompt} - Post ${postIndex + 1}`;
+              hashtags = ['#business', '#growth'];
+            }
+          } catch (err) {
+            console.error('Quality generation failed:', err);
+            // Simple fallback
+            content = `${params.prompt} - Post ${postIndex + 1}`;
+            hashtags = ['#business', '#growth'];
+          }
+          
+          // Add hashtags to content
+          if (hashtags.length > 0) {
+            content += '\n\n' + hashtags.join(' ');
+          }
           
           const post = await storage.createPost({
             userId,
             campaignId: campaign.id,
-            content: `${dayTheme} - ${slotThemes}: ${params.prompt}`,
-      
+            content,
+            platform,
             status: 'draft',
             scheduledFor: scheduledDate,
             aiGenerated: true,
@@ -99,10 +165,13 @@ export function createCampaignRoutes(storage: IStorage) {
               day: day + 1,
               slot: slot + 1,
               campaignPost: true,
+              postType,
+              qualityGenerated: true
             },
           });
           
           posts.push(post);
+          postIndex++;
         }
       }
       
