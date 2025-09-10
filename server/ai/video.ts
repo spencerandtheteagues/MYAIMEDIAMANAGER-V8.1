@@ -19,7 +19,7 @@ export interface VideoGenerationOptions {
   model?: 'gemini' | 'auto';
 }
 
-/** Generate a video and return the file path */
+/** Generate a video using Veo 3 and return the file path */
 export async function generateVideo(opts: VideoGenerationOptions) {
   try {
     return await withRetry(async () => {
@@ -33,40 +33,37 @@ export async function generateVideo(opts: VideoGenerationOptions) {
       let modelUsed = "veo-3";
       let generationMethod = "veo";
       
-      // Determine which model to use
+      // Use Gemini Veo 3 for video generation
       const preferredModel = opts.model || 'auto';
       
       if (preferredModel === 'gemini' || (preferredModel === 'auto' && process.env.GEMINI_API_KEY)) {
-        // Try Gemini/Veo 3 first
         try {
-          console.log('Generating video with Gemini (Veo 3 placeholder)...');
+          console.log('Generating video with Veo 3...');
           videoBuffer = await generateVideoWithVeo3({
             prompt: opts.prompt,
             duration: opts.durationSeconds || 8,
             aspectRatio: opts.aspectRatio || "16:9",
             model: opts.fast ? "veo-3-fast" : "veo-3"
           });
-          modelUsed = "veo-3-placeholder";
-          generationMethod = "placeholder";
-        } catch (geminiError: any) {
-          console.error('Video generation failed:', geminiError.message);
-          throw new Error(`Video generation failed: ${geminiError.message}`);
+          modelUsed = opts.fast ? "veo-3-fast" : "veo-3";
+          generationMethod = "veo-3";
+        } catch (error: any) {
+          console.error('Veo 3 generation error:', error.message);
+          throw new Error(`Video generation failed: ${error.message}`);
         }
       } else {
         throw new Error("Video generation requires Gemini API key");
       }
       
-      // Write the video file if not already written
-      if (videoBuffer && !await fs.access(localPath).then(() => true).catch(() => false)) {
-        await fs.writeFile(localPath, videoBuffer);
-      }
+      // Write the video file
+      await fs.writeFile(localPath, videoBuffer);
       
       // Create metadata
       const meta = {
         model: modelUsed,
         aspectRatio: opts.aspectRatio || "16:9",
         prompt: opts.prompt,
-        duration: opts.durationSeconds || 5,
+        duration: opts.durationSeconds || 8,
         generationMethod,
         createdAt: new Date().toISOString()
       };
@@ -85,7 +82,7 @@ export async function generateVideo(opts: VideoGenerationOptions) {
         aspectRatio: opts.aspectRatio || "16:9",
         model: modelUsed,
         generationMethod,
-        duration: opts.durationSeconds || 5
+        duration: opts.durationSeconds || 8
       };
     });
   } catch (e: any) {
@@ -94,10 +91,10 @@ export async function generateVideo(opts: VideoGenerationOptions) {
   }
 }
 
-/** Start a Veo job and return an operation ID (legacy compatibility) */
+/** Start a Veo job and return an operation ID (for backward compatibility) */
 export async function startVideo(opts: { prompt: string; durationSeconds?: number; fast?: boolean }) {
   try {
-    // For backward compatibility, generate video synchronously
+    // Generate video synchronously for now
     const result = await generateVideo({
       prompt: opts.prompt,
       durationSeconds: opts.durationSeconds,
@@ -116,7 +113,7 @@ export async function startVideo(opts: { prompt: string; durationSeconds?: numbe
   }
 }
 
-/** Poll by op ID; return { operationId, status, videoUrl?, error?, progress? } when done. */
+/** Poll by op ID (for backward compatibility) */
 export async function pollVideo(opts: { operationId: string }) {
   // For backward compatibility, always return completed
   return {

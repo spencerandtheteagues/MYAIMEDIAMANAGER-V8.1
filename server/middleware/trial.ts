@@ -19,6 +19,13 @@ export function withTrialGuard(op:"text"|"image"|"video"){
     }
     if(op==="video"){
       if((u.trialVideosRemaining || 0)<=0){
+        // Check if user has enough credits to bypass trial requirement
+        const videoCredits = 20; // Cost of video generation in credits
+        if ((u.credits ?? 0) >= videoCredits) {
+          // User has enough credits, let them proceed without trial
+          return next();
+        }
+        // No trial videos and not enough credits
         return res.status(402).json({
           error:"Unlock video by adding a card or buying a $5 micro pack.",
           actions:{ addCard:true, buyPack:true }
