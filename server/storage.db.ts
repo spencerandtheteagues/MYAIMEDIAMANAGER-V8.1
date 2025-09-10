@@ -16,7 +16,7 @@ import {
   type BrandProfile, type InsertBrandProfile,
   type ContentFeedback, type InsertContentFeedback
 } from "@shared/schema";
-import { eq, and, gte, lte, sql, desc, asc, isNull, ne } from "drizzle-orm";
+import { eq, and, gte, lte, sql, desc, asc, isNull, ne, or } from "drizzle-orm";
 import type { IStorage } from "./storage";
 
 export class DbStorage implements IStorage {
@@ -131,6 +131,51 @@ export class DbStorage implements IStorage {
         )
       );
     return result[0];
+  }
+
+  async getScheduledPosts(params: { from: Date; to: Date; userId: string }): Promise<Post[]> {
+    return await db.select().from(posts)
+      .where(and(
+        eq(posts.userId, params.userId),
+        gte(posts.scheduledFor, params.from.toISOString()),
+        lte(posts.scheduledFor, params.to.toISOString())
+      ))
+      .orderBy(asc(posts.scheduledFor));
+  }
+
+  async getPosts(params: { userId: string; status?: string }): Promise<Post[]> {
+    const conditions = [eq(posts.userId, params.userId)];
+    if (params.status) {
+      conditions.push(eq(posts.status, params.status));
+    }
+    
+    return await db.select().from(posts)
+      .where(and(...conditions))
+      .orderBy(desc(posts.createdAt));
+  }
+
+  async checkScheduleConflicts(params: { 
+    userId: string; 
+    platform: string; 
+    scheduledAt: Date; 
+    duration: number;
+    excludeId?: string;
+  }): Promise<Post[]> {
+    const startTime = params.scheduledAt;
+    const endTime = new Date(startTime.getTime() + (params.duration * 60 * 1000));
+    
+    const conditions = [
+      eq(posts.userId, params.userId),
+      gte(posts.scheduledFor, startTime.toISOString()),
+      lte(posts.scheduledFor, endTime.toISOString())
+    ];
+    
+    if (params.excludeId) {
+      conditions.push(ne(posts.id, params.excludeId));
+    }
+    
+    return await db.select().from(posts)
+      .where(and(...conditions));
   }
 
   // Posts
