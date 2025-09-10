@@ -71,10 +71,21 @@ async function getContentLibrary(cookie, type = null) {
 
 async function createCampaign(cookie, data) {
   console.log("Creating campaign...");
+  const campaignData = {
+    ...data,
+    platform: data.platform || "multi",
+    businessName: data.businessName || "Test Business",
+    targetAudience: data.targetAudience || "Tech professionals aged 25-45",
+    campaignGoals: data.campaignGoals || "Increase brand awareness and engagement",
+    brandTone: data.brandTone || "professional",
+    visualStyle: data.visualStyle || "modern",
+    callToAction: data.callToAction || "Learn more"
+  };
+  
   const r = await fetch(`${base}/api/campaigns`, {
     method: "POST",
     headers: hWithCookie(cookie),
-    body: JSON.stringify(data)
+    body: JSON.stringify(campaignData)
   });
   
   if (!r.ok) {
