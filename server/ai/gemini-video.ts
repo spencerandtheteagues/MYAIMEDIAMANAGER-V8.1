@@ -65,25 +65,50 @@ export async function generateVideoWithVeo3(opts: GeminiVideoOptions): Promise<B
     
     // Get the generated video file
     const videoFile = op.response.generatedVideos[0].video;
+    if (!videoFile) {
+      throw new Error("No video file in response");
+    }
     console.log('Video generated successfully, downloading...');
     
-    // Download the video to a temporary path
-    const tempPath = path.join('attached_assets', 'temp', `veo-${randomUUID()}.mp4`);
-    await fs.mkdir(path.dirname(tempPath), { recursive: true });
+    // Download the video file using the files API
+    let videoBuffer: Buffer;
     
-    const download = await ai.files.download({ 
-      file: videoFile, 
-      downloadPath: tempPath 
-    });
-    
-    // Read the video into a buffer
-    const videoBuffer = await fs.readFile(tempPath);
-    
-    // Clean up the temp file
-    await fs.unlink(tempPath).catch(() => {});
-    
-    console.log('Veo 3 video generation completed successfully');
-    return videoBuffer;
+    try {
+      console.log('Downloading video file:', videoFile);
+      
+      // The GenAI SDK download method doesn't actually download the file content
+      // Instead, we need to use the file's URI with proper authentication
+      if ((videoFile as any).uri || (videoFile as any).url) {
+        let fileUri = (videoFile as any).uri || (videoFile as any).url;
+        console.log('Original video URI:', fileUri);
+        
+        // The URI already has the download endpoint, we need to add the API key as a query parameter
+        const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
+        const separator = fileUri.includes('?') ? '&' : '?';
+        fileUri = `${fileUri}${separator}key=${apiKey}`;
+        
+        console.log('Fetching video from URI with API key...');
+        const response = await fetch(fileUri);
+        if (!response.ok) {
+          const errorText = await response.text();
+          console.error('Download error response:', errorText);
+          throw new Error(`Failed to fetch video: ${response.statusText} (${response.status})`);
+        }
+        
+        const arrayBuffer = await response.arrayBuffer();
+        videoBuffer = Buffer.from(arrayBuffer);
+        console.log(`Downloaded video successfully, size: ${videoBuffer.length} bytes`);
+      } else {
+        // If no URI is available, throw an error
+        throw new Error("Video file has no URI for download. File details: " + JSON.stringify(videoFile));
+      }
+      
+      console.log('Veo 3 video generation completed successfully');
+      return videoBuffer;
+    } catch (downloadError: any) {
+      console.error('Failed to download video:', downloadError);
+      throw downloadError;
+    }
     
   } catch (error: any) {
     console.error('Veo 3 generation error:', error);
