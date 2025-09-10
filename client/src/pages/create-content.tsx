@@ -174,6 +174,15 @@ export default function CreateContent() {
         "LinkedIn": "16:9"
       };
       
+      // Show initial toast
+      toast({
+        title: "Generating Image",
+        description: "Creating your custom image, this may take a few moments...",
+      });
+      
+      // Add slight delay to show loading state
+      await new Promise(r => setTimeout(r, 500));
+      
       const response = await apiRequest("POST", "/api/ai/image", {
         prompt: prompt.trim(),
         aspectRatio: aspectRatioMap[selectedPlatforms[0]] || "1:1",
@@ -190,7 +199,13 @@ export default function CreateContent() {
         manualCaption: params.autoGenerateCaption === false ? params.manualCaption : undefined,
         captionStyle: params.captionStyle
       });
-      return response.json();
+      
+      const data = await response.json();
+      
+      // Wait a bit more to ensure image is fully generated
+      await new Promise(r => setTimeout(r, 1000));
+      
+      return data;
     },
     onSuccess: (data) => {
       // Handle both single image response and array response
