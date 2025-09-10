@@ -15,7 +15,7 @@ import {
   Bot, Bold, Italic, Link as LinkIcon, Image, Wand2, Target, Palette, 
   Building2, MessageSquare, Megaphone, Sparkles, Type, ImagePlus, Video,
   Camera, Globe, Brush, Sun, Upload, Play, Trash2, Send, Clock, Film,
-  Music, Mic, Aperture, Zap, Layers, Monitor, Eye
+  Music, Mic, Aperture, Zap, Layers, Monitor, Eye, Copy, FileText
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -193,16 +193,28 @@ export default function CreateContent() {
       return response.json();
     },
     onSuccess: (data) => {
-      if (data.images && data.images[0]) {
+      // Handle both single image response and array response
+      if (data.url || data.id) {
+        setGeneratedImage(data.url || data.id);
+      } else if (data.images && data.images[0]) {
         setGeneratedImage(data.images[0]);
       }
-      if (data.caption) {
+      
+      // Generate caption for the image
+      if (!data.caption && (businessName || productName)) {
+        // Generate a simple caption if not provided
+        const simpleCaption = `Check out ${businessName ? businessName + "'s" : "our"} ${productName || "latest update"}! ${callToAction || ""}`;
+        setGeneratedImageCaption(simpleCaption);
+        if (!content) {
+          setContent(simpleCaption);
+        }
+      } else if (data.caption) {
         setGeneratedImageCaption(data.caption);
-        // If no manual content was entered, use the generated caption
         if (!content) {
           setContent(data.caption);
         }
       }
+      
       toast({
         title: "Image Generated",
         description: "AI has created a custom image with caption",
@@ -1529,6 +1541,127 @@ export default function CreateContent() {
 
           {/* Right Sidebar */}
           <div className="space-y-6">
+            {/* Media Preview Pane */}
+            {(generatedImage || uploadedImage || generatedVideo || uploadedVideo) && (
+              <Card className="glass-morphism border-primary/30">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2">
+                    <Eye className="w-5 h-5 text-primary" />
+                    Media Preview
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  {/* Caption Display Box */}
+                  {(generatedImageCaption || generatedVideoCaption) && (
+                    <div className="p-4 bg-primary/10 rounded-lg border border-primary/20">
+                      <Label className="text-xs text-primary mb-2 block flex items-center gap-1">
+                        <MessageSquare className="w-3 h-3" />
+                        AI-Generated Caption
+                      </Label>
+                      <p className="text-sm text-foreground font-medium">
+                        {generatedImageCaption || generatedVideoCaption}
+                      </p>
+                    </div>
+                  )}
+                  
+                  {/* Media Preview */}
+                  <div className="rounded-lg overflow-hidden bg-background/50 border border-border">
+                    {/* Image Preview */}
+                    {(generatedImage || uploadedImage) && !generatedVideo && !uploadedVideo && (
+                      <div className="relative">
+                        <img 
+                          src={generatedImage || uploadedImage || ""} 
+                          alt="Generated content"
+                          className="w-full h-auto object-contain max-h-[400px]"
+                        />
+                        <div className="absolute top-2 right-2 flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setGeneratedImage(null);
+                              setUploadedImage(null);
+                              setGeneratedImageCaption("");
+                            }}
+                            className="opacity-90 hover:opacity-100"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                    
+                    {/* Video Preview */}
+                    {(generatedVideo || uploadedVideo) && (
+                      <div className="relative">
+                        <video 
+                          src={uploadedVideo || generatedVideo || ""} 
+                          controls
+                          className="w-full h-auto max-h-[400px]"
+                        />
+                        <div className="absolute top-2 right-2 flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setGeneratedVideo(null);
+                              setUploadedVideo(null);
+                              setGeneratedVideoCaption("");
+                            }}
+                            className="opacity-90 hover:opacity-100"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                  
+                  {/* Quick Actions */}
+                  <div className="flex gap-2 pt-2">
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      variant="outline"
+                      onClick={() => {
+                        // Copy caption to clipboard
+                        const caption = generatedImageCaption || generatedVideoCaption;
+                        if (caption) {
+                          navigator.clipboard.writeText(caption);
+                          toast({
+                            title: "Copied!",
+                            description: "Caption copied to clipboard",
+                          });
+                        }
+                      }}
+                    >
+                      <Copy className="w-4 h-4 mr-1" />
+                      Copy Caption
+                    </Button>
+                    <Button
+                      size="sm"
+                      className="flex-1"
+                      variant="outline"
+                      onClick={() => {
+                        // Use caption as main content
+                        const caption = generatedImageCaption || generatedVideoCaption;
+                        if (caption) {
+                          setContent(caption);
+                          toast({
+                            title: "Caption Applied",
+                            description: "Caption is now your main content",
+                          });
+                        }
+                      }}
+                    >
+                      <FileText className="w-4 h-4 mr-1" />
+                      Use as Content
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+            
             {/* Publishing Options */}
             <Card className="glass-morphism">
               <CardHeader>

@@ -45,7 +45,7 @@ router.post("/text",
   }
 );
 
-// Image generation with trial support
+// Image generation with trial support and caption
 router.post("/image",
   withTrialGuard("image"),
   requireSafePrompt("image"),
@@ -53,13 +53,38 @@ router.post("/image",
   async (req, res) => {
     try {
       const userId = req.user?.id || req.headers['x-user-id'];
-      const { prompt, aspectRatio, platform } = req.body;
+      const { 
+        prompt, 
+        aspectRatio, 
+        platform,
+        businessName,
+        productName,
+        brandTone,
+        callToAction,
+        captionStyle
+      } = req.body;
       
       // Generate image
       const result = await generateImage({ 
         prompt, 
         aspectRatio 
       });
+      
+      // Generate caption for the image
+      let caption = "";
+      if (businessName || productName) {
+        try {
+          const captionPrompt = `Write a ${captionStyle || 'engaging'} social media caption for an image of ${businessName || ''} ${productName || ''}. ${callToAction || ''}. Keep it under 150 characters. Be ${brandTone || 'professional'}.`;
+          const captionResult = await generateText({ 
+            prompt: captionPrompt,
+            maxOutputTokens: 200
+          });
+          caption = captionResult.text || `Check out ${businessName || 'our'} ${productName || 'latest update'}! ${callToAction || ''}`;
+        } catch (e) {
+          // Fallback caption if generation fails
+          caption = `Check out ${businessName || 'our'} ${productName || 'latest update'}! ${callToAction || ''}`;
+        }
+      }
       
       // Auto-save to library
       if (userId) {
@@ -71,7 +96,8 @@ router.post("/image",
             prompt,
             aspectRatio: result.aspectRatio,
             platform,
-            model: result.model
+            model: result.model,
+            caption
           }
         });
       }
@@ -85,7 +111,8 @@ router.post("/image",
         id: result.localPath,
         url: result.url,
         prompt: result.prompt,
-        aspectRatio: result.aspectRatio
+        aspectRatio: result.aspectRatio,
+        caption
       });
     } catch (error: any) {
       console.error('Image generation error:', error);
