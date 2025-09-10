@@ -2,7 +2,7 @@ import express from "express";
 import { withTrialGuard, consumeTrialIfEligible } from "./middleware/trial";
 import { requireSafePrompt } from "./content/moderation";
 import { requireCredits, deductCredits } from "./middleware/credits";
-import { generateText, generateImage, startVideo, pollVideo } from "./ai";
+import { generateText, generateImage, startVideo, pollVideo, generateVideo } from "./ai";
 import { saveToLibrary } from "./library";
 import { storage } from "./storage";
 
@@ -61,13 +61,15 @@ router.post("/image",
         productName,
         brandTone,
         callToAction,
-        captionStyle
+        captionStyle,
+        model
       } = req.body;
       
       // Generate image with business context for enhanced generation
       const result = await generateImage({ 
         prompt, 
         aspectRatio,
+        model: model || 'auto', // Support model selection (gemini, openai, auto)
         businessContext: {
           businessName,
           productName,
@@ -143,7 +145,7 @@ router.post("/video/start",
   async (req, res) => {
     try {
       const userId = req.user?.id || req.headers['x-user-id'];
-      const { prompt, durationSeconds, platform, fast = true } = req.body;
+      const { prompt, durationSeconds, platform, fast = true, model, aspectRatio } = req.body;
       
       // Start video generation
       const result = await startVideo({ 

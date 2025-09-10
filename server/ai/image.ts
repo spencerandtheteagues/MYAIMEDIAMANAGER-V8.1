@@ -7,6 +7,7 @@ import path from "path";
 import fs from "fs/promises";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { generateImageWithImagen4 } from './gemini-image';
 
 // Helper to parse aspect ratio
 function parseAspectRatio(ratio: string): { width: number; height: number } {
@@ -23,7 +24,7 @@ function parseAspectRatio(ratio: string): { width: number; height: number } {
 
 
 // Returns { url, localPath, prompt, aspectRatio, model }
-export async function generateImage(opts:{prompt:string; aspectRatio?:string; businessContext?: any}) {
+export async function generateImage(opts:{prompt:string; aspectRatio?:string; businessContext?: any; model?: 'gemini' | 'openai' | 'auto'}) {
   const { genai, vertex } = makeClients();
   const execAsync = promisify(exec);
   
@@ -41,8 +42,28 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string; bu
       let generationMethod = "imagen";
       let modelUsed = "imagen-4.0-generate-001";
       
-      // Always use multi-model approach for better reliability
-      try {
+      // Determine which model to use
+      const preferredModel = opts.model || 'auto';
+      
+      if (preferredModel === 'gemini' || (preferredModel === 'auto' && process.env.GEMINI_API_KEY)) {
+        // Try Gemini/Imagen 4 first
+        try {
+          console.log('Using Gemini Imagen 4 for image generation...');
+          imageBuffer = await generateImageWithImagen4(opts.prompt, opts.aspectRatio || "16:9");
+          generationMethod = "imagen-4";
+          modelUsed = "gemini-imagen-4";
+        } catch (geminiError: any) {
+          console.error('Gemini generation failed:', geminiError.message);
+          if (preferredModel === 'gemini') {
+            throw new Error(`Gemini image generation failed: ${geminiError.message}`);
+          }
+          // Fall through to try other methods if auto mode
+        }
+      }
+      
+      // If Gemini failed or not selected, try multi-model approach
+      if (!imageBuffer!) {
+        try {
         // Use multi-model image generation
         const scriptPath = path.join(process.cwd(), 'server', 'ai', 'multi-model-image.py');
         const inputData = {
@@ -59,7 +80,8 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string; bu
               OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
               GEMINI_API_KEY: process.env.GEMINI_API_KEY || ""
             },
-            timeout: 60000 // 60 second timeout
+            timeout: 60000, // 60 second timeout
+            maxBuffer: 50 * 1024 * 1024 // 50MB buffer for large images
           }
         );
         
@@ -81,9 +103,10 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string; bu
         console.error('Error generating image:', error);
         throw new Error(`Failed to generate image: ${error.message}`);
       }
+      }
       
       // Write the image file
-      await fs.writeFile(localPath, imageBuffer);
+      await fs.writeFile(localPath, imageBuffer!);
       
       // Create metadata
       const meta = { 
@@ -111,7 +134,7 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string; bu
         generationMethod
       };
     });
-  }catch(e:any){
+  } catch(e:any) {
     const ne = normalizeError(e);
     throw Object.assign(new Error(ne.message), { status: ne.code });
   }

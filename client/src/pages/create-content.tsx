@@ -59,6 +59,7 @@ export default function CreateContent() {
   const [objectFocus, setObjectFocus] = useState("");
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [imageResolution, setImageResolution] = useState("1080p");
+  const [imageModel, setImageModel] = useState("gemini"); // Gemini Imagen 4 or OpenAI DALL-E 3
   
   // Video generation fields
   const videoDuration = "8"; // Fixed 8 seconds for Veo 3
@@ -73,6 +74,7 @@ export default function CreateContent() {
   const [videoAspectRatio, setVideoAspectRatio] = useState("16:9");
   const [videoScenes, setVideoScenes] = useState("");
   const [videoScript, setVideoScript] = useState("");
+  const [videoModel, setVideoModel] = useState("gemini"); // Gemini Veo 3
   
   // Preview states
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
@@ -187,6 +189,7 @@ export default function CreateContent() {
         prompt: prompt.trim(),
         aspectRatio: aspectRatioMap[selectedPlatforms[0]] || "1:1",
         count: 1,
+        model: imageModel, // Add model selection (gemini or openai)
         // Send all context fields for caption generation
         businessName,
         productName,
@@ -261,7 +264,8 @@ export default function CreateContent() {
       const startResponse = await apiRequest("POST", "/api/ai/video/start", {
         prompt: prompt.trim(),
         aspectRatio,
-        fast: true, // Use fast model for quicker generation
+        fast: true, // Use Veo 3 Fast for quicker generation
+        model: videoModel, // Add model selection (gemini for Veo 3)
         // Send all context fields for caption generation
         businessName,
         productName,
@@ -819,6 +823,19 @@ export default function CreateContent() {
 
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
+                      <Label htmlFor="imageModel">AI Model</Label>
+                      <Select value={imageModel} onValueChange={setImageModel}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gemini">Gemini Imagen 4 (Recommended)</SelectItem>
+                          <SelectItem value="openai">OpenAI DALL-E 3</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
+                    <div>
                       <Label htmlFor="visualStyle">Visual Style</Label>
                       <Select value={visualStyle} onValueChange={setVisualStyle}>
                         <SelectTrigger className="mt-1">
@@ -1180,6 +1197,21 @@ export default function CreateContent() {
                   </div>
 
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="videoModel">
+                        <Zap className="w-4 h-4 inline mr-1" />
+                        AI Model
+                      </Label>
+                      <Select value={videoModel} onValueChange={setVideoModel}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="gemini">Gemini Veo 3 (Fast)</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    
                     <div>
                       <Label htmlFor="videoStyle">
                         <Brush className="w-4 h-4 inline mr-1" />
