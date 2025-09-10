@@ -20,6 +20,7 @@ import Referrals from "./pages/referrals";
 import Help from "./pages/help";
 import Trial from "./pages/trial";
 import Landing from "./pages/landing";
+import Auth from "./pages/auth";
 import Sidebar from "./components/layout/sidebar";
 import Header from "./components/layout/header";
 
@@ -48,6 +49,7 @@ function Router() {
     return (
       <Switch>
         <Route path="/" component={Landing} />
+        <Route path="/auth" component={Auth} />
         <Route path="/trial" component={Trial} />
         <Route component={Landing} />
       </Switch>

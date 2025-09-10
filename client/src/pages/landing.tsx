@@ -32,12 +32,11 @@ export default function Landing() {
                   Pricing
                 </Button>
               </Link>
-              <Button 
-                onClick={() => window.location.href = '/api/login'}
-                className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-              >
-                Sign In
-              </Button>
+              <Link href="/auth">
+                <Button className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700">
+                  Sign In
+                </Button>
+              </Link>
             </div>
           </div>
         </div>
