@@ -18,7 +18,11 @@ export async function startVideo(opts:{prompt:string; durationSeconds?:number; f
     return await withRetry(async ()=>{
       // Simulated video operation for now
       const operationId = `video-op-${randomUUID()}`;
-      return { operationId };
+      return { 
+        operationId,
+        status: "processing",
+        estimatedCompletionTime: new Date(Date.now() + 60000).toISOString()
+      };
     });
   }catch(e:any){
     const ne = normalizeError(e);
@@ -26,8 +30,8 @@ export async function startVideo(opts:{prompt:string; durationSeconds?:number; f
   }
 }
 
-/** Poll by op ID; return { status, downloadUrl? } when done. */
-export async function pollVideo(opts:{opId:string}) {
+/** Poll by op ID; return { operationId, status, videoUrl?, error?, progress? } when done. */
+export async function pollVideo(opts:{operationId:string}) {
   const { vertex } = makeClients();
   if (!vertex) {
     const err = new Error("Video generation requires Vertex credentials.");
@@ -37,7 +41,13 @@ export async function pollVideo(opts:{opId:string}) {
   try{
     return await withRetry(async ()=>{
       // Simulated polling for now
-      return { status: "running" };
+      return { 
+        operationId: opts.operationId,
+        status: "processing" as const,
+        videoUrl: undefined,
+        error: undefined,
+        progress: 0.5
+      };
     }, 5);
   }catch(e:any){
     const ne = normalizeError(e);

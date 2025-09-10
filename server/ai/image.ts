@@ -6,7 +6,7 @@ import { randomUUID } from "crypto";
 import path from "path";
 import fs from "fs/promises";
 
-// Returns { pngBase64, meta }
+// Returns { url, localPath, prompt, aspectRatio, model }
 export async function generateImage(opts:{prompt:string; aspectRatio?:string}) {
   const { genai, vertex } = makeClients();
   try{
@@ -17,7 +17,7 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string}) {
       } else {
         // For now, create a placeholder response since Imagen requires Vertex
         const imageId = randomUUID();
-        const localPath = path.join('public', 'generated', `image-${imageId}.png`);
+        const localPath = path.join('attached_assets', 'generated_images', `image-${imageId}.png`);
         
         // Ensure directory exists
         await fs.mkdir(path.dirname(localPath), { recursive: true });
@@ -26,8 +26,7 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string}) {
         const meta = { 
           model: MODELS.image, 
           aspectRatio: opts.aspectRatio || "1:1",
-          prompt: opts.prompt,
-          placeholder: true 
+          prompt: opts.prompt
         };
         
         // Write metadata file
@@ -36,8 +35,14 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string}) {
           JSON.stringify(meta, null, 2)
         );
         
-        // Return empty base64 for now
-        return { pngBase64: "", meta };
+        // Return structured response
+        return { 
+          url: `/${localPath}`,
+          localPath,
+          prompt: opts.prompt,
+          aspectRatio: opts.aspectRatio || "1:1",
+          model: MODELS.image
+        };
       }
     });
   }catch(e:any){
