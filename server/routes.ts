@@ -76,6 +76,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Wire up feedback routes
   app.use(createFeedbackRoutes(storage));
   
+  // Wire up schedule routes
+  const { createScheduleRoutes } = await import("./scheduleRoutes");
+  app.use(createScheduleRoutes(storage));
+  
   // Auth routes
   app.get('/api/auth/user', async (req: any, res) => {
     try {

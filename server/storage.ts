@@ -50,6 +50,17 @@ export interface IStorage {
   deletePost(id: string): Promise<boolean>;
   getScheduledPostAtTime(userId: string, scheduledTime: Date): Promise<Post | undefined>;
   
+  // Schedule-specific methods
+  getScheduledPosts(params: { from: Date; to: Date; userId: string }): Promise<Post[]>;
+  getPosts(params: { userId: string; status?: string }): Promise<Post[]>;
+  checkScheduleConflicts(params: { 
+    userId: string; 
+    platform: string; 
+    scheduledAt: Date; 
+    duration: number;
+    excludeId?: string;
+  }): Promise<Post[]>;
+  
   // AI Suggestions
   getAiSuggestionsByUserId(userId: string): Promise<AiSuggestion[]>;
   createAiSuggestion(suggestion: InsertAiSuggestion): Promise<AiSuggestion>;
@@ -449,6 +460,60 @@ export class MemStorage implements IStorage {
       const postTime = new Date(post.scheduledFor);
       return Math.abs(postTime.getTime() - scheduledTime.getTime()) < 60000; // Within 1 minute
     });
+  }
+
+  async getScheduledPosts(params: { from: Date; to: Date; userId: string }): Promise<Post[]> {
+    const fromTime = params.from.getTime();
+    const toTime = params.to.getTime();
+    
+    return Array.from(this.posts.values())
+      .filter(post => {
+        if (post.userId !== params.userId) return false;
+        if (!post.scheduledFor) return false;
+        
+        const postTime = new Date(post.scheduledFor).getTime();
+        return postTime >= fromTime && postTime <= toTime;
+      })
+      .sort((a, b) => {
+        const dateA = new Date(a.scheduledFor!);
+        const dateB = new Date(b.scheduledFor!);
+        return dateA.getTime() - dateB.getTime();
+      });
+  }
+
+  async getPosts(params: { userId: string; status?: string }): Promise<Post[]> {
+    return Array.from(this.posts.values())
+      .filter(post => {
+        if (post.userId !== params.userId) return false;
+        if (params.status && post.status !== params.status) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async checkScheduleConflicts(params: { 
+    userId: string; 
+    platform: string; 
+    scheduledAt: Date; 
+    duration: number;
+    excludeId?: string;
+  }): Promise<Post[]> {
+    const startTime = params.scheduledAt.getTime();
+    const endTime = startTime + (params.duration * 60 * 1000);
+    
+    return Array.from(this.posts.values())
+      .filter(post => {
+        if (post.userId !== params.userId) return false;
+        if (params.excludeId && post.id === params.excludeId) return false;
+        if (!post.scheduledFor) return false;
+        if (!post.platforms?.includes(params.platform)) return false;
+        
+        const postTime = new Date(post.scheduledFor).getTime();
+        const postEndTime = postTime + (30 * 60 * 1000); // Assume 30 min duration
+        
+        // Check for overlap
+        return (postTime < endTime && postEndTime > startTime);
+      });
   }
 
   // Posts

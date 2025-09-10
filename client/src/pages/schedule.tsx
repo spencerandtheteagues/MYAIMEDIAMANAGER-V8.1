@@ -9,9 +9,9 @@ import timezone from "dayjs/plugin/timezone";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
 import { useToast } from "@/hooks/use-toast";
-import { DraftsRail } from "../components/schedule/DraftsRail";
-import { ScheduleToolbar } from "../components/schedule/ScheduleToolbar";
-import { EventInspector } from "../components/schedule/EventInspector";
+import { DraftsRail } from "@/components/schedule/DraftsRail";
+import { ScheduleToolbar } from "@/components/schedule/ScheduleToolbar";
+import { EventInspector } from "@/components/schedule/EventInspector";
 
 dayjs.extend(utc);
 dayjs.extend(timezone);
