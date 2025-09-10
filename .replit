@@ -4,7 +4,7 @@ hidden = [".config", ".git", "generated-icon.png", "node_modules", "dist"]
 
 [nix]
 channel = "stable-25_05"
-packages = ["jq", "zip"]
+packages = ["freetype", "jq", "lcms2", "libimagequant", "libjpeg", "libtiff", "libwebp", "libxcrypt", "openjpeg", "tcl", "tk", "zip", "zlib"]
 
 [deployment]
 deploymentTarget = "autoscale"
@@ -39,3 +39,4 @@ args = "npm run dev"
 waitForPort = 5000
 
 [agent]
+integrations = ["javascript_openai:1.0.0"]

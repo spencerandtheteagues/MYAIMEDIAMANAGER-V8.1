@@ -41,49 +41,45 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string; bu
       let generationMethod = "imagen";
       let modelUsed = "imagen-4.0-generate-001";
       
-      if (apiKey) {
-        try {
-          // Use Imagen for real text-to-image generation
-          const scriptPath = path.join(process.cwd(), 'server', 'ai', 'imagen-generate.py');
-          const inputData = {
-            prompt: opts.prompt,
-            aspectRatio: opts.aspectRatio || "16:9"
-          };
-          
-          const { stdout, stderr } = await execAsync(
-            `python3 "${scriptPath}" '${JSON.stringify(inputData)}'`,
-            {
-              env: {
-                ...process.env,
-                VERTEX_API_KEY: apiKey,
-                GOOGLE_CLOUD_PROJECT: process.env.GOOGLE_CLOUD_PROJECT || "replit-ai-project",
-                VERTEX_LOCATION: process.env.VERTEX_LOCATION || "us-central1"
-              },
-              timeout: 60000 // 60 second timeout
-            }
-          );
-          
-          if (stderr && !stderr.includes('warning')) {
-            console.error('Imagen generation stderr:', stderr);
+      // Always use multi-model approach for better reliability
+      try {
+        // Use multi-model image generation
+        const scriptPath = path.join(process.cwd(), 'server', 'ai', 'multi-model-image.py');
+        const inputData = {
+          prompt: opts.prompt,
+          aspectRatio: opts.aspectRatio || "16:9"
+        };
+        
+        const { stdout, stderr } = await execAsync(
+          `python3 "${scriptPath}" '${JSON.stringify(inputData)}'`,
+          {
+            env: {
+              ...process.env,
+              VERTEX_API_KEY: apiKey || "",
+              OPENAI_API_KEY: process.env.OPENAI_API_KEY || "",
+              GEMINI_API_KEY: process.env.GEMINI_API_KEY || ""
+            },
+            timeout: 60000 // 60 second timeout
           }
-          
-          const result = JSON.parse(stdout);
-          
-          if (result.success && result.image_data) {
-            // Convert base64 to buffer
-            imageBuffer = Buffer.from(result.image_data, 'base64');
-            generationMethod = "imagen";
-            modelUsed = result.model || "imagen-4.0-generate-001";
-          } else {
-            // If Imagen fails, return error
-            throw new Error(result.error || 'Image generation failed');
-          }
-        } catch (error: any) {
-          console.error('Error generating image with Imagen:', error);
-          throw new Error(`Failed to generate image: ${error.message}`);
+        );
+        
+        if (stderr && !stderr.includes('warning') && !stderr.includes('Fontconfig') && !stderr.includes('DALL-E')) {
+          console.error('Image generation stderr:', stderr);
         }
-      } else {
-        throw new Error("Image generation requires VERTEX_API_KEY to be configured");
+        
+        const result = JSON.parse(stdout);
+        
+        if (result.success && result.image_data) {
+          // Convert base64 to buffer
+          imageBuffer = Buffer.from(result.image_data, 'base64');
+          generationMethod = result.model === "dall-e-3" ? "dall-e-3" : "ai-styled";
+          modelUsed = result.model || "ai-styled-generator";
+        } else {
+          throw new Error(result.error || 'Image generation failed');
+        }
+      } catch (error: any) {
+        console.error('Error generating image:', error);
+        throw new Error(`Failed to generate image: ${error.message}`);
       }
       
       // Write the image file
