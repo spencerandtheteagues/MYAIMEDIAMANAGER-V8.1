@@ -46,11 +46,69 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Use appropriate auth middleware based on configuration
   const isAuthenticated = useReplitAuth ? isReplitAuthenticated : requireAuth;
   
-  // Wire up the new AI routes - allow demo access
-  app.use("/api/ai", (req: any, res, next) => {
-    // Allow demo access if not authenticated
-    if (!req.user?.claims?.sub) {
-      req.user = { claims: { sub: "demo-user-1" } };
+  // Wire up the new AI routes with proper authentication
+  app.use("/api/ai", async (req: any, res, next) => {
+    // Check for session-based authentication first
+    if (req.session?.userId) {
+      // Get the user from storage and set it on req.user
+      try {
+        const user = await storage.getUser(req.session.userId);
+        if (user) {
+          req.user = {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            businessName: user.businessName,
+            role: user.role,
+            tier: user.tier,
+            isAdmin: user.isAdmin,
+            claims: { sub: user.id } // For compatibility
+          };
+        }
+      } catch (error) {
+        console.error("Error loading user for AI routes:", error);
+      }
+    }
+    // Check for Replit auth
+    else if (req.user?.claims?.sub) {
+      // Get the user from storage and set proper user object
+      try {
+        const user = await storage.getUser(req.user.claims.sub);
+        if (user) {
+          req.user = {
+            id: user.id,
+            email: user.email,
+            username: user.username,
+            businessName: user.businessName,
+            role: user.role,
+            tier: user.tier,
+            isAdmin: user.isAdmin,
+            claims: { sub: user.id }
+          };
+        }
+      } catch (error) {
+        console.error("Error loading user for AI routes:", error);
+      }
+    }
+    // If still no user, allow demo access
+    else {
+      try {
+        const demoUser = await storage.getUserByUsername("spencer.teague");
+        if (demoUser) {
+          req.user = {
+            id: demoUser.id,
+            email: demoUser.email,
+            username: demoUser.username,
+            businessName: demoUser.businessName,
+            role: demoUser.role,
+            tier: demoUser.tier,
+            isAdmin: demoUser.isAdmin,
+            claims: { sub: demoUser.id }
+          };
+        }
+      } catch (error) {
+        console.error("Error loading demo user for AI routes:", error);
+      }
     }
     next();
   }, aiRoutes);
