@@ -5,10 +5,8 @@ import { normalizeError } from "./errors";
 import { randomUUID } from "crypto";
 import path from "path";
 import fs from "fs/promises";
-import sharp from "sharp";
 import { exec } from "child_process";
 import { promisify } from "util";
-import { svgTemplates, getTemplateForPrompt } from "./svg-templates";
 
 // Helper to parse aspect ratio
 function parseAspectRatio(ratio: string): { width: number; height: number } {
@@ -23,59 +21,6 @@ function parseAspectRatio(ratio: string): { width: number; height: number } {
   return aspectRatios[ratio] || aspectRatios["16:9"];
 }
 
-// Create a placeholder image with relevant visual content
-async function createPlaceholderImage(prompt: string, aspectRatio: string): Promise<Buffer> {
-  const { width, height } = parseAspectRatio(aspectRatio);
-  
-  // Create a gradient background with random colors
-  const colors = [
-    ['#667eea', '#764ba2'],  // Purple gradient
-    ['#f093fb', '#f5576c'],  // Pink gradient
-    ['#4facfe', '#00f2fe'],  // Blue gradient
-    ['#43e97b', '#38f9d7'],  // Green gradient
-    ['#fa709a', '#fee140'],  // Sunset gradient
-    ['#30cfd0', '#330867'],  // Ocean gradient
-    ['#a8edea', '#fed6e3'],  // Soft gradient
-    ['#ff9a9e', '#fecfef'],  // Rose gradient
-  ];
-  
-  const [color1, color2] = colors[Math.floor(Math.random() * colors.length)];
-  
-  // Check if we have a specific template for this prompt
-  const templateName = getTemplateForPrompt(prompt);
-  let svg: string;
-  
-  if (templateName && svgTemplates[templateName]) {
-    // Use specific template
-    svg = svgTemplates[templateName](width, height, color1, color2);
-  } else {
-    // Use default gradient with text
-    svg = `
-      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-        <defs>
-          <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-            <stop offset="0%" style="stop-color:${color1};stop-opacity:1" />
-            <stop offset="100%" style="stop-color:${color2};stop-opacity:1" />
-          </linearGradient>
-        </defs>
-        <rect width="${width}" height="${height}" fill="url(#gradient)" />
-        <text x="50%" y="45%" text-anchor="middle" font-family="Arial, sans-serif" font-size="${Math.min(width, height) * 0.05}" fill="white" opacity="0.9">
-          AI Generated Image
-        </text>
-        <text x="50%" y="55%" text-anchor="middle" font-family="Arial, sans-serif" font-size="${Math.min(width, height) * 0.025}" fill="white" opacity="0.7">
-          ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}
-        </text>
-      </svg>
-    `;
-  }
-  
-  // Convert SVG to buffer
-  const buffer = await sharp(Buffer.from(svg))
-    .png()
-    .toBuffer();
-  
-  return buffer;
-}
 
 // Returns { url, localPath, prompt, aspectRatio, model }
 export async function generateImage(opts:{prompt:string; aspectRatio?:string; businessContext?: any}) {
@@ -91,34 +36,35 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string; bu
       await fs.mkdir(path.dirname(localPath), { recursive: true });
       
       // Check if we have API key for real generation
-      const apiKey = process.env.GOOGLE_CLOUD_API_KEY || process.env.VERTEX_API_KEY;
+      const apiKey = process.env.VERTEX_API_KEY;
       let imageBuffer: Buffer;
-      let generationMethod = "placeholder";
+      let generationMethod = "imagen";
+      let modelUsed = "imagen-4.0-generate-001";
       
       if (apiKey) {
         try {
-          // Prepare input for Python script
+          // Use Imagen for real text-to-image generation
+          const scriptPath = path.join(process.cwd(), 'server', 'ai', 'imagen-generate.py');
           const inputData = {
             prompt: opts.prompt,
-            aspectRatio: opts.aspectRatio || "16:9",
-            businessContext: opts.businessContext || {}
+            aspectRatio: opts.aspectRatio || "16:9"
           };
           
-          // Call Python script for real AI generation
-          const scriptPath = path.join(process.cwd(), 'server', 'ai', 'generate_image.py');
           const { stdout, stderr } = await execAsync(
             `python3 "${scriptPath}" '${JSON.stringify(inputData)}'`,
             {
               env: {
                 ...process.env,
-                GOOGLE_CLOUD_API_KEY: apiKey
+                VERTEX_API_KEY: apiKey,
+                GOOGLE_CLOUD_PROJECT: process.env.GOOGLE_CLOUD_PROJECT || "replit-ai-project",
+                VERTEX_LOCATION: process.env.VERTEX_LOCATION || "us-central1"
               },
-              timeout: 60000 // 60 second timeout for image generation
+              timeout: 60000 // 60 second timeout
             }
           );
           
           if (stderr && !stderr.includes('warning')) {
-            console.error('Python script stderr:', stderr);
+            console.error('Imagen generation stderr:', stderr);
           }
           
           const result = JSON.parse(stdout);
@@ -126,29 +72,18 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string; bu
           if (result.success && result.image_data) {
             // Convert base64 to buffer
             imageBuffer = Buffer.from(result.image_data, 'base64');
-            generationMethod = "gemini-2.5-flash";
+            generationMethod = "imagen";
+            modelUsed = result.model || "imagen-4.0-generate-001";
           } else {
-            // Fallback to placeholder if generation failed
-            console.error('AI generation failed:', result.error);
-            imageBuffer = await createPlaceholderImage(
-              opts.prompt, 
-              opts.aspectRatio || "16:9"
-            );
+            // If Imagen fails, return error
+            throw new Error(result.error || 'Image generation failed');
           }
-        } catch (error) {
-          console.error('Error calling Python script:', error);
-          // Fallback to placeholder
-          imageBuffer = await createPlaceholderImage(
-            opts.prompt, 
-            opts.aspectRatio || "16:9"
-          );
+        } catch (error: any) {
+          console.error('Error generating image with Imagen:', error);
+          throw new Error(`Failed to generate image: ${error.message}`);
         }
       } else {
-        // No API key, use placeholder
-        imageBuffer = await createPlaceholderImage(
-          opts.prompt, 
-          opts.aspectRatio || "16:9"
-        );
+        throw new Error("Image generation requires VERTEX_API_KEY to be configured");
       }
       
       // Write the image file
@@ -156,10 +91,10 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string; bu
       
       // Create metadata
       const meta = { 
-        model: generationMethod === "gemini-2.5-flash" ? "gemini-2.5-flash-image-preview" : MODELS.image,
+        model: modelUsed,
         aspectRatio: opts.aspectRatio || "16:9",
         prompt: opts.prompt,
-        vertex: !!vertex || generationMethod === "gemini-2.5-flash",
+        vertex: true,
         generationMethod,
         createdAt: new Date().toISOString()
       };
@@ -176,7 +111,7 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string; bu
         localPath,
         prompt: opts.prompt,
         aspectRatio: opts.aspectRatio || "16:9",
-        model: meta.model,
+        model: modelUsed,
         generationMethod
       };
     });
