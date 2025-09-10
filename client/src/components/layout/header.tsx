@@ -61,9 +61,20 @@ export default function Header() {
     queryKey: ["/api/user"],
   });
   
-  const handleLogout = () => {
+  const handleLogout = async () => {
     // Clear auth and redirect to login
-    window.location.href = '/auth/logout';
+    try {
+      const response = await fetch('/api/auth/logout', {
+        method: 'POST',
+        credentials: 'include'
+      });
+      if (response.ok) {
+        window.location.href = '/';
+      }
+    } catch (error) {
+      console.error('Logout failed:', error);
+      window.location.href = '/';
+    }
   };
   
   const getTierDisplay = (tier?: string) => {
