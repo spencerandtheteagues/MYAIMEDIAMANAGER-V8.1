@@ -137,8 +137,8 @@ export class DbStorage implements IStorage {
     return await db.select().from(posts)
       .where(and(
         eq(posts.userId, params.userId),
-        gte(posts.scheduledFor, params.from.toISOString()),
-        lte(posts.scheduledFor, params.to.toISOString())
+        gte(posts.scheduledFor, params.from),
+        lte(posts.scheduledFor, params.to)
       ))
       .orderBy(asc(posts.scheduledFor));
   }
@@ -166,8 +166,8 @@ export class DbStorage implements IStorage {
     
     const conditions = [
       eq(posts.userId, params.userId),
-      gte(posts.scheduledFor, startTime.toISOString()),
-      lte(posts.scheduledFor, endTime.toISOString())
+      gte(posts.scheduledFor, startTime),
+      lte(posts.scheduledFor, endTime)
     ];
     
     if (params.excludeId) {
