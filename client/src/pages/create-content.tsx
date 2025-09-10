@@ -1207,7 +1207,7 @@ export default function CreateContent() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="gemini">Gemini Veo 3 (Fast)</SelectItem>
+                          <SelectItem value="gemini">Veo 3 (Coming Soon - Placeholder)</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
