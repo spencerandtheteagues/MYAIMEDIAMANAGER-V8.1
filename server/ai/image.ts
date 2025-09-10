@@ -11,39 +11,36 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string}) {
   const { genai, vertex } = makeClients();
   try{
     return await withRetry(async ()=>{
-      if (vertex) {
-        // Vertex/Imagen support would go here
-        throw new Error("Imagen not yet implemented");
-      } else {
-        // For now, create a placeholder response since Imagen requires Vertex
-        const imageId = randomUUID();
-        const localPath = path.join('attached_assets', 'generated_images', `image-${imageId}.png`);
-        
-        // Ensure directory exists
-        await fs.mkdir(path.dirname(localPath), { recursive: true });
-        
-        // Create placeholder metadata
-        const meta = { 
-          model: MODELS.image, 
-          aspectRatio: opts.aspectRatio || "1:1",
-          prompt: opts.prompt
-        };
-        
-        // Write metadata file
-        await fs.writeFile(
-          localPath.replace('.png', '.json'),
-          JSON.stringify(meta, null, 2)
-        );
-        
-        // Return structured response
-        return { 
-          url: `/${localPath}`,
-          localPath,
-          prompt: opts.prompt,
-          aspectRatio: opts.aspectRatio || "1:1",
-          model: MODELS.image
-        };
-      }
+      // Always use placeholder image generation for now
+      // Real Imagen implementation would go here when available
+      const imageId = randomUUID();
+      const localPath = path.join('attached_assets', 'generated_images', `image-${imageId}.png`);
+      
+      // Ensure directory exists
+      await fs.mkdir(path.dirname(localPath), { recursive: true });
+      
+      // Create placeholder metadata
+      const meta = { 
+        model: MODELS.image, 
+        aspectRatio: opts.aspectRatio || "1:1",
+        prompt: opts.prompt,
+        vertex: !!vertex  // Track if Vertex is configured
+      };
+      
+      // Write metadata file
+      await fs.writeFile(
+        localPath.replace('.png', '.json'),
+        JSON.stringify(meta, null, 2)
+      );
+      
+      // Return structured response
+      return { 
+        url: `/${localPath}`,
+        localPath,
+        prompt: opts.prompt,
+        aspectRatio: opts.aspectRatio || "1:1",
+        model: MODELS.image
+      };
     });
   }catch(e:any){
     const ne = normalizeError(e);
