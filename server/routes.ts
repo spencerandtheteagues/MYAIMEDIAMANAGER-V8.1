@@ -141,8 +141,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      // Check for authenticated user - no fallback to demo
+      const userId = req.user?.claims?.sub;
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
       res.json(user);
     } catch (error) {
       console.error("Error fetching user:", error);
@@ -163,25 +170,18 @@ export async function registerRoutes(app: Express): Promise<Server> {
       else if (req.user?.claims?.sub) {
         userId = req.user.claims.sub;
       }
-      // For demo/testing when not authenticated
+      // No fallback to demo user - require authentication
       else {
-        // Try to get the demo user by username since we know it exists
-        const demoUser = await storage.getUserByUsername("spencer.teague");
-        if (demoUser) {
-          return res.json(demoUser);
-        }
-        
-        // If no demo user exists at all, return error
         return res.status(401).json({ message: "Not authenticated" });
       }
       
       // Get the authenticated user
       const user = await storage.getUser(userId);
-      if (user) {
-        return res.json(user);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
       }
       
-      res.status(404).json({ message: "User not found" });
+      res.json(user);
     } catch (error) {
       console.error("Error getting user:", error);
       res.status(500).json({ message: "Failed to get user" });
