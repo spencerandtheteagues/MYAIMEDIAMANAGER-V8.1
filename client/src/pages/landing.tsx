@@ -66,16 +66,13 @@ export default function Landing() {
               Let AI handle the heavy lifting while you focus on growing your business.
             </p>
             
-            <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <div className="flex justify-center">
               <Link href="/trial">
                 <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-lg px-8">
                   Start Free Trial
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
-              <Button size="lg" variant="outline" className="border-white/20 text-white hover:bg-white/10 text-lg px-8">
-                Watch Demo
-              </Button>
             </div>
             
             <div className="flex items-center justify-center gap-8 pt-8">
