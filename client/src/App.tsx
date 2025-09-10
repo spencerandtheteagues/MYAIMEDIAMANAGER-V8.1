@@ -1,6 +1,6 @@
 import { Switch, Route } from "wouter";
 import { queryClient } from "./lib/queryClient";
-import { QueryClientProvider } from "@tanstack/react-query";
+import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import NotFound from "./pages/not-found";
@@ -18,10 +18,40 @@ import AdminPanel from "./pages/admin";
 import Billing from "./pages/billing";
 import Referrals from "./pages/referrals";
 import Help from "./pages/help";
+import Trial from "./pages/trial";
+import Landing from "./pages/landing";
 import Sidebar from "./components/layout/sidebar";
 import Header from "./components/layout/header";
 
 function Router() {
+  // Check authentication status
+  const { data: user, isLoading } = useQuery({
+    queryKey: ["/api/user"],
+    retry: false,
+    refetchOnWindowFocus: false,
+  });
+
+  // Show loading state while checking authentication
+  if (isLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="animate-pulse text-muted-foreground">Loading...</div>
+      </div>
+    );
+  }
+
+  // If not authenticated, show landing page or trial selection
+  if (!user) {
+    return (
+      <Switch>
+        <Route path="/" component={Landing} />
+        <Route path="/trial" component={Trial} />
+        <Route component={Landing} />
+      </Switch>
+    );
+  }
+
+  // If authenticated, show the main app
   return (
     <div className="flex h-screen overflow-hidden bg-background">
       <Sidebar />
@@ -41,6 +71,7 @@ function Router() {
           <Route path="/billing" component={Billing} />
           <Route path="/referrals" component={Referrals} />
           <Route path="/help" component={Help} />
+          <Route path="/trial" component={Trial} />
           <Route path="/admin" component={AdminPanel} />
           <Route component={NotFound} />
         </Switch>
