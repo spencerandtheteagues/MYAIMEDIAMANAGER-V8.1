@@ -6,4 +6,5 @@ export const TRIAL = {
   },
   rateLimit: { windowMinutes: 60, maxOps: 10 },
   videoSecondsCap: 8
-};
+} as const;
+export type TrialVariant = keyof typeof TRIAL["variants"];

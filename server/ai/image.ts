@@ -1,76 +1,47 @@
-import { makeClients } from './clients';
-import { MODELS } from './config';
-import { withRetry } from './retry';
-import { normalizeError } from './errors';
-import { GoogleGenAI } from "@google/genai";
-import fs from 'fs/promises';
-import path from 'path';
-import { randomUUID } from 'crypto';
+import { makeClients } from "./clients";
+import { MODELS } from "./config";
+import { withRetry } from "./retry";
+import { normalizeError } from "./errors";
+import { randomUUID } from "crypto";
+import path from "path";
+import fs from "fs/promises";
 
-export interface GenerateImageOptions {
-  prompt: string;
-  aspectRatio?: string;
-  model?: string;
-}
-
-export interface GenerateImageResult {
-  url: string;
-  localPath: string;
-  prompt: string;
-  aspectRatio: string;
-  model: string;
-}
-
-export async function generateImage(options: GenerateImageOptions): Promise<GenerateImageResult> {
-  const { genai } = makeClients();
-  
-  if (!genai) {
-    throw normalizeError(new Error('Image generation not configured'));
+// Returns { pngBase64, meta }
+export async function generateImage(opts:{prompt:string; aspectRatio?:string}) {
+  const { genai, vertex } = makeClients();
+  try{
+    return await withRetry(async ()=>{
+      if (vertex) {
+        // Vertex/Imagen support would go here
+        throw new Error("Imagen not yet implemented");
+      } else {
+        // For now, create a placeholder response since Imagen requires Vertex
+        const imageId = randomUUID();
+        const localPath = path.join('public', 'generated', `image-${imageId}.png`);
+        
+        // Ensure directory exists
+        await fs.mkdir(path.dirname(localPath), { recursive: true });
+        
+        // Create placeholder metadata
+        const meta = { 
+          model: MODELS.image, 
+          aspectRatio: opts.aspectRatio || "1:1",
+          prompt: opts.prompt,
+          placeholder: true 
+        };
+        
+        // Write metadata file
+        await fs.writeFile(
+          localPath.replace('.png', '.json'),
+          JSON.stringify(meta, null, 2)
+        );
+        
+        // Return empty base64 for now
+        return { pngBase64: "", meta };
+      }
+    });
+  }catch(e:any){
+    const ne = normalizeError(e);
+    throw Object.assign(new Error(ne.message), { status: ne.code });
   }
-  
-  return withRetry(async () => {
-    try {
-      // Use Imagen through Gemini API if available
-      // For now, we'll use a placeholder since direct Imagen access requires Vertex AI
-      const model = genai.generativeModel({ model: "gemini-2.0-flash-exp" });
-      
-      // Generate enhanced prompt for image
-      const enhancedPrompt = `Create a detailed description for an image: ${options.prompt}. 
-        Aspect ratio: ${options.aspectRatio || '1:1'}. 
-        Style: Professional, high-quality, suitable for social media.`;
-      
-      const result = await model.generateContent({
-        contents: [{ role: 'user', parts: [{ text: enhancedPrompt }] }],
-      });
-      
-      // For now, save a placeholder since we can't generate actual images without Vertex AI
-      const imageId = randomUUID();
-      const filename = `generated-${imageId}.png`;
-      const localPath = path.join('public', 'generated', filename);
-      
-      // Ensure directory exists
-      await fs.mkdir(path.dirname(localPath), { recursive: true });
-      
-      // Create a simple placeholder image description file
-      await fs.writeFile(
-        localPath.replace('.png', '.json'),
-        JSON.stringify({
-          prompt: options.prompt,
-          aspectRatio: options.aspectRatio || '1:1',
-          description: result.response.text(),
-          timestamp: new Date().toISOString(),
-        }, null, 2)
-      );
-      
-      return {
-        url: `/generated/${filename}`,
-        localPath,
-        prompt: options.prompt,
-        aspectRatio: options.aspectRatio || '1:1',
-        model: MODELS.image,
-      };
-    } catch (error) {
-      throw normalizeError(error);
-    }
-  });
 }
