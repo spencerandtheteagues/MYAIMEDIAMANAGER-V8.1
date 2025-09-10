@@ -8,6 +8,7 @@ import fs from "fs/promises";
 import sharp from "sharp";
 import { exec } from "child_process";
 import { promisify } from "util";
+import { svgTemplates, getTemplateForPrompt } from "./svg-templates";
 
 // Helper to parse aspect ratio
 function parseAspectRatio(ratio: string): { width: number; height: number } {
@@ -22,7 +23,7 @@ function parseAspectRatio(ratio: string): { width: number; height: number } {
   return aspectRatios[ratio] || aspectRatios["16:9"];
 }
 
-// Create a gradient placeholder image with text
+// Create a placeholder image with relevant visual content
 async function createPlaceholderImage(prompt: string, aspectRatio: string): Promise<Buffer> {
   const { width, height } = parseAspectRatio(aspectRatio);
   
@@ -40,24 +41,33 @@ async function createPlaceholderImage(prompt: string, aspectRatio: string): Prom
   
   const [color1, color2] = colors[Math.floor(Math.random() * colors.length)];
   
-  // Create SVG with gradient and text
-  const svg = `
-    <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
-          <stop offset="0%" style="stop-color:${color1};stop-opacity:1" />
-          <stop offset="100%" style="stop-color:${color2};stop-opacity:1" />
-        </linearGradient>
-      </defs>
-      <rect width="${width}" height="${height}" fill="url(#gradient)" />
-      <text x="50%" y="45%" text-anchor="middle" font-family="Arial, sans-serif" font-size="${Math.min(width, height) * 0.05}" fill="white" opacity="0.9">
-        AI Generated Image
-      </text>
-      <text x="50%" y="55%" text-anchor="middle" font-family="Arial, sans-serif" font-size="${Math.min(width, height) * 0.025}" fill="white" opacity="0.7">
-        ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}
-      </text>
-    </svg>
-  `;
+  // Check if we have a specific template for this prompt
+  const templateName = getTemplateForPrompt(prompt);
+  let svg: string;
+  
+  if (templateName && svgTemplates[templateName]) {
+    // Use specific template
+    svg = svgTemplates[templateName](width, height, color1, color2);
+  } else {
+    // Use default gradient with text
+    svg = `
+      <svg width="${width}" height="${height}" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" style="stop-color:${color1};stop-opacity:1" />
+            <stop offset="100%" style="stop-color:${color2};stop-opacity:1" />
+          </linearGradient>
+        </defs>
+        <rect width="${width}" height="${height}" fill="url(#gradient)" />
+        <text x="50%" y="45%" text-anchor="middle" font-family="Arial, sans-serif" font-size="${Math.min(width, height) * 0.05}" fill="white" opacity="0.9">
+          AI Generated Image
+        </text>
+        <text x="50%" y="55%" text-anchor="middle" font-family="Arial, sans-serif" font-size="${Math.min(width, height) * 0.025}" fill="white" opacity="0.7">
+          ${prompt.substring(0, 50)}${prompt.length > 50 ? '...' : ''}
+        </text>
+      </svg>
+    `;
+  }
   
   // Convert SVG to buffer
   const buffer = await sharp(Buffer.from(svg))
