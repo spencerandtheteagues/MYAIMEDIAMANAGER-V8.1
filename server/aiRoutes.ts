@@ -65,9 +65,9 @@ router.post("/image",
       if (userId) {
         await saveToLibrary({
           userId,
-          kind: 'image',
-          mediaUrl: result.url,
-          metadata: {
+          type: 'image',
+          url: result.url,
+          meta: {
             prompt,
             aspectRatio: result.aspectRatio,
             platform,
@@ -153,9 +153,9 @@ router.get("/video/poll/:operationId", async (req, res) => {
     if (result.status === 'complete' && result.videoUrl && userId) {
       await saveToLibrary({
         userId,
-        kind: 'video',
-        mediaUrl: result.videoUrl,
-        metadata: {
+        type: 'video',
+        url: result.videoUrl,
+        meta: {
           operationId,
           duration: 8 // Default duration
         }
