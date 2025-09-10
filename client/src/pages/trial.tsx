@@ -4,7 +4,7 @@ import { TrialMeter } from "../components/TrialMeter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "../lib/queryClient";
 
-export function TrialPage() {
+export default function TrialPage() {
   const [selecting, setSelecting] = useState(false);
   
   const { data: status } = useQuery({
