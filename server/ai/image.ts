@@ -6,6 +6,8 @@ import { randomUUID } from "crypto";
 import path from "path";
 import fs from "fs/promises";
 import sharp from "sharp";
+import { exec } from "child_process";
+import { promisify } from "util";
 
 // Helper to parse aspect ratio
 function parseAspectRatio(ratio: string): { width: number; height: number } {
@@ -66,34 +68,89 @@ async function createPlaceholderImage(prompt: string, aspectRatio: string): Prom
 }
 
 // Returns { url, localPath, prompt, aspectRatio, model }
-export async function generateImage(opts:{prompt:string; aspectRatio?:string}) {
+export async function generateImage(opts:{prompt:string; aspectRatio?:string; businessContext?: any}) {
   const { genai, vertex } = makeClients();
+  const execAsync = promisify(exec);
+  
   try{
     return await withRetry(async ()=>{
-      // Simulate processing time (1-2 seconds)
-      await new Promise(resolve => setTimeout(resolve, 1000 + Math.random() * 1000));
-      
       const imageId = randomUUID();
       const localPath = path.join('attached_assets', 'generated_images', `image-${imageId}.png`);
       
       // Ensure directory exists
       await fs.mkdir(path.dirname(localPath), { recursive: true });
       
-      // Create actual placeholder image
-      const imageBuffer = await createPlaceholderImage(
-        opts.prompt, 
-        opts.aspectRatio || "1:1"
-      );
+      // Check if we have API key for real generation
+      const apiKey = process.env.GOOGLE_CLOUD_API_KEY || process.env.VERTEX_API_KEY;
+      let imageBuffer: Buffer;
+      let generationMethod = "placeholder";
       
-      // Write the actual image file
+      if (apiKey) {
+        try {
+          // Prepare input for Python script
+          const inputData = {
+            prompt: opts.prompt,
+            aspectRatio: opts.aspectRatio || "16:9",
+            businessContext: opts.businessContext || {}
+          };
+          
+          // Call Python script for real AI generation
+          const scriptPath = path.join(process.cwd(), 'server', 'ai', 'generate_image.py');
+          const { stdout, stderr } = await execAsync(
+            `python3 "${scriptPath}" '${JSON.stringify(inputData)}'`,
+            {
+              env: {
+                ...process.env,
+                GOOGLE_CLOUD_API_KEY: apiKey
+              },
+              timeout: 60000 // 60 second timeout for image generation
+            }
+          );
+          
+          if (stderr && !stderr.includes('warning')) {
+            console.error('Python script stderr:', stderr);
+          }
+          
+          const result = JSON.parse(stdout);
+          
+          if (result.success && result.image_data) {
+            // Convert base64 to buffer
+            imageBuffer = Buffer.from(result.image_data, 'base64');
+            generationMethod = "gemini-2.5-flash";
+          } else {
+            // Fallback to placeholder if generation failed
+            console.error('AI generation failed:', result.error);
+            imageBuffer = await createPlaceholderImage(
+              opts.prompt, 
+              opts.aspectRatio || "16:9"
+            );
+          }
+        } catch (error) {
+          console.error('Error calling Python script:', error);
+          // Fallback to placeholder
+          imageBuffer = await createPlaceholderImage(
+            opts.prompt, 
+            opts.aspectRatio || "16:9"
+          );
+        }
+      } else {
+        // No API key, use placeholder
+        imageBuffer = await createPlaceholderImage(
+          opts.prompt, 
+          opts.aspectRatio || "16:9"
+        );
+      }
+      
+      // Write the image file
       await fs.writeFile(localPath, imageBuffer);
       
       // Create metadata
       const meta = { 
-        model: MODELS.image, 
-        aspectRatio: opts.aspectRatio || "1:1",
+        model: generationMethod === "gemini-2.5-flash" ? "gemini-2.5-flash-image-preview" : MODELS.image,
+        aspectRatio: opts.aspectRatio || "16:9",
         prompt: opts.prompt,
-        vertex: !!vertex,
+        vertex: !!vertex || generationMethod === "gemini-2.5-flash",
+        generationMethod,
         createdAt: new Date().toISOString()
       };
       
@@ -108,8 +165,9 @@ export async function generateImage(opts:{prompt:string; aspectRatio?:string}) {
         url: `/${localPath}`,
         localPath,
         prompt: opts.prompt,
-        aspectRatio: opts.aspectRatio || "1:1",
-        model: MODELS.image
+        aspectRatio: opts.aspectRatio || "16:9",
+        model: meta.model,
+        generationMethod
       };
     });
   }catch(e:any){

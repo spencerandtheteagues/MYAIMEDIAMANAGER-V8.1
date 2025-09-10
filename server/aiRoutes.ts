@@ -64,10 +64,21 @@ router.post("/image",
         captionStyle
       } = req.body;
       
-      // Generate image
+      // Generate image with business context for enhanced generation
       const result = await generateImage({ 
         prompt, 
-        aspectRatio 
+        aspectRatio,
+        businessContext: {
+          businessName,
+          productName,
+          brandTone,
+          callToAction,
+          captionStyle,
+          targetAudience: req.body.targetAudience,
+          keyMessages: req.body.keyMessages,
+          isAdvertisement: req.body.isAdvertisement,
+          additionalContext: req.body.additionalContext
+        }
       });
       
       // Generate caption for the image
