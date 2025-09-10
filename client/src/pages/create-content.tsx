@@ -210,9 +210,14 @@ export default function CreateContent() {
     onSuccess: (data) => {
       // Handle both single image response and array response
       if (data.url || data.id) {
-        setGeneratedImage(data.url || data.id);
+        const imageUrl = data.url || data.id;
+        // Ensure the URL starts with / for proper serving
+        const finalUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+        setGeneratedImage(finalUrl);
       } else if (data.images && data.images[0]) {
-        setGeneratedImage(data.images[0]);
+        const imageUrl = data.images[0];
+        const finalUrl = imageUrl.startsWith('/') ? imageUrl : `/${imageUrl}`;
+        setGeneratedImage(finalUrl);
       }
       
       // Generate caption for the image
