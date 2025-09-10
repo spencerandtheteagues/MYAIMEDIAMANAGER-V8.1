@@ -1,487 +1,357 @@
-import { useState, useCallback, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
-import { queryClient, apiRequest } from "../lib/queryClient";
-import { Calendar, momentLocalizer, View, SlotInfo } from "react-big-calendar";
-import moment from "moment";
-import { DndContext, DragEndEvent, DragStartEvent, DragOverlay, useSensor, useSensors, PointerSensor } from "@dnd-kit/core";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
+import React, { useMemo, useRef, useState, useEffect } from "react";
+import FullCalendar from "@fullcalendar/react";
+import timeGridPlugin from "@fullcalendar/timegrid";
+import dayGridPlugin from "@fullcalendar/daygrid";
+import interactionPlugin, { Draggable } from "@fullcalendar/interaction";
+import dayjs from "dayjs";
+import utc from "dayjs/plugin/utc";
+import timezone from "dayjs/plugin/timezone";
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Badge } from "@/components/ui/badge";
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { useToast } from "@/hooks/use-toast";
-import { 
-  Calendar as CalendarIcon, 
-  Clock, 
-  Image, 
-  FileText, 
-  Video,
-  GripVertical,
-  Plus,
-  Edit,
-  Trash2,
-  CheckCircle,
-  XCircle,
-  Send,
-  Instagram,
-  Facebook,
-  Twitter,
-  Linkedin
-} from "lucide-react";
-import type { Post } from "@shared/schema";
-import "react-big-calendar/lib/css/react-big-calendar.css";
+import { DraftsRail } from "../components/schedule/DraftsRail";
+import { ScheduleToolbar } from "../components/schedule/ScheduleToolbar";
+import { EventInspector } from "../components/schedule/EventInspector";
 
-const localizer = momentLocalizer(moment);
+dayjs.extend(utc);
+dayjs.extend(timezone);
 
-interface CalendarEvent {
-  id: string;
-  title: string;
-  start: Date;
-  end: Date;
-  resource: {
-    post: Post;
-    type: "scheduled" | "draft" | "published";
-  };
-}
-
-interface DraggablePostProps {
-  post: Post;
-  isDragging?: boolean;
-}
-
-const platformIcons: Record<string, any> = {
-  Instagram,
-  Facebook,
-  "X": Twitter,
-  LinkedIn: Linkedin,
-  TikTok: Video
+const PLATFORM_COLORS: Record<string, string> = {
+  x: "#38bdf8",
+  instagram: "#ec4899",
+  facebook: "#3b82f6",
+  tiktok: "#8b5cf6",
+  linkedin: "#06b6d4"
 };
 
-function DraggablePost({ post, isDragging }: DraggablePostProps) {
-  const platforms = post.platforms || [];
-  
-  return (
-    <div className={`border rounded-lg p-3 bg-background ${isDragging ? 'opacity-50' : ''} cursor-move`}>
-      <div className="flex items-start gap-2">
-        <GripVertical className="w-4 h-4 text-muted-foreground mt-1" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium line-clamp-2">{post.content}</p>
-          <div className="flex items-center gap-2 mt-2">
-            {post.imageUrl && <Image className="w-4 h-4 text-muted-foreground" />}
-            {post.videoUrl && <Video className="w-4 h-4 text-muted-foreground" />}
-            <div className="flex gap-1">
-              {platforms.map((platform: string) => {
-                const Icon = platformIcons[platform] || FileText;
-                return <Icon key={platform} className="w-3 h-3 text-muted-foreground" />;
-              })}
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function CalendarEventComponent({ event }: { event: CalendarEvent }) {
-  const { post, type } = event.resource;
-  const platforms = post.platforms || [];
-  
-  const getBgColor = () => {
-    switch (type) {
-      case "published": return "bg-green-100 dark:bg-green-900/20 border-green-500";
-      case "scheduled": return "bg-blue-100 dark:bg-blue-900/20 border-blue-500";
-      default: return "bg-gray-100 dark:bg-gray-900/20 border-gray-500";
-    }
+interface ScheduleEvent {
+  id: string;
+  title: string;
+  start: string;
+  end: string;
+  backgroundColor?: string;
+  borderColor?: string;
+  extendedProps: {
+    postId: string;
+    platform: string;
+    status: string;
+    caption: string;
+    mediaUrls?: string[];
+    tags?: string[];
+    needsApproval?: boolean;
   };
-  
-  return (
-    <div className={`p-2 rounded border ${getBgColor()} h-full overflow-hidden`}>
-      <div className="text-xs font-medium line-clamp-2 mb-1">
-        {post.content}
-      </div>
-      <div className="flex items-center gap-1">
-        {platforms.map((platform: string) => {
-          const Icon = platformIcons[platform] || FileText;
-          return <Icon key={platform} className="w-3 h-3" />;
-        })}
-        {post.imageUrl && <Image className="w-3 h-3" />}
-        {post.videoUrl && <Video className="w-3 h-3" />}
-      </div>
-    </div>
-  );
 }
 
-export default function Schedule() {
+export default function SchedulePage() {
   const { toast } = useToast();
-  const [view, setView] = useState<View>("week");
-  const [date, setDate] = useState(new Date());
-  const [activeId, setActiveId] = useState<string | null>(null);
-  const [selectedPost, setSelectedPost] = useState<Post | null>(null);
-  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
-  const [selectedSlot, setSelectedSlot] = useState<SlotInfo | null>(null);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 8,
-      },
-    })
+  const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  const [filters, setFilters] = useState<string[]>([]);
+  const [tz, setTz] = useState<string>("America/Chicago");
+  const [selectedEvent, setSelectedEvent] = useState<ScheduleEvent | null>(null);
+  const [view, setView] = useState<string>("timeGridWeek");
+  const calendarRef = useRef<FullCalendar>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  const visibleEvents = useMemo(
+    () => filters.length ? events.filter(e => filters.includes(e.extendedProps.platform)) : events,
+    [events, filters]
   );
 
-  const { data: posts, isLoading } = useQuery<Post[]>({
-    queryKey: ["/api/posts"],
-  });
+  // Event content renderer with platform colors and status badges
+  function eventContent(arg: any) {
+    const props = arg.event.extendedProps;
+    const color = PLATFORM_COLORS[props.platform.toLowerCase()] || "#a855f7";
+    const title = arg.event.title || props.caption?.substring(0, 50) || props.platform.toUpperCase();
+    
+    return (
+      <div 
+        className="h-full w-full px-2 py-1 rounded-md cursor-pointer transition-all hover:shadow-lg"
+        style={{ 
+          backgroundColor: `${color}26`, 
+          borderLeft: `3px solid ${color}`,
+          borderColor: color
+        }}
+      >
+        <div className="flex items-start justify-between gap-1">
+          <span className="truncate text-[11px] font-medium text-zinc-100">{title}</span>
+          {props.needsApproval && (
+            <Badge className="text-[9px] px-1 py-0" variant="secondary">
+              Review
+            </Badge>
+          )}
+        </div>
+        {props.status && (
+          <div className="mt-1">
+            <span className="text-[10px] text-zinc-400 capitalize">
+              {props.status.replace("_", " ")}
+            </span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
-  const { data: draftPosts } = useQuery<Post[]>({
-    queryKey: ["/api/posts/draft"],
-  });
-
-  const reschedulePostMutation = useMutation({
-    mutationFn: async ({ postId, scheduledFor }: { postId: string; scheduledFor: Date }) => {
-      const response = await apiRequest("PATCH", `/api/posts/${postId}`, {
-        scheduledFor: scheduledFor.toISOString(),
-        status: "scheduled"
+  // Fetch events when calendar view changes
+  async function fetchEvents(info?: any) {
+    setIsLoading(true);
+    try {
+      const calendarApi = calendarRef.current?.getApi();
+      const activeView = info || calendarApi?.view;
+      
+      if (!activeView) return;
+      
+      const from = dayjs(activeView.currentStart).tz(tz).format("YYYY-MM-DD");
+      const to = dayjs(activeView.currentEnd).tz(tz).format("YYYY-MM-DD");
+      
+      const response = await fetch(`/api/schedule?from=${from}&to=${to}&tz=${tz}`);
+      if (!response.ok) throw new Error("Failed to fetch events");
+      
+      const data = await response.json();
+      
+      // Transform API response to FullCalendar events
+      const transformedEvents: ScheduleEvent[] = (data.events || []).map((e: any) => {
+        const color = PLATFORM_COLORS[e.platform?.toLowerCase()] || "#a855f7";
+        return {
+          id: e.id,
+          title: e.title || e.caption?.substring(0, 50) || e.platform,
+          start: e.scheduledAt || e.startsAt,
+          end: e.endsAt || dayjs(e.scheduledAt || e.startsAt).add(30, "minutes").toISOString(),
+          backgroundColor: `${color}40`,
+          borderColor: color,
+          extendedProps: {
+            postId: e.postId || e.id,
+            platform: e.platform || "instagram",
+            status: e.status || "draft",
+            caption: e.caption || e.content || "",
+            mediaUrls: e.mediaUrls || [],
+            tags: e.tags || [],
+            needsApproval: e.needsApproval || e.status === "needs_approval"
+          }
+        };
       });
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/posts/draft"] });
+      
+      setEvents(transformedEvents);
+    } catch (error) {
+      console.error("Error fetching events:", error);
+      toast({
+        title: "Error loading schedule",
+        description: "Failed to load scheduled posts. Please refresh the page.",
+        variant: "destructive"
+      });
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
+  // Create event from draft
+  async function createFromDraft(dropInfo: any, draft: any) {
+    try {
+      const scheduledAt = dayjs(dropInfo.date).tz(tz).toISOString();
+      
+      const payload = {
+        draftId: draft.id,
+        platform: draft.platform,
+        scheduledAt,
+        caption: draft.caption || draft.content,
+        mediaUrls: draft.mediaUrls || [],
+        tags: draft.tags || []
+      };
+      
+      const response = await fetch("/api/schedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload)
+      });
+      
+      if (response.status === 409) {
+        const { suggestion } = await response.json();
+        dropInfo.revert();
+        toast({
+          title: "Time conflict detected",
+          description: suggestion || "Try scheduling at a different time",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (!response.ok) {
+        throw new Error("Failed to schedule post");
+      }
+      
+      toast({
+        title: "Post scheduled",
+        description: `Scheduled for ${dayjs(scheduledAt).format("MMM D, h:mm A")}`,
+      });
+      
+      // Refresh events
+      await fetchEvents();
+    } catch (error) {
+      console.error("Error creating event:", error);
+      toast({
+        title: "Scheduling failed",
+        description: "Could not schedule this post. Please try again.",
+        variant: "destructive"
+      });
+    }
+  }
+
+  // Handle event drop (reschedule)
+  async function handleEventDrop(info: any) {
+    try {
+      const newStart = dayjs(info.event.start).tz(tz).toISOString();
+      
+      const response = await fetch(`/api/schedule/${info.event.id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ scheduledAt: newStart })
+      });
+      
+      if (response.status === 409) {
+        info.revert();
+        const { suggestion } = await response.json();
+        toast({
+          title: "Time conflict",
+          description: suggestion || "This time slot has conflicts",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      if (!response.ok) {
+        info.revert();
+        throw new Error("Failed to reschedule");
+      }
+      
       toast({
         title: "Post rescheduled",
-        description: "The post has been moved to the new time slot.",
+        description: `Moved to ${dayjs(newStart).format("MMM D, h:mm A")}`,
       });
-    },
-    onError: () => {
+    } catch (error) {
+      console.error("Error rescheduling:", error);
+      info.revert();
       toast({
-        title: "Error",
-        description: "Failed to reschedule post. Please try again.",
-        variant: "destructive",
+        title: "Rescheduling failed",
+        description: "Could not move this post. Please try again.",
+        variant: "destructive"
       });
-    },
-  });
+    }
+  }
 
-  const updatePostMutation = useMutation({
-    mutationFn: async ({ postId, updates }: { postId: string; updates: Partial<Post> }) => {
-      const response = await apiRequest("PATCH", `/api/posts/${postId}`, updates);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      setIsEditDialogOpen(false);
-      toast({
-        title: "Post updated",
-        description: "Your changes have been saved.",
-      });
-    },
-  });
+  // Handle external drop (from drafts)
+  async function handleExternalDrop(info: any) {
+    const draft = JSON.parse(info.draggedEl.dataset.event || "{}");
+    if (!draft.id) return;
+    
+    await createFromDraft(info, draft);
+  }
 
-  const deletePostMutation = useMutation({
-    mutationFn: async (postId: string) => {
-      const response = await apiRequest("DELETE", `/api/posts/${postId}`);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      setIsEditDialogOpen(false);
-      toast({
-        title: "Post deleted",
-        description: "The post has been removed from your schedule.",
-      });
-    },
-  });
-
-  const publishPostMutation = useMutation({
-    mutationFn: async (postId: string) => {
-      const response = await apiRequest("POST", `/api/posts/${postId}/publish`);
-      return response.json();
-    },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
-      toast({
-        title: "Post published",
-        description: "Your post has been published successfully.",
-      });
-    },
-  });
-
-  // Convert posts to calendar events
-  const events: CalendarEvent[] = (posts || [])
-    .filter(post => post.scheduledFor || post.publishedAt)
-    .map(post => {
-      const startDate = post.publishedAt ? new Date(post.publishedAt) : new Date(post.scheduledFor!);
-      const endDate = new Date(startDate.getTime() + 30 * 60000); // 30 minutes duration
-      
-      return {
-        id: post.id,
-        title: post.content.substring(0, 50),
-        start: startDate,
-        end: endDate,
-        resource: {
-          post,
-          type: post.status === "published" ? "published" : 
-                post.status === "scheduled" ? "scheduled" : "draft"
+  // Initialize draggable for drafts
+  useEffect(() => {
+    const draggableEl = document.getElementById("drafts-container");
+    if (draggableEl) {
+      new Draggable(draggableEl, {
+        itemSelector: ".draft-card",
+        eventData: (eventEl: any) => {
+          const data = eventEl.dataset.event;
+          return data ? JSON.parse(data) : {};
         }
-      };
-    });
-
-  const handleDragStart = (event: DragStartEvent) => {
-    setActiveId(event.active.id as string);
-  };
-
-  const handleDragEnd = (event: DragEndEvent) => {
-    const { active, over } = event;
-    
-    if (over && active.id !== over.id) {
-      // Handle drop on calendar slot
-      if (over.data?.current?.date) {
-        const postId = active.id as string;
-        const newDate = over.data.current.date as Date;
-        
-        reschedulePostMutation.mutate({
-          postId,
-          scheduledFor: newDate
-        });
-      }
+      });
     }
-    
-    setActiveId(null);
-  };
-
-  const handleSelectSlot = useCallback((slotInfo: SlotInfo) => {
-    setSelectedSlot(slotInfo);
-    setIsCreateDialogOpen(true);
   }, []);
 
-  const handleSelectEvent = useCallback((event: CalendarEvent) => {
-    setSelectedPost(event.resource.post);
-    setIsEditDialogOpen(true);
-  }, []);
-
-  const handleEventDrop = ({ event, start, end }: any) => {
-    reschedulePostMutation.mutate({
-      postId: event.id,
-      scheduledFor: start
-    });
-  };
-
-  const eventStyleGetter = (event: CalendarEvent) => {
-    let backgroundColor = "#3174ad";
-    let borderColor = "#265985";
-    
-    switch (event.resource.type) {
-      case "published":
-        backgroundColor = "#10b981";
-        borderColor = "#059669";
-        break;
-      case "scheduled":
-        backgroundColor = "#3b82f6";
-        borderColor = "#2563eb";
-        break;
-      default:
-        backgroundColor = "#6b7280";
-        borderColor = "#4b5563";
-    }
-    
-    return {
-      style: {
-        backgroundColor,
-        borderColor,
-        borderRadius: "4px",
-        opacity: 0.9,
-        color: "white",
-        border: `1px solid ${borderColor}`,
-        display: "block"
-      }
-    };
-  };
-
-  const activePost = activeId ? 
-    [...(posts || []), ...(draftPosts || [])].find(p => p.id === activeId) : 
-    null;
+  // Initial load
+  useEffect(() => {
+    fetchEvents();
+  }, [tz]);
 
   return (
-    <DndContext
-      sensors={sensors}
-      onDragStart={handleDragStart}
-      onDragEnd={handleDragEnd}
-    >
-      <div className="p-8 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold text-foreground">Content Schedule</h1>
-            <p className="text-muted-foreground mt-2">
-              Drag and drop to reschedule your posts
-            </p>
-          </div>
-          <div className="flex gap-2">
-            <Select value={view} onValueChange={(v) => setView(v as View)}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="month">Month</SelectItem>
-                <SelectItem value="week">Week</SelectItem>
-                <SelectItem value="day">Day</SelectItem>
-                <SelectItem value="agenda">Agenda</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-12 gap-6">
-          {/* Draft Posts Sidebar */}
-          <div className="col-span-3">
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-lg">Draft Posts</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2 max-h-[600px] overflow-y-auto">
-                {!draftPosts || draftPosts.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    No draft posts available
-                  </p>
-                ) : (
-                  draftPosts.map((post) => (
-                    <div
-                      key={post.id}
-                      draggable
-                      onDragStart={(e) => {
-                        e.dataTransfer.effectAllowed = "move";
-                        setActiveId(post.id);
-                      }}
-                      onDragEnd={() => setActiveId(null)}
-                    >
-                      <DraggablePost post={post} isDragging={activeId === post.id} />
-                    </div>
-                  ))
-                )}
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Calendar */}
-          <div className="col-span-9">
-            <Card>
-              <CardContent className="p-4">
-                <div style={{ height: 600 }}>
-                  <Calendar
-                    localizer={localizer}
-                    events={events}
-                    startAccessor="start"
-                    endAccessor="end"
-                    view={view}
-                    date={date}
-                    onNavigate={setDate}
-                    onView={setView}
-                    onSelectSlot={handleSelectSlot}
-                    onSelectEvent={handleSelectEvent}
-                    onEventDrop={handleEventDrop}
-                    selectable
-                    resizable
-                    eventPropGetter={eventStyleGetter}
-                    components={{
-                      event: CalendarEventComponent
-                    }}
-                    className="rbc-calendar-custom"
-                  />
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-        </div>
-
-        {/* Legend */}
-        <Card>
-          <CardContent className="flex items-center gap-6 py-4">
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-green-500 rounded" />
-              <span className="text-sm">Published</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-blue-500 rounded" />
-              <span className="text-sm">Scheduled</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-4 h-4 bg-gray-500 rounded" />
-              <span className="text-sm">Draft</span>
-            </div>
-          </CardContent>
-        </Card>
-
-        {/* Edit Post Dialog */}
-        <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-          <DialogContent className="max-w-2xl">
-            <DialogHeader>
-              <DialogTitle>Edit Scheduled Post</DialogTitle>
-              <DialogDescription>
-                Modify the post details or reschedule it
-              </DialogDescription>
-            </DialogHeader>
-            
-            {selectedPost && (
-              <div className="space-y-4">
-                <div>
-                  <label className="text-sm font-medium">Content</label>
-                  <p className="mt-1 p-3 bg-muted rounded-lg">{selectedPost.content}</p>
-                </div>
-                
-                <div>
-                  <label className="text-sm font-medium">Platforms</label>
-                  <div className="flex gap-2 mt-2">
-                    {selectedPost.platforms?.map((platform) => (
-                      <Badge key={platform} variant="secondary">
-                        {platform}
-                      </Badge>
-                    ))}
-                  </div>
-                </div>
-                
-                {selectedPost.scheduledFor && (
-                  <div>
-                    <label className="text-sm font-medium">Scheduled For</label>
-                    <p className="mt-1 text-sm text-muted-foreground">
-                      {moment(selectedPost.scheduledFor).format("MMMM Do YYYY, h:mm a")}
-                    </p>
-                  </div>
-                )}
-                
-                <div className="flex justify-between pt-4">
-                  <Button
-                    variant="destructive"
-                    onClick={() => deletePostMutation.mutate(selectedPost.id)}
-                  >
-                    <Trash2 className="w-4 h-4 mr-2" />
-                    Delete
-                  </Button>
-                  
-                  <div className="flex gap-2">
-                    {selectedPost.status === "scheduled" && (
-                      <Button
-                        variant="default"
-                        onClick={() => publishPostMutation.mutate(selectedPost.id)}
-                      >
-                        <Send className="w-4 h-4 mr-2" />
-                        Publish Now
-                      </Button>
-                    )}
-                    <Button variant="outline" onClick={() => setIsEditDialogOpen(false)}>
-                      Close
-                    </Button>
-                  </div>
-                </div>
-              </div>
-            )}
-          </DialogContent>
-        </Dialog>
-
-        {/* Drag Overlay */}
-        <DragOverlay>
-          {activePost && <DraggablePost post={activePost} isDragging />}
-        </DragOverlay>
+    <div className="flex h-[calc(100vh-64px)]">
+      {/* Left: Drafts Rail */}
+      <div className="w-[280px] border-r border-zinc-800 bg-zinc-950 overflow-hidden">
+        <DraftsRail />
       </div>
-    </DndContext>
+
+      {/* Middle: Calendar */}
+      <div className="flex-1 bg-zinc-900 p-6">
+        <div className="h-full flex flex-col">
+          <ScheduleToolbar
+            tz={tz}
+            onTzChange={setTz}
+            filters={filters}
+            onFiltersChange={setFilters}
+            view={view}
+            onViewChange={(v) => {
+              setView(v);
+              calendarRef.current?.getApi().changeView(v);
+            }}
+            onToday={() => calendarRef.current?.getApi().today()}
+            onPrev={() => calendarRef.current?.getApi().prev()}
+            onNext={() => calendarRef.current?.getApi().next()}
+          />
+          
+          <div className="flex-1 mt-4 bg-zinc-950 rounded-2xl border border-zinc-800 p-4">
+            <FullCalendar
+              ref={calendarRef}
+              plugins={[timeGridPlugin, dayGridPlugin, interactionPlugin]}
+              initialView={view}
+              headerToolbar={false}
+              slotMinTime="06:00:00"
+              slotMaxTime="22:00:00"
+              slotDuration="00:30:00"
+              slotLabelInterval="01:00:00"
+              nowIndicator
+              nowIndicatorClassNames="bg-fuchsia-500"
+              height="100%"
+              eventOverlap={false}
+              eventContent={eventContent}
+              events={visibleEvents}
+              datesSet={fetchEvents}
+              droppable
+              editable
+              eventDrop={handleEventDrop}
+              drop={handleExternalDrop}
+              eventClick={(info) => setSelectedEvent(info.event as any)}
+              scrollTime={dayjs().format("HH:mm:ss")}
+              dayMaxEvents={3}
+              moreLinkClick="popover"
+              weekends={true}
+              weekendBackgroundColor="#18181b"
+              slotLabelFormat={{
+                hour: "numeric",
+                minute: "2-digit",
+                meridiem: "short"
+              }}
+              eventTimeFormat={{
+                hour: "numeric",
+                minute: "2-digit",
+                meridiem: "short"
+              }}
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Right: Inspector Panel */}
+      <Sheet open={!!selectedEvent} onOpenChange={(open) => !open && setSelectedEvent(null)}>
+        <SheetContent side="right" className="w-[400px] bg-zinc-950 border-zinc-800">
+          <SheetHeader>
+            <SheetTitle className="text-zinc-100">Edit Post</SheetTitle>
+          </SheetHeader>
+          {selectedEvent && (
+            <EventInspector
+              event={selectedEvent}
+              onSaved={() => {
+                setSelectedEvent(null);
+                fetchEvents();
+              }}
+              onDeleted={() => {
+                setSelectedEvent(null);
+                fetchEvents();
+              }}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
+    </div>
   );
 }
