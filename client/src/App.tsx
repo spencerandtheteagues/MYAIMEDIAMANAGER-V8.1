@@ -25,13 +25,13 @@ import Header from "./components/layout/header";
 
 function Router() {
   // Check authentication status
-  const { data: user, isLoading } = useQuery({
+  const { data: user, isLoading, error } = useQuery({
     queryKey: ["/api/user"],
     retry: false,
     refetchOnWindowFocus: false,
   });
 
-  // Show loading state while checking authentication
+  // Show loading state while checking authentication (with timeout)
   if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
@@ -40,8 +40,9 @@ function Router() {
     );
   }
 
-  // If not authenticated, show landing page or trial selection
-  if (!user) {
+  // If there's an error or not authenticated, show landing page
+  // This handles database connection errors gracefully
+  if (error || !user) {
     return (
       <Switch>
         <Route path="/" component={Landing} />

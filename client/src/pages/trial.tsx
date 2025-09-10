@@ -9,7 +9,7 @@ export default function TrialPage() {
   const [selecting, setSelecting] = useState(false);
   
   // Check if user is authenticated first
-  const { data: user } = useQuery({
+  const { data: user, error: userError } = useQuery({
     queryKey: ["/api/user"],
     retry: false,
     refetchOnWindowFocus: false,
@@ -44,8 +44,8 @@ export default function TrialPage() {
     }
   });
   
-  // If not authenticated, show trial selection with sign-in prompts
-  if (!user) {
+  // If not authenticated or there's an error, show trial selection with sign-in prompts
+  if (!user || userError) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-pink-950 py-12">
         <div className="max-w-4xl mx-auto p-8">
