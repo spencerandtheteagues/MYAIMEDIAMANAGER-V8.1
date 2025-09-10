@@ -283,13 +283,13 @@ export default function CreateContent() {
       // Show initial toast
       toast({
         title: "Video Generation Started",
-        description: "Video generation can take 3-5 minutes. Please be patient...",
+        description: "Video generation can take up to 3 minutes. Please be patient...",
       });
       
-      // Poll for completion with longer intervals for video
+      // Poll for completion with 3 minute timeout as requested
       let downloadUrl = "";
       let attempts = 0;
-      const maxAttempts = 60; // Max 60 attempts (10 minutes with 10 second intervals)
+      const maxAttempts = 18; // Max 18 attempts (3 minutes with 10 second intervals)
       
       while (attempts < maxAttempts) {
         await new Promise(r => setTimeout(r, 10000)); // Wait 10 seconds between checks
