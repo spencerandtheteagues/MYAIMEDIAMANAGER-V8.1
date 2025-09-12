@@ -3,7 +3,7 @@ import { randomUUID } from "crypto";
 
 export async function saveToLibrary(options: {
   userId: string;
-  type: "image" | "video"; 
+  type: "image" | "video" | "text"; 
   dataBase64?: string;
   url?: string;
   meta?: any;
@@ -13,13 +13,16 @@ export async function saveToLibrary(options: {
   // Save to content library
   const libraryItem = {
     userId,
-    type: kind,
-    url: url || `/generated/${randomUUID()}.${kind === 'video' ? 'mp4' : 'png'}`,
-    caption: meta?.prompt || '',
-    metadata: meta || {},
-    tags: [],
-    businessName: undefined,
-    productName: undefined,
+    type: kind === 'text' ? 'image' : kind, // Store text as image type for compatibility
+    url: url || (kind === 'text' ? '' : `/generated/${randomUUID()}.${kind === 'video' ? 'mp4' : 'png'}`),
+    caption: meta?.caption || meta?.content || meta?.prompt || '',
+    metadata: {
+      ...meta,
+      contentType: kind // Store actual type in metadata
+    },
+    tags: meta?.hashtags || [],
+    businessName: meta?.businessName,
+    productName: meta?.productName,
     platform: meta?.platform
   };
   

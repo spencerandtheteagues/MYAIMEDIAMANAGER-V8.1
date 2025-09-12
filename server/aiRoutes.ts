@@ -18,7 +18,8 @@ router.post("/text",
   requireCredits("text"),
   async (req, res) => {
     try {
-      const { prompt, system, temperature, maxOutputTokens } = req.body;
+      const userId = req.user?.id || req.headers['x-user-id'];
+      const { prompt, system, temperature, maxOutputTokens, platform, saveToLibrary: shouldSave } = req.body;
       
       // Generate text
       const result = await generateText({ 
@@ -28,6 +29,23 @@ router.post("/text",
         maxOutputTokens 
       });
       
+      // Save to library if requested and user is authenticated
+      if (shouldSave && userId && result.text) {
+        await saveToLibrary({
+          userId,
+          type: 'text' as any, // We'll treat text as a special type
+          url: '', // No URL for text
+          meta: {
+            content: result.text,
+            prompt,
+            platform,
+            model: result.model,
+            type: 'caption',
+            createdAt: new Date().toISOString()
+          }
+        });
+      }
+      
       // Consume trial or credits
       await consumeTrialIfEligible(req, res);
       await deductCredits(res);
@@ -36,7 +54,8 @@ router.post("/text",
         success: true,
         text: result.text,
         model: result.model,
-        usage: result.usage
+        usage: result.usage,
+        savedToLibrary: shouldSave && userId ? true : false
       });
     } catch (error: any) {
       console.error('Text generation error:', error);

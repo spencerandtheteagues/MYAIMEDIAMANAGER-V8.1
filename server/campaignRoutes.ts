@@ -7,6 +7,7 @@ import { generateHighQualityPost } from './content/quality';
 import { PostType } from './content/templates';
 import { Platform } from './content/config';
 import { BrandProfile } from '@shared/schema';
+import { generateImage } from './ai/image';
 
 const generateCampaignSchema = z.object({
   prompt: z.string().min(1, "Campaign prompt/theme is required"),
@@ -153,6 +154,38 @@ export function createCampaignRoutes(storage: IStorage) {
             content += '\n\n' + hashtags.join(' ');
           }
           
+          // Generate and save image for the post
+          let imageUrl: string | undefined;
+          try {
+            const imagePrompt = `Professional social media image for ${params.businessName || 'business'}: ${content.substring(0, 80)}. Style: modern, clean, engaging.`;
+            const imageResult = await generateImage({
+              prompt: imagePrompt,
+              aspectRatio: platform === 'instagram' ? '1:1' : '16:9',
+              model: 'auto'
+            });
+            imageUrl = imageResult.url;
+            
+            // Save image to content library
+            if (userId && imageUrl) {
+              await saveToLibrary({
+                userId,
+                type: 'image',
+                url: imageUrl,
+                meta: {
+                  prompt: imagePrompt,
+                  caption: content,
+                  platform,
+                  campaignId: campaign.id,
+                  postType,
+                  aspectRatio: imageResult.aspectRatio
+                }
+              });
+            }
+          } catch (imageError) {
+            console.error('Image generation failed for campaign post:', imageError);
+            // Continue without image
+          }
+          
           const post = await storage.createPost({
             userId,
             campaignId: campaign.id,
@@ -161,12 +194,14 @@ export function createCampaignRoutes(storage: IStorage) {
             status: 'draft',
             scheduledFor: scheduledDate,
             aiGenerated: true,
+            imageUrl,
             metadata: {
               day: day + 1,
               slot: slot + 1,
               campaignPost: true,
               postType,
-              qualityGenerated: true
+              qualityGenerated: true,
+              hasImage: !!imageUrl
             },
           });
           
