@@ -9,9 +9,11 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { Post } from "@shared/schema";
 import ApprovalItem from "../components/content/approval-item";
+import ScheduleDialog from "../components/content/schedule-dialog";
 
 export default function Approval() {
   const [activeTab, setActiveTab] = useState("pending");
+  const [scheduleDialogPost, setScheduleDialogPost] = useState<Post | null>(null);
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -28,11 +30,13 @@ export default function Approval() {
   });
 
   const approveMutation = useMutation({
-    mutationFn: async (postId: string) => {
-      return apiRequest("PATCH", `/api/posts/${postId}`, {
+    mutationFn: async ({ postId, scheduledFor, platforms }: { postId: string; scheduledFor: Date; platforms: string[] }) => {
+      const response = await apiRequest("PATCH", `/api/posts/${postId}`, {
         status: "approved",
-        approvedBy: "demo-user-1",
+        scheduledFor,
+        platforms,
       });
+      return response.json();
     },
     onSuccess: () => {
       toast({
@@ -40,6 +44,15 @@ export default function Approval() {
         description: "Post approved and scheduled for publishing!",
       });
       queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+      setScheduleDialogPost(null);
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to approve post. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Approve error:", error);
     },
   });
 
@@ -86,7 +99,7 @@ export default function Approval() {
           <ApprovalItem
             key={post.id}
             post={post}
-            onApprove={() => approveMutation.mutate(post.id)}
+            onApprove={() => setScheduleDialogPost(post)}
             onReject={() => rejectMutation.mutate({ postId: post.id })}
             isProcessing={approveMutation.isPending || rejectMutation.isPending}
           />
@@ -145,6 +158,22 @@ export default function Approval() {
             </Tabs>
           </CardContent>
         </Card>
+        
+        {scheduleDialogPost && (
+          <ScheduleDialog
+            open={!!scheduleDialogPost}
+            onClose={() => setScheduleDialogPost(null)}
+            onConfirm={(data) => {
+              approveMutation.mutate({
+                postId: scheduleDialogPost.id,
+                scheduledFor: data.scheduledFor,
+                platforms: data.platforms,
+              });
+            }}
+            post={scheduleDialogPost}
+            isProcessing={approveMutation.isPending}
+          />
+        )}
       </div>
     </div>
   );
