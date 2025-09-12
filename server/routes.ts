@@ -18,6 +18,7 @@ import { createCampaignRoutes } from "./campaignRoutes";
 import { createBrandRoutes } from "./brandRoutes";
 import { createFeedbackRoutes } from "./feedbackRoutes";
 import { createMetricsRoute, trackApiMetrics } from "./metrics";
+import { trialRouter } from "./trial";
 
 // Helper function to get user ID from request regardless of auth method
 function getUserId(req: any): string | null {
@@ -150,6 +151,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Wire up feedback routes
   app.use(createFeedbackRoutes(storage));
+  
+  // Wire up trial routes
+  app.use("/api/trial", trialRouter);
   
   // Wire up schedule routes
   const { createScheduleRoutes } = await import("./scheduleRoutes");

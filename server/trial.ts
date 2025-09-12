@@ -5,8 +5,21 @@ import { storage } from "./storage";
 export const trialRouter = Router();
 
 function requireAuth(req:any,res:any,next:any){
-  if(!req.user?.id) return res.status(401).json({ error:"AUTH_REQUIRED" });
-  next();
+  // Check for session-based auth (app auth)
+  if (req.session?.userId) {
+    req.user = { id: req.session.userId };
+    return next();
+  }
+  // Check for Replit auth
+  if (req.user?.claims?.sub) {
+    req.user = { id: req.user.claims.sub };
+    return next();
+  }
+  // Check if user object has id directly (from session auth middleware)
+  if (req.user?.id) {
+    return next();
+  }
+  return res.status(401).json({ error:"AUTH_REQUIRED" });
 }
 
 trialRouter.get("/status", requireAuth, async (req:any,res:any)=>{
