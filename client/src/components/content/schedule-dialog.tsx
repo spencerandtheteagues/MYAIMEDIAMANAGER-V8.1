@@ -62,7 +62,7 @@ export default function ScheduleDialog({ open, onClose, onConfirm, post, isProce
 
   return (
     <Dialog open={open} onOpenChange={(open) => !open && onClose()}>
-      <DialogContent className="max-w-2xl">
+      <DialogContent className="max-w-2xl max-h-[90vh] flex flex-col">
         <DialogHeader>
           <DialogTitle>Schedule Post for Publishing</DialogTitle>
           <DialogDescription>
@@ -70,7 +70,7 @@ export default function ScheduleDialog({ open, onClose, onConfirm, post, isProce
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-6 py-4">
+        <div className="space-y-6 py-4 overflow-y-auto flex-1 min-h-0">
           {/* Post Preview */}
           <div className="p-4 bg-muted rounded-lg">
             <p className="text-sm font-medium mb-2">Post Preview:</p>
