@@ -333,6 +333,48 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get pending posts for approval queue
+  app.get("/api/posts/pending", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const posts = await storage.getPostsByStatus(userId, "pending");
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get pending posts" });
+    }
+  });
+
+  // Get approved posts
+  app.get("/api/posts/approved", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const posts = await storage.getPostsByStatus(userId, "approved");
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get approved posts" });
+    }
+  });
+
+  // Get rejected posts
+  app.get("/api/posts/rejected", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const posts = await storage.getPostsByStatus(userId, "rejected");
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get rejected posts" });
+    }
+  });
+
   // Get draft posts
   app.get("/api/posts/draft", async (req: any, res) => {
     try {
