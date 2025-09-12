@@ -4,8 +4,10 @@ import { TrialMeter } from "../components/TrialMeter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient } from "../lib/queryClient";
 import { Button } from "@/components/ui/button";
+import { useLocation } from "wouter";
 
 export default function TrialPage() {
+  const [, setLocation] = useLocation();
   const [selecting, setSelecting] = useState(false);
   
   // Immediately show trial selection page for unauthenticated users
@@ -18,12 +20,12 @@ export default function TrialPage() {
           <p className="text-gray-300 text-lg">Sign in to activate your 7-day free trial</p>
         </div>
         <TrialCards onSelect={(variant) => {
-          // Redirect to login when trial is selected
-          window.location.href = '/api/login';
+          // Redirect to auth page when trial is selected
+          setLocation('/auth');
         }} />
         <div className="text-center mt-8">
           <Button 
-            onClick={() => window.location.href = '/api/login'}
+            onClick={() => setLocation('/auth')}
             className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
             data-testid="button-sign-in-trial"
           >
