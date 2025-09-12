@@ -57,7 +57,12 @@ router.post("/signup", async (req: Request, res: Response) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(data.password, 10);
     
-    // Create user
+    // Set up no-card trial for new users
+    const now = new Date();
+    const trialDays = 7;
+    const trialEndsAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
+    
+    // Create user with automatic no-card trial
     const user = await storage.createUser({
       email: data.email,
       username: data.username,
@@ -69,8 +74,15 @@ router.post("/signup", async (req: Request, res: Response) => {
         : undefined,
       businessName: data.businessName,
       role: "user",
-      tier: "free",
+      tier: "free_trial",
       credits: 50, // Initial free credits
+      // Automatically assign no-card trial
+      trialVariant: "nocard7",
+      trialStartedAt: now,
+      trialEndsAt: trialEndsAt,
+      trialImagesRemaining: 6,
+      trialVideosRemaining: 0,
+      isNewUser: true, // Flag to show welcome popup
     });
     
     // Create session

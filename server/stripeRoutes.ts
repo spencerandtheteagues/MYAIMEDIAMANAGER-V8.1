@@ -23,6 +23,124 @@ router.get("/plans", async (req, res) => {
   }
 });
 
+// Upgrade trial by adding card
+router.post("/upgrade-trial", isAuthenticated, async (req, res) => {
+  try {
+    const user = req.user as any;
+    const userId = user.claims?.sub || user.id;
+    const dbUser = await storage.getUser(userId);
+    
+    if (!dbUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Create or retrieve Stripe customer
+    let customerId = dbUser.stripeCustomerId;
+    
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: dbUser.email || undefined,
+        name: dbUser.fullName || undefined,
+        metadata: {
+          userId: dbUser.id
+        }
+      });
+      customerId = customer.id;
+      await storage.updateUser(userId, { stripeCustomerId: customerId });
+    }
+
+    // Create a setup session to collect card details
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'setup',
+      payment_method_types: ['card'],
+      success_url: `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/?trialUpgraded=true`,
+      cancel_url: `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/`,
+      metadata: {
+        userId: dbUser.id,
+        action: 'upgrade_trial'
+      }
+    });
+
+    res.json({ url: session.url });
+  } catch (error: any) {
+    console.error("Error creating upgrade session:", error);
+    res.status(500).json({ message: "Error creating upgrade session: " + error.message });
+  }
+});
+
+// Create checkout session for subscription
+router.post("/create-checkout", isAuthenticated, async (req, res) => {
+  try {
+    const user = req.user as any;
+    const userId = user.claims?.sub || user.id;
+    const { priceId, mode = 'subscription' } = req.body;
+    
+    const dbUser = await storage.getUser(userId);
+    if (!dbUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Map priceId to actual pricing
+    const priceMap: Record<string, { price: number, name: string }> = {
+      'starter': { price: 29, name: 'Starter Plan' },
+      'professional': { price: 79, name: 'Professional Plan' },
+      'business': { price: 199, name: 'Business Plan' },
+    };
+
+    const planDetails = priceMap[priceId];
+    if (!planDetails) {
+      return res.status(400).json({ message: "Invalid price ID" });
+    }
+
+    // Create or retrieve Stripe customer
+    let customerId = dbUser.stripeCustomerId;
+    
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: dbUser.email || undefined,
+        name: dbUser.fullName || undefined,
+        metadata: {
+          userId: dbUser.id
+        }
+      });
+      customerId = customer.id;
+      await storage.updateUser(userId, { stripeCustomerId: customerId });
+    }
+
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: planDetails.name,
+          },
+          unit_amount: planDetails.price * 100,
+          recurring: mode === 'subscription' ? {
+            interval: 'month',
+          } : undefined,
+        },
+        quantity: 1,
+      }],
+      mode: mode as Stripe.Checkout.SessionCreateParams.Mode,
+      success_url: `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/?subscribed=true`,
+      cancel_url: `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/billing`,
+      metadata: {
+        userId: dbUser.id,
+        tier: priceId
+      }
+    });
+
+    res.json({ url: session.url });
+  } catch (error: any) {
+    console.error("Error creating checkout session:", error);
+    res.status(500).json({ message: "Error creating checkout session: " + error.message });
+  }
+});
+
 // Create subscription
 router.post("/create-subscription", isAuthenticated, async (req, res) => {
   try {
@@ -180,6 +298,42 @@ router.post("/webhook", async (req, res) => {
 
   // Handle the event
   switch (event.type) {
+    case 'checkout.session.completed':
+      const session = event.data.object as Stripe.Checkout.Session;
+      
+      // Handle trial upgrade (card added)
+      if (session.metadata?.action === 'upgrade_trial') {
+        const userId = session.metadata.userId;
+        const user = await storage.getUser(userId);
+        if (user) {
+          const now = new Date();
+          const trialDays = 14; // Upgraded trial is 14 days
+          const trialEndsAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
+          
+          await storage.updateUser(userId, {
+            trialVariant: 'card14',
+            trialEndsAt: trialEndsAt,
+            trialImagesRemaining: 30,
+            trialVideosRemaining: 3,
+            cardOnFile: true,
+          });
+        }
+      }
+      
+      // Handle subscription purchase
+      if (session.metadata?.tier) {
+        const userId = session.metadata.userId;
+        const tier = session.metadata.tier;
+        
+        await storage.updateUser(userId, {
+          tier: tier,
+          stripeCustomerId: session.customer as string,
+          stripeSubscriptionId: session.subscription as string,
+          subscriptionStatus: 'active',
+        });
+      }
+      break;
+      
     case 'payment_intent.succeeded':
       const paymentIntent = event.data.object as Stripe.PaymentIntent;
       

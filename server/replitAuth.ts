@@ -63,14 +63,42 @@ function updateUserSession(
 async function upsertUser(
   claims: any,
 ) {
-  await storage.upsertUser({
-    id: claims["sub"],
-    username: claims["sub"] || claims["email"],
-    email: claims["email"],
-    firstName: claims["first_name"],
-    lastName: claims["last_name"],
-    profileImageUrl: claims["profile_image_url"],
-  });
+  // Check if user already exists
+  const existingUser = await storage.getUser(claims["sub"]);
+  
+  // If new user, create with no-card trial automatically
+  if (!existingUser) {
+    const now = new Date();
+    const trialDays = 7; // No-card trial is 7 days
+    const trialEndsAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
+    
+    await storage.upsertUser({
+      id: claims["sub"],
+      username: claims["sub"] || claims["email"],
+      email: claims["email"],
+      firstName: claims["first_name"],
+      lastName: claims["last_name"],
+      profileImageUrl: claims["profile_image_url"],
+      // Automatically assign no-card trial
+      trialVariant: "nocard7",
+      trialStartedAt: now,
+      trialEndsAt: trialEndsAt,
+      trialImagesRemaining: 6,
+      trialVideosRemaining: 0,
+      tier: "free_trial",
+      isNewUser: true, // Flag to show welcome popup
+    });
+  } else {
+    // Existing user - just update basic info
+    await storage.upsertUser({
+      id: claims["sub"],
+      username: claims["sub"] || claims["email"],
+      email: claims["email"],
+      firstName: claims["first_name"],
+      lastName: claims["last_name"],
+      profileImageUrl: claims["profile_image_url"],
+    });
+  }
 }
 
 export async function setupAuth(app: Express) {
@@ -117,7 +145,7 @@ export async function setupAuth(app: Express) {
 
   app.get("/api/callback", (req, res, next) => {
     passport.authenticate(`replitauth:${req.hostname}`, {
-      successReturnToOrRedirect: "/",
+      successRedirect: "/?showTrialWelcome=true",
       failureRedirect: "/api/login",
     })(req, res, next);
   });

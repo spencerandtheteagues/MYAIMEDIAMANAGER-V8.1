@@ -23,6 +23,7 @@ import Landing from "./pages/landing";
 import Auth from "./pages/auth";
 import Sidebar from "./components/layout/sidebar";
 import Header from "./components/layout/header";
+import TrialWelcomePopup from "./components/trial-welcome-popup";
 
 function Router() {
   // Check authentication status
@@ -59,6 +60,7 @@ function Router() {
   // If authenticated, show the main app
   return (
     <div className="flex h-screen overflow-hidden bg-background">
+      <TrialWelcomePopup />
       <Sidebar />
       <main className="flex-1 overflow-y-auto">
         <Header />
