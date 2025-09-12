@@ -18,7 +18,7 @@ router.post("/text",
   requireCredits("text"),
   async (req, res) => {
     try {
-      const userId = req.user?.id || req.headers['x-user-id'];
+      const userId = req.session?.userId || req.user?.id || req.headers['x-user-id'];
       const { prompt, system, temperature, maxOutputTokens, platform, saveToLibrary: shouldSave } = req.body;
       
       // Generate text
@@ -74,7 +74,7 @@ router.post("/image",
   requireCredits("image"),
   async (req, res) => {
     try {
-      const userId = req.user?.id || req.headers['x-user-id'];
+      const userId = req.session?.userId || req.user?.id || req.headers['x-user-id'];
       const { 
         prompt, 
         aspectRatio, 
@@ -166,7 +166,7 @@ router.post("/video/start",
   requireCredits("video"),
   async (req, res) => {
     try {
-      const userId = req.user?.id || req.headers['x-user-id'];
+      const userId = req.session?.userId || req.user?.id || req.headers['x-user-id'];
       const { prompt, durationSeconds, platform, fast = true, model, aspectRatio } = req.body;
       
       // Start video generation
