@@ -40,6 +40,30 @@ export function createCampaignRoutes(storage: IStorage) {
 
       const params = generateCampaignSchema.parse(req.body);
       
+      // Check if user has enough credits for campaign generation
+      // 14 posts × (5 credits for image + 1 credit for text) = 84 credits total
+      const CAMPAIGN_CREDIT_COST = 84;
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(401).json({ error: 'User not found' });
+      }
+      
+      // Check if user has sufficient credits
+      if ((user.credits ?? 0) < CAMPAIGN_CREDIT_COST) {
+        return res.status(402).json({ 
+          error: 'Insufficient credits for campaign generation',
+          message: `Campaign generation requires ${CAMPAIGN_CREDIT_COST} credits (14 posts with images). You have ${user.credits ?? 0} credits.`,
+          required: CAMPAIGN_CREDIT_COST,
+          have: user.credits ?? 0
+        });
+      }
+      
+      // Deduct credits upfront for the entire campaign
+      await storage.updateUser(userId, {
+        credits: Math.max(0, (user.credits ?? 0) - CAMPAIGN_CREDIT_COST),
+        totalCreditsUsed: (user.totalCreditsUsed ?? 0) + CAMPAIGN_CREDIT_COST
+      });
+      
       // Get brand profile for better content generation
       let brandProfile = await storage.getBrandProfile(userId);
       
