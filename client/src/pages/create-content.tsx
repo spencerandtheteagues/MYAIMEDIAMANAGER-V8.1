@@ -15,7 +15,7 @@ import {
   Bot, Bold, Italic, Link as LinkIcon, Image, Wand2, Target, Palette, 
   Building2, MessageSquare, Megaphone, Sparkles, Type, ImagePlus, Video,
   Camera, Globe, Brush, Sun, Upload, Play, Trash2, Send, Clock, Film,
-  Music, Mic, Aperture, Zap, Layers, Monitor, Eye, Copy, FileText
+  Music, Mic, Aperture, Zap, Layers, Monitor, Eye, Copy, FileText, User
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -36,6 +36,9 @@ export default function CreateContent() {
   
   // Content type selection - initialize from URL param if present
   const [contentType, setContentType] = useState(typeParam || "text-image");
+  
+  // Business/Personal mode toggle
+  const [isBusinessMode, setIsBusinessMode] = useState(true);
   
   // Enhanced AI input fields
   const [businessName, setBusinessName] = useState("");
@@ -372,6 +375,7 @@ export default function CreateContent() {
     setScheduleOption("approval");
     setShowAiSuggestions(false);
     setAiSuggestions([]);
+    setIsBusinessMode(true); // Reset to business mode
     setBusinessName("");
     setProductName("");
     setTargetAudience("");
@@ -398,13 +402,25 @@ export default function CreateContent() {
   };
 
   const handleSubmit = () => {
-    if (!content.trim() && !businessName.trim()) {
-      toast({
-        title: "Error",
-        description: "Please enter content or fill in business details for AI generation.",
-        variant: "destructive",
-      });
-      return;
+    if (isBusinessMode) {
+      if (!content.trim() && !businessName.trim()) {
+        toast({
+          title: "Error",
+          description: "Please enter content or fill in business details for AI generation.",
+          variant: "destructive",
+        });
+        return;
+      }
+    } else {
+      // In personal mode, only require content if no other details are provided
+      if (!content.trim() && !businessName.trim() && !productName.trim()) {
+        toast({
+          title: "Error",
+          description: "Please enter content or fill in some personal details for AI generation.",
+          variant: "destructive",
+        });
+        return;
+      }
     }
 
     if (selectedPlatforms.length === 0) {
@@ -463,10 +479,19 @@ export default function CreateContent() {
   };
 
   const handleAiGenerate = () => {
-    if (!businessName.trim()) {
+    if (isBusinessMode && !businessName.trim()) {
       toast({
         title: "Missing Information",
         description: "Please enter at least your business name to generate content.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!isBusinessMode && !businessName.trim() && !productName.trim()) {
+      toast({
+        title: "Missing Information",
+        description: "Please enter at least your name or subject/topic to generate content.",
         variant: "destructive",
       });
       return;
@@ -614,37 +639,71 @@ export default function CreateContent() {
               </CardContent>
             </Card>
 
-            {/* Business Information */}
+            {/* Business/Personal Mode Toggle */}
+            <Card className="glass-morphism">
+              <CardContent className="pt-6">
+                <div className="flex items-center justify-center space-x-4">
+                  <Label htmlFor="mode-toggle" className={`cursor-pointer transition-colors ${!isBusinessMode ? "text-primary font-medium" : "text-muted-foreground"}`}>
+                    <User className="w-4 h-4 inline mr-1" />
+                    Personal
+                  </Label>
+                  <Switch
+                    id="mode-toggle"
+                    checked={isBusinessMode}
+                    onCheckedChange={setIsBusinessMode}
+                    className="data-[state=checked]:bg-primary"
+                    data-testid="switch-business-personal-mode"
+                  />
+                  <Label htmlFor="mode-toggle" className={`cursor-pointer transition-colors ${isBusinessMode ? "text-primary font-medium" : "text-muted-foreground"}`}>
+                    <Building2 className="w-4 h-4 inline mr-1" />
+                    Business
+                  </Label>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Business/Personal Information */}
             <Card className="glass-morphism">
               <CardHeader>
                 <CardTitle className="flex items-center gap-2">
-                  <Building2 className="w-5 h-5 text-primary" />
-                  Business Information
+                  {isBusinessMode ? (
+                    <Building2 className="w-5 h-5 text-primary" />
+                  ) : (
+                    <User className="w-5 h-5 text-primary" />
+                  )}
+                  {isBusinessMode ? "Business Information" : "Personal Information"}
                 </CardTitle>
                 <CardDescription>
-                  Provide details about your business for personalized content generation
+                  {isBusinessMode 
+                    ? "Provide details about your business for personalized content generation"
+                    : "Provide details about yourself for personalized content generation"
+                  }
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="businessName">Business Name *</Label>
+                    <Label htmlFor="businessName">
+                      {isBusinessMode ? "Business Name *" : "Name"}
+                    </Label>
                     <Input
                       id="businessName"
                       value={businessName}
                       onChange={(e) => setBusinessName(e.target.value)}
-                      placeholder="e.g., Sarah's Coffee Shop"
+                      placeholder={isBusinessMode ? "e.g., Sarah's Coffee Shop" : "e.g., Sarah Johnson"}
                       className="mt-1"
                       data-testid="input-business-name"
                     />
                   </div>
                   <div>
-                    <Label htmlFor="productName">Product/Service</Label>
+                    <Label htmlFor="productName">
+                      {isBusinessMode ? "Product/Service" : "Subject/Topic"}
+                    </Label>
                     <Input
                       id="productName"
                       value={productName}
                       onChange={(e) => setProductName(e.target.value)}
-                      placeholder="e.g., Organic Coffee Blend"
+                      placeholder={isBusinessMode ? "e.g., Organic Coffee Blend" : "e.g., Travel photography, Cooking tips"}
                       className="mt-1"
                       data-testid="input-product-name"
                     />
@@ -652,12 +711,17 @@ export default function CreateContent() {
                 </div>
 
                 <div>
-                  <Label htmlFor="targetAudience">Target Audience</Label>
+                  <Label htmlFor="targetAudience">
+                    {isBusinessMode ? "Target Audience" : "Intended Audience"}
+                  </Label>
                   <Input
                     id="targetAudience"
                     value={targetAudience}
                     onChange={(e) => setTargetAudience(e.target.value)}
-                    placeholder="e.g., Young professionals, coffee enthusiasts, eco-conscious consumers"
+                    placeholder={isBusinessMode 
+                      ? "e.g., Young professionals, coffee enthusiasts, eco-conscious consumers" 
+                      : "e.g., Friends and family, photography enthusiasts, food lovers"
+                    }
                     className="mt-1"
                     data-testid="input-target-audience"
                   />
@@ -665,7 +729,9 @@ export default function CreateContent() {
 
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <Label htmlFor="brandTone">Brand Tone</Label>
+                    <Label htmlFor="brandTone">
+                      {isBusinessMode ? "Brand Tone" : "Content Tone"}
+                    </Label>
                     <Select value={brandTone} onValueChange={setBrandTone}>
                       <SelectTrigger className="mt-1" data-testid="select-brand-tone">
                         <SelectValue />
@@ -682,12 +748,17 @@ export default function CreateContent() {
                     </Select>
                   </div>
                   <div>
-                    <Label htmlFor="callToAction">Call to Action</Label>
+                    <Label htmlFor="callToAction">
+                      {isBusinessMode ? "Call to Action" : "Action/Goal"}
+                    </Label>
                     <Input
                       id="callToAction"
                       value={callToAction}
                       onChange={(e) => setCallToAction(e.target.value)}
-                      placeholder="e.g., Shop Now, Learn More, Get 20% Off"
+                      placeholder={isBusinessMode 
+                        ? "e.g., Shop Now, Learn More, Get 20% Off" 
+                        : "e.g., Check out my photos, Share your thoughts, Let's connect"
+                      }
                       className="mt-1"
                       data-testid="input-call-to-action"
                     />
@@ -695,33 +766,41 @@ export default function CreateContent() {
                 </div>
 
                 <div>
-                  <Label htmlFor="keyMessages">Key Messages (comma-separated)</Label>
+                  <Label htmlFor="keyMessages">
+                    {isBusinessMode ? "Key Messages (comma-separated)" : "Key Points (comma-separated)"}
+                  </Label>
                   <Textarea
                     id="keyMessages"
                     value={keyMessages}
                     onChange={(e) => setKeyMessages(e.target.value)}
-                    placeholder="e.g., Free shipping on orders over $50, Eco-friendly packaging, Award-winning quality"
+                    placeholder={isBusinessMode 
+                      ? "e.g., Free shipping on orders over $50, Eco-friendly packaging, Award-winning quality" 
+                      : "e.g., Taken with my new camera, Beautiful sunset view, Homemade recipe"
+                    }
                     className="mt-1 h-20"
                     data-testid="textarea-key-messages"
                   />
                 </div>
 
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center space-x-2">
-                    <Switch
-                      id="isAdvertisement"
-                      checked={isAdvertisement}
-                      onCheckedChange={setIsAdvertisement}
-                      data-testid="switch-advertisement"
-                    />
-                    <Label htmlFor="isAdvertisement" className="cursor-pointer">
-                      Structure as Advertisement
-                    </Label>
+                {/* Advertisement toggle - only show in business mode */}
+                {isBusinessMode && (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <Switch
+                        id="isAdvertisement"
+                        checked={isAdvertisement}
+                        onCheckedChange={setIsAdvertisement}
+                        data-testid="switch-advertisement"
+                      />
+                      <Label htmlFor="isAdvertisement" className="cursor-pointer">
+                        Structure as Advertisement
+                      </Label>
+                    </div>
+                    <Badge variant={isAdvertisement ? "default" : "secondary"} className="pulse-glow">
+                      {isAdvertisement ? "Ad Format" : "Organic Content"}
+                    </Badge>
                   </div>
-                  <Badge variant={isAdvertisement ? "default" : "secondary"} className="pulse-glow">
-                    {isAdvertisement ? "Ad Format" : "Organic Content"}
-                  </Badge>
-                </div>
+                )}
               </CardContent>
             </Card>
 
