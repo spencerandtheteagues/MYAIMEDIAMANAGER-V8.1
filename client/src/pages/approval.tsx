@@ -32,7 +32,7 @@ export default function Approval() {
   const approveMutation = useMutation({
     mutationFn: async ({ postId, scheduledFor, platforms }: { postId: string; scheduledFor: Date; platforms: string[] }) => {
       const response = await apiRequest("PATCH", `/api/posts/${postId}`, {
-        status: "approved",
+        status: "scheduled",
         scheduledFor,
         platforms,
       });
