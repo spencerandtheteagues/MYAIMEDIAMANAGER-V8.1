@@ -112,7 +112,7 @@ router.post("/image",
       let enhancedPrompt = prompt;
       
       // If no explicit prompt provided, construct one prioritizing subject matter
-      if (!prompt || prompt.includes('Photoreal')) {
+      if (!prompt || prompt.toLowerCase().includes('photoreal')) {
         const subjectMatter = req.body.productName || '';
         const businessName = req.body.businessName || '';
         const visualStyle = req.body.visualStyle || 'modern';
