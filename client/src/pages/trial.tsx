@@ -9,7 +9,7 @@ export default function TrialPage() {
   const [selecting, setSelecting] = useState(false);
   
   // Check if user is authenticated first
-  const { data: user, error: userError } = useQuery({
+  const { data: user, error: userError, isLoading: userLoading } = useQuery({
     queryKey: ["/api/user"],
     retry: false,
     refetchOnWindowFocus: false,
@@ -45,6 +45,15 @@ export default function TrialPage() {
       setSelecting(false);
     }
   });
+  
+  // Show loading state while checking authentication
+  if (userLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-pink-950">
+        <div className="animate-pulse text-gray-400">Loading...</div>
+      </div>
+    );
+  }
   
   // If not authenticated or there's an error, show trial selection with sign-in prompts
   if (!user || userError) {
