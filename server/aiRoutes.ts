@@ -11,6 +11,27 @@ const router = express.Router();
 // Store video operations in memory (in production, use database)
 const videoOperations = new Map<string, { videoUrl?: string; status: string; error?: string }>();
 
+// Helper function to get user ID from request regardless of auth method
+function getUserId(req: any): string | null {
+  // Check session-based auth first
+  if (req.session?.userId) {
+    return req.session.userId;
+  }
+  // Check if user object has id directly (from session auth middleware)
+  if (req.user?.id) {
+    return req.user.id;
+  }
+  // Check Replit auth claims
+  if (req.user?.claims?.sub) {
+    return req.user.claims.sub;
+  }
+  // Check headers as fallback
+  if (req.headers['x-user-id']) {
+    return req.headers['x-user-id'] as string;
+  }
+  return null;
+}
+
 // Text generation with trial support
 router.post("/text",
   withTrialGuard("text"),
@@ -18,7 +39,7 @@ router.post("/text",
   requireCredits("text"),
   async (req, res) => {
     try {
-      const userId = req.session?.userId || req.user?.id || req.headers['x-user-id'];
+      const userId = getUserId(req);
       const { prompt, system, temperature, maxOutputTokens, platform, saveToLibrary: shouldSave } = req.body;
       
       // Generate text
@@ -74,7 +95,7 @@ router.post("/image",
   requireCredits("image"),
   async (req, res) => {
     try {
-      const userId = req.session?.userId || req.user?.id || req.headers['x-user-id'];
+      const userId = getUserId(req);
       const { 
         prompt, 
         aspectRatio, 
@@ -87,9 +108,36 @@ router.post("/image",
         model
       } = req.body;
       
+      // Enhanced prompt construction prioritizing subject matter
+      let enhancedPrompt = prompt;
+      
+      // If no explicit prompt provided, construct one prioritizing subject matter
+      if (!prompt || prompt.includes('Photoreal')) {
+        const subjectMatter = req.body.productName || '';
+        const businessName = req.body.businessName || '';
+        const visualStyle = req.body.visualStyle || 'modern';
+        const environment = req.body.environment || '';
+        const mood = req.body.mood || '';
+        
+        if (subjectMatter.trim()) {
+          // Subject matter gets priority
+          enhancedPrompt = `${subjectMatter} in ${visualStyle} ${environment || 'setting'}, ${mood || 'bright'} mood`;
+          
+          // Add business context as secondary
+          if (businessName.trim()) {
+            enhancedPrompt += `, featuring ${businessName} branding`;
+          }
+          
+          enhancedPrompt += ', photoreal, professional quality';
+        } else if (businessName.trim()) {
+          // Fallback when only business name is provided
+          enhancedPrompt = `${businessName} ${visualStyle} ${environment || 'studio'} ${mood || 'bright'}, photoreal`;
+        }
+      }
+      
       // Generate image with business context for enhanced generation
       const result = await generateImage({ 
-        prompt, 
+        prompt: enhancedPrompt, 
         aspectRatio,
         model: model || 'auto', // Support model selection (gemini, openai, auto)
         businessContext: {
@@ -101,7 +149,8 @@ router.post("/image",
           targetAudience: req.body.targetAudience,
           keyMessages: req.body.keyMessages,
           isAdvertisement: req.body.isAdvertisement,
-          additionalContext: req.body.additionalContext
+          additionalContext: req.body.additionalContext,
+          subjectMatterPriority: true // Flag to indicate subject matter prioritization
         }
       });
       
@@ -166,12 +215,35 @@ router.post("/video/start",
   requireCredits("video"),
   async (req, res) => {
     try {
-      const userId = req.session?.userId || req.user?.id || req.headers['x-user-id'];
+      const userId = getUserId(req);
       const { prompt, durationSeconds, platform, fast = true, model, aspectRatio } = req.body;
+      
+      // Enhanced prompt construction prioritizing subject matter for video
+      let enhancedPrompt = prompt;
+      
+      // If no explicit prompt provided, construct one prioritizing subject matter
+      if (!prompt || prompt.includes('Cinematic close-up')) {
+        const subjectMatter = req.body.productName || '';
+        const businessName = req.body.businessName || '';
+        const videoStyle = req.body.videoStyle || 'professional';
+        
+        if (subjectMatter.trim()) {
+          // Subject matter gets priority
+          enhancedPrompt = `${videoStyle} cinematic close-up of ${subjectMatter} in slow motion`;
+          
+          // Add business context as secondary
+          if (businessName.trim()) {
+            enhancedPrompt += `, featuring ${businessName}`;
+          }
+        } else if (businessName.trim()) {
+          // Fallback when only business name is provided
+          enhancedPrompt = `${videoStyle} cinematic close-up of ${businessName} in slow motion`;
+        }
+      }
       
       // Start video generation
       const result = await startVideo({ 
-        prompt, 
+        prompt: enhancedPrompt, 
         durationSeconds,
         fast 
       });
@@ -224,13 +296,13 @@ router.post("/video/start",
 router.get("/video/poll/:operationId", async (req, res) => {
   try {
     const { operationId } = req.params;
-    const userId = req.user?.id || req.headers['x-user-id'];
+    const userId = getUserId(req);
     
     // Poll for video status
     const result = await pollVideo({ operationId });
     
     // If complete, auto-save to library
-    if (result.status === 'complete' && result.videoUrl && userId) {
+    if (result.status === 'completed' && result.videoUrl && userId) {
       await saveToLibrary({
         userId,
         type: 'video',
@@ -262,7 +334,7 @@ router.get("/video/poll/:operationId", async (req, res) => {
 router.get("/video/status/:operationId", async (req, res) => {
   try {
     const { operationId } = req.params;
-    const userId = req.user?.id || req.headers['x-user-id'];
+    const userId = getUserId(req);
     
     if (!operationId || operationId === 'undefined') {
       return res.status(400).json({ error: 'Valid operation ID required' });

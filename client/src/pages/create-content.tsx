@@ -168,8 +168,34 @@ export default function CreateContent() {
 
   const generateImageMutation = useMutation({
     mutationFn: async (params: any) => {
-      const prompt = params.imagePrompt || 
-        `Photoreal ${params.businessName || ''} ${params.productName || ''} ${params.visualStyle || 'modern'} ${params.environment || ''} ${params.mood || ''}, golden hour, steam`;
+      // Prioritize subject matter (productName) above all other parameters
+      let prompt = params.imagePrompt;
+      
+      if (!prompt) {
+        const subjectMatter = params.productName || '';
+        const businessName = params.businessName || '';
+        const visualStyle = params.visualStyle || 'modern';
+        const environment = params.environment || '';
+        const mood = params.mood || '';
+        
+        if (subjectMatter.trim()) {
+          // Subject matter is the primary focus
+          prompt = `${subjectMatter} in ${visualStyle} ${environment || 'setting'}, ${mood || 'bright'} mood`;
+          
+          // Add business context if provided, but as secondary
+          if (businessName.trim()) {
+            prompt += `, featuring ${businessName} branding`;
+          }
+          
+          prompt += ', photoreal, professional quality';
+        } else if (businessName.trim()) {
+          // Fallback when only business name is provided
+          prompt = `${businessName} ${visualStyle} ${environment || 'studio'} ${mood || 'bright'}, photoreal`;
+        } else {
+          // Default when neither is provided
+          prompt = `${visualStyle} ${environment || 'studio'} ${mood || 'bright'} scene, photoreal`;
+        }
+      }
       
       const aspectRatioMap: Record<string, string> = {
         "Instagram": "1:1",
@@ -258,8 +284,30 @@ export default function CreateContent() {
 
   const generateVideoMutation = useMutation({
     mutationFn: async (params: any) => {
-      const prompt = params.videoScript || 
-        `Cinematic close-up of ${params.businessName || ''} ${params.productName || ''} in slow motion, soft jazz, ${params.videoStyle || 'professional'} style`;
+      // Prioritize subject matter (productName) above all other parameters
+      let prompt = params.videoScript;
+      
+      if (!prompt) {
+        const subjectMatter = params.productName || '';
+        const businessName = params.businessName || '';
+        const videoStyle = params.videoStyle || 'professional';
+        
+        if (subjectMatter.trim()) {
+          // Subject matter is the primary focus
+          prompt = `${videoStyle} cinematic close-up of ${subjectMatter} in slow motion`;
+          
+          // Add business context if provided, but as secondary
+          if (businessName.trim()) {
+            prompt += `, featuring ${businessName}`;
+          }
+        } else if (businessName.trim()) {
+          // Fallback when only business name is provided
+          prompt = `${videoStyle} cinematic close-up of ${businessName} in slow motion`;
+        } else {
+          // Default when neither is provided
+          prompt = `${videoStyle} cinematic scene in slow motion`;
+        }
+      }
       
       const aspectRatio = selectedPlatforms[0] === "TikTok" ? "9:16" : "16:9";
       
