@@ -72,6 +72,28 @@ export default function Approval() {
     },
   });
 
+  const editMutation = useMutation({
+    mutationFn: async ({ postId, updates }: { postId: string; updates: Partial<Post> }) => {
+      const response = await apiRequest("PATCH", `/api/posts/${postId}`, updates);
+      return response.json();
+    },
+    onSuccess: () => {
+      toast({
+        title: "Success",
+        description: "Post updated successfully!",
+      });
+      queryClient.invalidateQueries({ queryKey: ["/api/posts"] });
+    },
+    onError: (error) => {
+      toast({
+        title: "Error",
+        description: "Failed to update post. Please try again.",
+        variant: "destructive",
+      });
+      console.error("Edit error:", error);
+    },
+  });
+
   const renderPosts = (posts: Post[] | undefined, loading: boolean) => {
     if (loading) {
       return (
@@ -101,7 +123,8 @@ export default function Approval() {
             post={post}
             onApprove={() => setScheduleDialogPost(post)}
             onReject={() => rejectMutation.mutate({ postId: post.id })}
-            isProcessing={approveMutation.isPending || rejectMutation.isPending}
+            onEdit={(postId, updates) => editMutation.mutate({ postId, updates })}
+            isProcessing={approveMutation.isPending || rejectMutation.isPending || editMutation.isPending}
           />
         ))}
       </div>

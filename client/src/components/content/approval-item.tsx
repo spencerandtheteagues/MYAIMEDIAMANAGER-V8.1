@@ -1,17 +1,23 @@
+import { useState } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Eye, Edit, X, Check, Bot, Image, Video } from "lucide-react";
 import type { Post } from "@shared/schema";
+import PostPreviewDialog from "./post-preview-dialog";
+import PostEditDialog from "./post-edit-dialog";
 
 interface ApprovalItemProps {
   post: Post;
   onApprove: () => void;
   onReject: () => void;
+  onEdit?: (postId: string, updates: Partial<Post>) => void;
   isProcessing: boolean;
 }
 
-export default function ApprovalItem({ post, onApprove, onReject, isProcessing }: ApprovalItemProps) {
+export default function ApprovalItem({ post, onApprove, onReject, onEdit, isProcessing }: ApprovalItemProps) {
+  const [showPreview, setShowPreview] = useState(false);
+  const [showEdit, setShowEdit] = useState(false);
   const getStatusColor = (status: string) => {
     switch (status) {
       case "pending":
@@ -49,6 +55,7 @@ export default function ApprovalItem({ post, onApprove, onReject, isProcessing }
   };
 
   return (
+    <>
     <Card className={`border-2 ${post.status === "pending" ? "border-amber-200 bg-amber-50/30" : ""}`}>
       <CardContent className="p-6">
         <div className="flex items-start justify-between mb-4">
@@ -116,11 +123,23 @@ export default function ApprovalItem({ post, onApprove, onReject, isProcessing }
 
         <div className="flex items-center justify-between pt-4 border-t border-border">
           <div className="flex items-center space-x-2">
-            <Button variant="link" size="sm" className="p-0 h-auto">
+            <Button 
+              variant="link" 
+              size="sm" 
+              className="p-0 h-auto"
+              onClick={() => setShowPreview(true)}
+              data-testid="button-preview-post"
+            >
               <Eye className="w-4 h-4 mr-1" />
               Preview
             </Button>
-            <Button variant="link" size="sm" className="p-0 h-auto">
+            <Button 
+              variant="link" 
+              size="sm" 
+              className="p-0 h-auto"
+              onClick={() => setShowEdit(true)}
+              data-testid="button-edit-post"
+            >
               <Edit className="w-4 h-4 mr-1" />
               Edit
             </Button>
@@ -158,5 +177,25 @@ export default function ApprovalItem({ post, onApprove, onReject, isProcessing }
         </div>
       </CardContent>
     </Card>
+    
+    <PostPreviewDialog
+      open={showPreview}
+      onClose={() => setShowPreview(false)}
+      post={post}
+    />
+    
+    {onEdit && (
+      <PostEditDialog
+        open={showEdit}
+        onClose={() => setShowEdit(false)}
+        onSave={(postId, updates) => {
+          onEdit(postId, updates);
+          setShowEdit(false);
+        }}
+        post={post}
+        isProcessing={isProcessing}
+      />
+    )}
+    </>
   );
 }
