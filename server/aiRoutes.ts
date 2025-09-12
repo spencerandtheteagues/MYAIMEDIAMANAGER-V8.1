@@ -8,6 +8,9 @@ import { storage } from "./storage";
 
 const router = express.Router();
 
+// Store video operations in memory (in production, use database)
+const videoOperations = new Map<string, { videoUrl?: string; status: string; error?: string }>();
+
 // Text generation with trial support
 router.post("/text",
   withTrialGuard("text"),
@@ -154,10 +157,27 @@ router.post("/video/start",
         fast 
       });
       
-      // Store operation metadata for library save after completion
-      if (userId) {
-        // Store in memory or DB for later retrieval
-        // This would be handled when polling completes
+      // Store operation metadata with the actual video URL
+      if (result.videoUrl) {
+        videoOperations.set(result.operationId, {
+          videoUrl: result.videoUrl,
+          status: result.status || 'completed'
+        });
+      }
+      
+      // Store in library if userId exists
+      if (userId && result.videoUrl) {
+        await saveToLibrary({
+          userId,
+          type: 'video',
+          url: result.videoUrl,
+          meta: {
+            prompt,
+            duration: durationSeconds || 8,
+            platform,
+            aspectRatio
+          }
+        });
       }
       
       // Consume trial or credits
@@ -229,17 +249,28 @@ router.get("/video/status/:operationId", async (req, res) => {
       return res.status(400).json({ error: 'Valid operation ID required' });
     }
     
-    // Mock completion for now since actual Vertex integration pending
-    const mockVideoUrl = `/attached_assets/generated_videos/video-${operationId}.mp4`;
+    // Check if we have stored operation data
+    const storedOp = videoOperations.get(operationId);
     
-    res.json({
-      done: true,  // Frontend expects 'done' field
-      downloadUrl: mockVideoUrl,  // Frontend expects 'downloadUrl'
-      operationId: operationId,
-      status: 'complete',
-      videoUrl: mockVideoUrl,
-      progress: 1.0
-    });
+    if (storedOp && storedOp.videoUrl) {
+      // Return the actual video URL
+      res.json({
+        done: true,  // Frontend expects 'done' field
+        downloadUrl: storedOp.videoUrl,  // Frontend expects 'downloadUrl'
+        operationId: operationId,
+        status: 'complete',
+        videoUrl: storedOp.videoUrl,
+        progress: 1.0
+      });
+    } else {
+      // Operation not found or still processing
+      res.json({
+        done: false,
+        operationId: operationId,
+        status: 'processing',
+        progress: 0.5
+      });
+    }
   } catch (error: any) {
     console.error('Video status error:', error);
     res.status(500).json({ 
