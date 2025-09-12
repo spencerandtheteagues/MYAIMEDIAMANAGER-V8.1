@@ -215,6 +215,7 @@ export function createCampaignRoutes(storage: IStorage) {
             campaignId: campaign.id,
             content,
             platform,
+            platforms: [platform], // Add the platforms array field
             status: 'draft',
             scheduledFor: scheduledDate,
             aiGenerated: true,

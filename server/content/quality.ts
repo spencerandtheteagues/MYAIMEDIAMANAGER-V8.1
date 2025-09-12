@@ -2,7 +2,7 @@ import { buildPrompt } from "./promptBuilders";
 import { validateContent, Candidate } from "./validators";
 import { BrandProfile, Platform, PlatformConstraints } from "./config";
 import { PostType } from "./templates";
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenerativeAI } from "@google/generative-ai";
 import { moderateContent } from "./moderation";
 
 interface GenOpts {
@@ -167,7 +167,7 @@ async function generateCandidates(system: string, user: string): Promise<string[
   const outs: string[] = [];
   
   const ai = process.env.GEMINI_API_KEY 
-    ? new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY })
+    ? new GoogleGenerativeAI(process.env.GEMINI_API_KEY)
     : null;
   
   if (!ai) {

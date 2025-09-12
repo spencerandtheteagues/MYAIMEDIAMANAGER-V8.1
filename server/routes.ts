@@ -389,6 +389,34 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Get scheduled posts
+  app.get("/api/posts/scheduled", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const posts = await storage.getPostsByStatus(userId, "scheduled");
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get scheduled posts" });
+    }
+  });
+
+  // Get published posts
+  app.get("/api/posts/published", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      const posts = await storage.getPostsByStatus(userId, "published");
+      res.json(posts);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get published posts" });
+    }
+  });
+
   // Get campaigns
   app.get("/api/campaigns", async (req: any, res) => {
     try {
