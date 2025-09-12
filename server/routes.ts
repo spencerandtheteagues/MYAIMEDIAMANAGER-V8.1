@@ -19,6 +19,23 @@ import { createBrandRoutes } from "./brandRoutes";
 import { createFeedbackRoutes } from "./feedbackRoutes";
 import { createMetricsRoute, trackApiMetrics } from "./metrics";
 
+// Helper function to get user ID from request regardless of auth method
+function getUserId(req: any): string | null {
+  // Check session-based auth first
+  if (req.session?.userId) {
+    return req.session.userId;
+  }
+  // Check if user object has id directly (from session auth middleware)
+  if (req.user?.id) {
+    return req.user.id;
+  }
+  // Check Replit auth claims
+  if (req.user?.claims?.sub) {
+    return req.user.claims.sub;
+  }
+  return null;
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Add metrics middleware
   app.use(trackApiMetrics);
@@ -191,7 +208,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get connected platforms status - REAL CONNECTION STATUS
   app.get("/api/platforms", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const platforms = await storage.getPlatformsByUserId(userId);
       
       // Return REAL platform connection status
@@ -212,7 +232,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Connect platform with API keys
   app.post("/api/platforms/connect-api", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const { platform, apiKey, apiSecret, accessToken, accessTokenSecret, pageId, clientId, clientSecret } = req.body;
       
       if (!platform) {
@@ -266,7 +289,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Disconnect platform
   app.delete("/api/platforms/:platformName", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const platformName = req.params.platformName === "X.com" ? "X (Twitter)" : req.params.platformName;
       
       const platforms = await storage.getPlatformsByUserId(userId);
@@ -288,7 +314,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get user's posts
   app.get("/api/posts", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const { status } = req.query;
       let posts;
       
@@ -307,7 +336,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get draft posts
   app.get("/api/posts/draft", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const posts = await storage.getPostsByStatus(userId, "draft");
       res.json(posts);
     } catch (error) {
@@ -318,7 +350,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get campaigns
   app.get("/api/campaigns", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const campaigns = await storage.getCampaignsByUserId(userId);
       res.json(campaigns);
     } catch (error) {
@@ -352,7 +387,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create campaign
   app.post("/api/campaigns", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const campaignData = insertCampaignSchema.parse({
         ...req.body,
         userId,
@@ -735,7 +773,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Auto-save generated media to content library
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       
       if (imageUrl) {
         await storage.createContentLibraryItem({
@@ -787,7 +828,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Get dashboard analytics - REAL DATA ONLY
   app.get("/api/analytics/dashboard", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       
       // Get REAL data from storage
       const [posts, platforms] = await Promise.all([
@@ -851,7 +895,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Notification endpoints
   app.get("/api/notifications", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const notifications = await storage.getNotificationsByUserId(userId);
       res.json(notifications);
     } catch (error) {
@@ -862,7 +909,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/notifications/unread-count", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const count = await storage.getUnreadNotificationCount(userId);
       res.json({ count });
     } catch (error) {
@@ -886,7 +936,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/notifications/read-all", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       await storage.markAllNotificationsAsRead(userId);
       res.json({ message: "All notifications marked as read" });
     } catch (error) {
@@ -898,7 +951,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Admin notification endpoint - send notification to specific user or all users
   app.post("/api/notifications", async (req: any, res) => {
     try {
-      const adminUserId = req.user?.claims?.sub || "demo-user-1";
+      const adminUserId = getUserId(req);
+      if (!adminUserId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const user = await storage.getUser(adminUserId);
       
       // Check if user is admin
@@ -941,7 +997,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Content Library endpoints
   app.get("/api/content-library", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const contentItems = await storage.getContentLibraryByUserId(userId);
       res.json(contentItems);
     } catch (error) {
@@ -952,7 +1011,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/content-library", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const contentItem = await storage.createContentLibraryItem({
         userId,
         ...req.body,
@@ -967,7 +1029,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Missing approval queue endpoint
   app.post("/api/posts/approval-queue", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const { type, url, businessName, platforms, caption } = req.body;
       
       // Save media to content library first
@@ -1014,7 +1079,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.delete("/api/content-library/:id", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const success = await storage.deleteContentLibraryItem(req.params.id, userId);
       if (!success) {
         return res.status(404).json({ message: "Content not found or unauthorized" });
@@ -1028,7 +1096,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.patch("/api/content-library/:id", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const contentItem = await storage.updateContentLibraryItem(req.params.id, userId, req.body);
       if (!contentItem) {
         return res.status(404).json({ message: "Content not found or unauthorized" });
@@ -1043,7 +1114,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Campaign endpoints
   app.get("/api/campaigns", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const campaigns = await storage.getCampaignsByUserId(userId);
       res.json(campaigns);
     } catch (error) {
@@ -1053,7 +1127,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.get("/api/campaigns/approval-queue", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const campaigns = await storage.getCampaignsByStatus(userId, "pending_approval");
       res.json(campaigns);
     } catch (error) {
@@ -1063,7 +1140,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   app.post("/api/campaigns", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       const user = await storage.getUser(userId);
       
       // Check if user is paid (admins bypass this restriction)
@@ -1190,7 +1270,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.post("/api/campaigns/:id/approve", async (req: any, res) => {
     try {
       const { id } = req.params;
-      const userId = req.user?.claims?.sub || "demo-user-1";
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
       
       // Get all campaign posts
       const posts = await storage.getPostsByCampaignId(id);
@@ -1245,7 +1328,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // X.com OAuth endpoints
   app.get("/api/platforms/x/connect", async (req: any, res) => {
     try {
-      const userId = req.user?.claims?.sub || "demo-user-1"; // Works in demo mode
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      } // Works in demo mode
       const { url, state, codeVerifier } = generateXAuthUrl(userId);
       
       // In production, store codeVerifier securely (session/database)
@@ -1320,8 +1406,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/admin/users", async (req, res) => {
     const userId = getUserId(req);
     
-    // Spencer (demo-user-1) is always admin in demo mode
-    if (userId !== "demo-user-1") {
+    // Check if user is admin
+    if (user?.role !== 'admin' && !user?.isAdmin) {
       return res.status(401).json({ message: "Unauthorized" });
     }
     
