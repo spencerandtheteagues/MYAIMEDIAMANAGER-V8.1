@@ -252,19 +252,24 @@ export default function CreateContent() {
         setGeneratedImage(finalUrl);
       }
       
-      // Generate caption for the image
-      if (!data.caption && (businessName || productName)) {
-        // Generate a simple caption if not provided
-        const simpleCaption = `Check out ${businessName ? businessName + "'s" : "our"} ${productName || "latest update"}! ${callToAction || ""}`;
-        setGeneratedImageCaption(simpleCaption);
-        if (!content) {
-          setContent(simpleCaption);
+      // Generate caption for the image only if auto-caption is enabled
+      if (autoGenerateImageCaption) {
+        if (!data.caption && (businessName || productName)) {
+          // Generate a simple caption if not provided
+          const simpleCaption = `Check out ${businessName ? businessName + "'s" : "our"} ${productName || "latest update"}! ${callToAction || ""}`;
+          setGeneratedImageCaption(simpleCaption);
+          if (!content) {
+            setContent(simpleCaption);
+          }
+        } else if (data.caption) {
+          setGeneratedImageCaption(data.caption);
+          if (!content) {
+            setContent(data.caption);
+          }
         }
-      } else if (data.caption) {
-        setGeneratedImageCaption(data.caption);
-        if (!content) {
-          setContent(data.caption);
-        }
+      } else {
+        // Clear any existing caption when auto-generation is disabled
+        setGeneratedImageCaption("");
       }
       
       toast({
