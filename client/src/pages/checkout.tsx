@@ -11,7 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import type { User } from "@shared/schema";
 import { Logo } from "@/components/ui/logo";
-import EmbeddedCheckoutForm from "@/components/embedded-checkout";
+// Removed embedded checkout - using Stripe-hosted checkout instead
 
 interface PricingPlan {
   id: string;
@@ -100,7 +100,7 @@ export default function CheckoutPage() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
-  const [showEmbedded, setShowEmbedded] = useState(false);
+  // Using Stripe-hosted checkout instead of embedded form
 
   const { data: user, isLoading: userLoading, error: userError } = useQuery<User>({
     queryKey: ["/api/user"],
@@ -127,8 +127,31 @@ export default function CheckoutPage() {
       return;
     }
     
-    // Show embedded checkout form
-    setShowEmbedded(true);
+    setIsProcessing(true);
+    
+    try {
+      // Create Stripe checkout session and redirect to Stripe-hosted page
+      const response = await apiRequest({
+        url: "/api/billing/create-checkout-session",
+        method: "POST",
+        body: JSON.stringify({ planId: selectedPlan.id }),
+      });
+      
+      if (response.url) {
+        // Redirect to Stripe-hosted checkout page
+        window.location.href = response.url;
+      } else {
+        throw new Error("No checkout URL received from server");
+      }
+    } catch (error: any) {
+      console.error("Checkout error:", error);
+      toast({
+        title: "Checkout Error",
+        description: error.message || "Unable to start checkout process. Please try again.",
+        variant: "destructive",
+      });
+      setIsProcessing(false);
+    }
   };
 
   if (!selectedPlan) {
@@ -264,38 +287,26 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Checkout Button or Embedded Form */}
-              {!showEmbedded ? (
-                <Button
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
-                  size="lg"
-                  onClick={handleCheckout}
-                  disabled={isProcessing}
-                  data-testid="button-proceed-checkout"
-                >
+              {/* Checkout Button - Redirects to Stripe-hosted page */}
+              <Button
+                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                size="lg"
+                onClick={handleCheckout}
+                disabled={isProcessing}
+                data-testid="button-proceed-checkout"
+              >
+                {isProcessing ? (
+                  <>
+                    <div className="w-4 h-4 mr-2 animate-spin rounded-full border-2 border-white border-t-transparent" />
+                    Processing...
+                  </>
+                ) : (
                   <>
                     <CreditCard className="w-4 h-4 mr-2" />
                     {trial ? "Start $1 Trial" : `Continue to Payment`}
                   </>
-                </Button>
-              ) : (
-                <div className="space-y-4">
-                  <Button
-                    variant="outline"
-                    className="w-full"
-                    onClick={() => setShowEmbedded(false)}
-                  >
-                    <ArrowLeft className="w-4 h-4 mr-2" />
-                    Back to Summary
-                  </Button>
-                  <EmbeddedCheckoutForm
-                    planId={selectedPlan.id}
-                    billingCycle={billingCycle}
-                    price={billingCycle === "monthly" ? selectedPlan.monthlyPrice : selectedPlan.yearlyPrice}
-                    trial={trial}
-                  />
-                </div>
-              )}
+                )}
+              </Button>
 
               {/* Security Badge */}
               <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
