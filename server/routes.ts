@@ -9,6 +9,7 @@ import { generateXAuthUrl, handleXOAuthCallback, postToXWithOAuth } from "./x-oa
 import { setupAuth as setupReplitAuth, isAuthenticated as isReplitAuthenticated } from "./replitAuth";
 import { getSession } from "./replitAuth";
 import authRoutes, { requireAuth, requireAdmin } from "./auth";
+import googleAuthRoutes from "./google-auth";
 import stripeRoutes from "./stripeRoutes";
 import userRoutes from "./userRoutes";
 import adminRoutes from "./adminRoutes";
@@ -91,6 +92,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Use app auth routes
     app.use("/api/auth", authRoutes);
   }
+  
+  // Google OAuth routes (available regardless of Replit auth)
+  app.use("/api/auth", googleAuthRoutes);
   
   // Wire up email verification routes (no auth required)
   app.use("/api/verification", verificationRoutes);
