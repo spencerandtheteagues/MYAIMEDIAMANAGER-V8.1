@@ -25,6 +25,7 @@ import Pricing from "./pages/pricing";
 import TrialSelection from "./pages/trial-selection";
 import VerifyEmail from "./pages/verify-email";
 import Checkout from "./pages/checkout";
+import CheckoutReturn from "./pages/checkout-return";
 import Sidebar from "./components/layout/sidebar";
 import Header from "./components/layout/header";
 import TrialWelcomePopup from "./components/trial-welcome-popup";
@@ -60,13 +61,14 @@ function Router() {
         <Route path="/trial-selection" component={TrialSelection} />
         <Route path="/pricing" component={Pricing} />
         <Route path="/checkout" component={Checkout} />
+        <Route path="/checkout/return" component={CheckoutReturn} />
         <Route component={Landing} />
       </Switch>
     );
   }
   
   // Check if user needs to select a trial
-  if (user?.needsTrialSelection) {
+  if ((user as any)?.needsTrialSelection) {
     return (
       <Switch>
         <Route path="/trial-selection" component={TrialSelection} />
@@ -99,6 +101,7 @@ function Router() {
           <Route path="/trial" component={Trial} />
           <Route path="/trial-selection" component={TrialSelection} />
           <Route path="/checkout" component={Checkout} />
+          <Route path="/checkout/return" component={CheckoutReturn} />
           <Route path="/admin" component={AdminPanel} />
           <Route component={NotFound} />
         </Switch>
