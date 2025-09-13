@@ -28,8 +28,10 @@ export default function CheckoutReturn() {
       }
 
       try {
-        const response = await apiRequest("GET", `/api/billing/session-status/${sessionId}`);
-        const data = await response.json();
+        const data = await apiRequest({
+          url: `/api/billing/session-status/${sessionId}`,
+          method: "GET"
+        });
         
         setSessionStatus(data.status);
         
