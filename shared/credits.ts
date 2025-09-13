@@ -14,13 +14,17 @@ export const TRIAL_ALLOCATIONS = {
     images: 6,    // = 30 unified credits
     videos: 0,    // = 0 unified credits  
     totalCredits: 30,
+    platformConnections: 1,
+    campaigns: 0,
     unlockVideoRequiresCard: true
   },
   card14: {
     days: 14, 
-    images: 10,   // = 50 unified credits (reduced from 30 images)
-    videos: 2,    // = 40 unified credits (reduced from 3 videos)
-    totalCredits: 90, // More reasonable than 210 credits
+    images: 36,   // = 180 unified credits total (14 campaign + 22 additional)
+    videos: 2,    // = 40 unified credits 
+    totalCredits: 180,
+    platformConnections: 3,
+    campaigns: 1,
     unlockVideoRequiresCard: false
   }
 } as const;

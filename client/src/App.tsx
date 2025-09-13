@@ -21,6 +21,7 @@ import Help from "./pages/help";
 import Trial from "./pages/trial";
 import Landing from "./pages/landing";
 import Auth from "./pages/auth";
+import Pricing from "./pages/pricing";
 import Sidebar from "./components/layout/sidebar";
 import Header from "./components/layout/header";
 import TrialWelcomePopup from "./components/trial-welcome-popup";
@@ -52,6 +53,7 @@ function Router() {
         <Route path="/" component={Landing} />
         <Route path="/auth" component={Auth} />
         <Route path="/trial" component={Trial} />
+        <Route path="/pricing" component={Pricing} />
         <Route component={Landing} />
       </Switch>
     );

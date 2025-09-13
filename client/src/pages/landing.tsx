@@ -27,7 +27,7 @@ export default function Landing() {
               </h1>
             </div>
             <div className="flex items-center gap-4">
-              <Link href="/trial">
+              <Link href="/pricing">
                 <Button variant="ghost" className="text-white hover:text-purple-400">
                   Pricing
                 </Button>
