@@ -10,6 +10,7 @@ import { setupAuth as setupReplitAuth, isAuthenticated as isReplitAuthenticated 
 import { getSession } from "./replitAuth";
 import authRoutes, { requireAuth, requireAdmin } from "./auth";
 import stripeRoutes from "./stripeRoutes";
+import userRoutes from "./userRoutes";
 import adminRoutes from "./adminRoutes";
 import healthRoutes from "./health";
 import { createApprovalRoutes } from "./approvalRoutes";
@@ -160,8 +161,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
     next();
   }, aiRoutes);
   
+  // Wire up user management routes
+  app.use("/api/user", userRoutes);
+  
   // Wire up Stripe billing routes
   app.use("/api/billing", stripeRoutes);
+  
+  // Also expose subscription and credit routes
+  app.use("/api/subscription", stripeRoutes);
+  app.use("/api/credits", stripeRoutes);
   
   // Wire up admin routes
   app.use("/api/admin", adminRoutes);

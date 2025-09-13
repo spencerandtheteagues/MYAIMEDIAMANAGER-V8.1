@@ -14,6 +14,14 @@ const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
 
 const router = Router();
 
+// Helper function to get user ID from request
+function getUserId(req: any): string | null {
+  if (req.session?.userId) return req.session.userId;
+  if (req.user?.id) return req.user.id;
+  if (req.user?.claims?.sub) return req.user.claims.sub;
+  return null;
+}
+
 // Get subscription plans
 router.get("/plans", async (req, res) => {
   try {
@@ -288,8 +296,10 @@ router.post("/cancel-subscription", isAuthenticated, async (req, res) => {
 // Purchase credits (pay-as-you-go)
 router.post("/purchase-credits", isAuthenticated, async (req, res) => {
   try {
-    const user = req.user as any;
-    const userId = user.claims?.sub;
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
     const { amount } = req.body; // Number of credits to purchase
     
     if (!amount || amount < 10) {
@@ -451,6 +461,193 @@ router.post("/webhook", async (req, res) => {
   }
 
   res.json({ received: true });
+});
+
+// New route for subscription upgrade
+router.post("/upgrade", isAuthenticated, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    const { planId } = req.body;
+    
+    const dbUser = await storage.getUser(userId);
+    if (!dbUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Plan details
+    const plans: Record<string, { price: number, name: string, credits: number }> = {
+      'starter': { price: 19, name: 'Starter Plan', credits: 190 },
+      'professional': { price: 49, name: 'Professional Plan', credits: 500 },
+      'enterprise': { price: 199, name: 'Enterprise Plan', credits: 2000 },
+    };
+
+    const plan = plans[planId];
+    if (!plan) {
+      return res.status(400).json({ message: "Invalid plan ID" });
+    }
+
+    // Create or retrieve Stripe customer
+    let customerId = dbUser.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: dbUser.email || undefined,
+        name: dbUser.fullName || undefined,
+        metadata: {
+          userId: dbUser.id
+        }
+      });
+      customerId = customer.id;
+      await storage.updateUser(userId, { stripeCustomerId: customerId });
+    }
+
+    // Create checkout session for subscription
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'subscription',
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: plan.name,
+            metadata: {
+              tier: planId,
+              credits: plan.credits.toString()
+            }
+          },
+          unit_amount: plan.price * 100,
+          recurring: {
+            interval: 'month',
+          },
+        },
+        quantity: 1,
+      }],
+      success_url: `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/settings?upgraded=true`,
+      cancel_url: `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/settings`,
+      metadata: {
+        userId: dbUser.id,
+        action: 'upgrade_subscription',
+        tier: planId
+      }
+    });
+
+    res.json({ url: session.url });
+  } catch (error: any) {
+    console.error("Error creating upgrade session:", error);
+    res.status(500).json({ message: "Error creating upgrade session: " + error.message });
+  }
+});
+
+// Cancel subscription (at period end)
+router.post("/cancel", isAuthenticated, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const dbUser = await storage.getUser(userId);
+    if (!dbUser || !dbUser.stripeSubscriptionId) {
+      return res.status(404).json({ message: "No active subscription found" });
+    }
+
+    // Cancel the subscription at period end
+    const subscription = await stripe.subscriptions.update(
+      dbUser.stripeSubscriptionId,
+      {
+        cancel_at_period_end: true
+      }
+    );
+
+    // Update user in database
+    await storage.updateUser(userId, {
+      subscriptionStatus: 'cancelled'
+    });
+
+    res.json({ 
+      message: "Subscription cancelled successfully",
+      endsAt: new Date(subscription.current_period_end * 1000)
+    });
+  } catch (error: any) {
+    console.error("Error cancelling subscription:", error);
+    res.status(500).json({ message: "Error cancelling subscription: " + error.message });
+  }
+});
+
+// Purchase credits with different pack options
+router.post("/purchase", isAuthenticated, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const { credits, price } = req.body;
+    
+    // Validate credit pack
+    const validPacks = [
+      { credits: 50, price: 5 },
+      { credits: 200, price: 18 },
+      { credits: 500, price: 40 }
+    ];
+    
+    const pack = validPacks.find(p => p.credits === credits && p.price === price);
+    if (!pack) {
+      return res.status(400).json({ message: "Invalid credit pack" });
+    }
+
+    const dbUser = await storage.getUser(userId);
+    if (!dbUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Create or retrieve Stripe customer
+    let customerId = dbUser.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: dbUser.email || undefined,
+        name: dbUser.fullName || undefined,
+        metadata: {
+          userId: dbUser.id
+        }
+      });
+      customerId = customer.id;
+      await storage.updateUser(userId, { stripeCustomerId: customerId });
+    }
+
+    // Create checkout session for one-time payment
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'payment',
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: `${pack.credits} AI Credits`,
+            description: `Add ${pack.credits} credits to your account`
+          },
+          unit_amount: pack.price * 100,
+        },
+        quantity: 1,
+      }],
+      success_url: `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/settings?credits_added=true`,
+      cancel_url: `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/settings`,
+      metadata: {
+        userId: dbUser.id,
+        action: 'purchase_credits',
+        credits: pack.credits.toString()
+      }
+    });
+
+    res.json({ url: session.url });
+  } catch (error: any) {
+    console.error("Error creating credit purchase session:", error);
+    res.status(500).json({ message: "Error creating purchase session: " + error.message });
+  }
 });
 
 export default router;
