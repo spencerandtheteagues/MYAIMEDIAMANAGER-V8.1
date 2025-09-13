@@ -23,6 +23,52 @@ router.get("/plans", async (req, res) => {
   }
 });
 
+// Start Pro trial (requires card)
+router.post("/start-pro-trial", isAuthenticated, async (req, res) => {
+  try {
+    const user = req.user as any;
+    const userId = user.claims?.sub || user.id;
+    const dbUser = await storage.getUser(userId);
+    
+    if (!dbUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Create or retrieve Stripe customer
+    let customerId = dbUser.stripeCustomerId;
+    
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: dbUser.email || undefined,
+        name: dbUser.fullName || undefined,
+        metadata: {
+          userId: dbUser.id
+        }
+      });
+      customerId = customer.id;
+      await storage.updateUser(userId, { stripeCustomerId: customerId });
+    }
+
+    // Create a setup session to collect card details for Pro trial
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      mode: 'setup',
+      payment_method_types: ['card'],
+      success_url: `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/?proTrialStarted=true`,
+      cancel_url: `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/trial`,
+      metadata: {
+        userId: dbUser.id,
+        action: 'start_pro_trial'
+      }
+    });
+
+    res.json({ url: session.url });
+  } catch (error: any) {
+    console.error("Error creating pro trial session:", error);
+    res.status(500).json({ message: "Error creating pro trial session: " + error.message });
+  }
+});
+
 // Upgrade trial by adding card
 router.post("/upgrade-trial", isAuthenticated, async (req, res) => {
   try {
@@ -174,19 +220,19 @@ router.post("/create-subscription", isAuthenticated, async (req, res) => {
       await storage.updateUser(userId, { stripeCustomerId: customerId });
     }
 
-    // Create subscription with trial if applicable
+    // Create subscription with inline price and product data
     const subscription = await stripe.subscriptions.create({
       customer: customerId,
       items: [{
         price_data: {
           currency: 'usd',
-          product_data: {
-            name: plan.name,
-            description: `${plan.creditsPerMonth} credits per month`,
-          },
           unit_amount: Math.round(parseFloat(plan.priceMonthly) * 100),
           recurring: {
             interval: 'month',
+          },
+          product_data: {
+            name: plan.name,
+            description: `${plan.creditsPerMonth} credits per month`,
           },
         },
       }],
@@ -301,21 +347,23 @@ router.post("/webhook", async (req, res) => {
     case 'checkout.session.completed':
       const session = event.data.object as Stripe.Checkout.Session;
       
-      // Handle trial upgrade (card added)
-      if (session.metadata?.action === 'upgrade_trial') {
+      // Handle Pro trial start or trial upgrade
+      if (session.metadata?.action === 'start_pro_trial' || session.metadata?.action === 'upgrade_trial') {
         const userId = session.metadata.userId;
         const user = await storage.getUser(userId);
         if (user) {
           const now = new Date();
-          const trialDays = 14; // Upgraded trial is 14 days
+          const trialDays = 14; // Pro trial is 14 days
           const trialEndsAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
           
           await storage.updateUser(userId, {
             trialVariant: 'card14',
+            trialStartedAt: now,
             trialEndsAt: trialEndsAt,
             trialImagesRemaining: 30,
             trialVideosRemaining: 3,
             cardOnFile: true,
+            tier: 'free_trial',
           });
         }
       }

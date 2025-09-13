@@ -86,7 +86,6 @@ async function upsertUser(
       trialImagesRemaining: 6,
       trialVideosRemaining: 0,
       tier: "free_trial",
-      isNewUser: true, // Flag to show welcome popup
     });
   } else {
     // Existing user - just update basic info
