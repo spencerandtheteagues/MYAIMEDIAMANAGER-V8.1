@@ -140,7 +140,7 @@ router.post("/create-checkout", isAuthenticated, async (req, res) => {
     const priceMap: Record<string, { price: number, name: string }> = {
       'starter': { price: 19, name: 'Starter Plan' },
       'professional': { price: 49, name: 'Professional Plan' },
-      'enterprise': { price: 199, name: 'Enterprise Plan' },
+      'business': { price: 199, name: 'Business Plan' },
     };
 
     const planDetails = priceMap[priceId];
@@ -481,7 +481,7 @@ router.post("/upgrade", isAuthenticated, async (req, res) => {
     const plans: Record<string, { price: number, name: string, credits: number }> = {
       'starter': { price: 19, name: 'Starter Plan', credits: 190 },
       'professional': { price: 49, name: 'Professional Plan', credits: 500 },
-      'enterprise': { price: 199, name: 'Enterprise Plan', credits: 2000 },
+      'business': { price: 199, name: 'Business Plan', credits: 2000 },
     };
 
     const plan = plans[planId];

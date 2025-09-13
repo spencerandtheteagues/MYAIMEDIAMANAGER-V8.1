@@ -130,8 +130,8 @@ export default function Settings() {
       popular: true
     },
     {
-      id: "enterprise",
-      name: "Enterprise",
+      id: "business",
+      name: "Business",
       price: 199,
       credits: 2000,
       features: [
@@ -362,7 +362,7 @@ export default function Settings() {
     switch (tier) {
       case "starter": return 190;
       case "professional": return 500;
-      case "enterprise": return 2000;
+      case "business": return 2000;
       default: return 50; // free trial
     }
   };
@@ -371,7 +371,7 @@ export default function Settings() {
     switch (tier) {
       case "starter": return "Starter";
       case "professional": return "Professional";
-      case "enterprise": return "Enterprise";
+      case "business": return "Business";
       case "pay_as_you_go": return "Pay As You Go";
       default: return "Free Trial";
     }
@@ -380,7 +380,7 @@ export default function Settings() {
   const getTierBadgeVariant = (tier?: string): "default" | "secondary" | "outline" => {
     switch (tier) {
       case "professional": 
-      case "enterprise": 
+      case "business": 
         return "default";
       case "starter": 
         return "secondary";

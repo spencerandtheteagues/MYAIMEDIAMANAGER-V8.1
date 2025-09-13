@@ -45,11 +45,11 @@ const SUBSCRIPTION_PLANS = [
     popular: true
   },
   {
-    id: "enterprise",
-    name: "Enterprise", 
+    id: "business",
+    name: "Business", 
     price: "$199",
     period: "/month",
-    description: "For large organizations with custom requirements",
+    description: "For businesses with advanced social media needs",
     credits: "2000 credits per month",
     features: [
       "2000 credits per month",

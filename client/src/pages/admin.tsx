@@ -23,7 +23,7 @@ interface AdminStats {
     free: number;
     starter: number;
     professional: number;
-    enterprise: number;
+    business: number;
   };
   totalCreditsInSystem: number;
   averageCreditsPerUser: number;
@@ -311,7 +311,7 @@ export default function AdminPanel() {
               <div>Free: {stats?.usersByTier?.free || 0}</div>
               <div>Starter: {stats?.usersByTier?.starter || 0}</div>
               <div>Pro: {stats?.usersByTier?.professional || 0}</div>
-              <div>Enterprise: {stats?.usersByTier?.enterprise || 0}</div>
+              <div>Business: {stats?.usersByTier?.business || 0}</div>
             </div>
           </CardContent>
         </Card>
@@ -358,7 +358,7 @@ export default function AdminPanel() {
                       </TableCell>
                       <TableCell>{user.email || user.username}</TableCell>
                       <TableCell>
-                        <Badge variant={user.tier === "enterprise" ? "default" : "secondary"}>
+                        <Badge variant={user.tier === "business" ? "default" : "secondary"}>
                           {user.tier}
                         </Badge>
                       </TableCell>
@@ -443,7 +443,7 @@ export default function AdminPanel() {
                                       <SelectItem value="free">Free</SelectItem>
                                       <SelectItem value="starter">Starter</SelectItem>
                                       <SelectItem value="professional">Professional</SelectItem>
-                                      <SelectItem value="enterprise">Enterprise</SelectItem>
+                                      <SelectItem value="business">Business</SelectItem>
                                     </SelectContent>
                                   </Select>
                                   <Button

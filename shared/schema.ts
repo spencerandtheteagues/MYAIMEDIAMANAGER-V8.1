@@ -36,7 +36,7 @@ export const users = pgTable("users", {
   accountStatus: text("account_status").notNull().default("active"), // active, frozen, deleted
   
   // Subscription and billing
-  tier: text("tier").notNull().default("free"), // free, starter, professional, enterprise, pay_as_you_go
+  tier: text("tier").notNull().default("free"), // free, starter, professional, business, pay_as_you_go
   subscriptionStatus: text("subscription_status").notNull().default("trial"), // trial, active, cancelled, expired
   stripeCustomerId: text("stripe_customer_id"),
   stripeSubscriptionId: text("stripe_subscription_id"),
@@ -261,7 +261,7 @@ export const creditTransactions = pgTable("credit_transactions", {
 export const subscriptionPlans = pgTable("subscription_plans", {
   id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
   name: text("name").notNull(),
-  tier: text("tier").notNull(), // starter, professional, enterprise
+  tier: text("tier").notNull(), // starter, professional, business
   priceMonthly: decimal("price_monthly", { precision: 10, scale: 2 }).notNull(),
   creditsPerMonth: integer("credits_per_month").notNull(),
   features: jsonb("features").notNull().default([]), // Array of feature strings
@@ -379,7 +379,7 @@ export type User = typeof users.$inferSelect;
 export type InsertUser = z.infer<typeof insertUserSchema>;
 export type UpsertUser = typeof users.$inferInsert;
 export type UserRole = "admin" | "user";
-export type UserTier = "free" | "starter" | "professional" | "enterprise" | "pay_as_you_go";
+export type UserTier = "free" | "starter" | "professional" | "business" | "pay_as_you_go";
 export type Platform = typeof platforms.$inferSelect;
 export type InsertPlatform = z.infer<typeof insertPlatformSchema>;
 export type Campaign = typeof campaigns.$inferSelect;

@@ -50,7 +50,7 @@ const plans = [
       "Custom branding"
     ],
     notIncluded: [
-      "Enterprise features",
+      "Business features",
       "Dedicated support",
       "API access"
     ],
@@ -58,8 +58,8 @@ const plans = [
     popular: true
   },
   {
-    id: "enterprise",
-    name: "Enterprise",
+    id: "business",
+    name: "Business",
     price: "$199",
     period: "per month",
     description: "For large organizations with complex needs",
@@ -142,7 +142,7 @@ export default function Billing() {
           <CardContent>
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-lg font-semibold">{user?.tier === "enterprise" ? "Enterprise" : user?.tier === "professional" ? "Professional" : "Starter"} Plan</p>
+                <p className="text-lg font-semibold">{user?.tier === "business" ? "Business" : user?.tier === "professional" ? "Professional" : "Starter"} Plan</p>
                 <p className="text-sm text-muted-foreground">Your next billing date is {new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toLocaleDateString()}</p>
               </div>
               <Button variant="outline">Manage Subscription</Button>
