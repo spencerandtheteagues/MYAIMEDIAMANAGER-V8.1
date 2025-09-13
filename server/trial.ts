@@ -41,12 +41,18 @@ trialRouter.post("/select", requireAuth, async (req:any,res:any)=>{
   const v = TRIAL.variants[variant];
   const now = new Date();
   const end = new Date(now.getTime() + v.days*24*3600*1000);
+  
+  // Update user with trial details and clear needsTrialSelection flag
   await storage.updateUser(req.user.id, {
     trialVariant: variant,
     trialStartedAt: now,
     trialEndsAt: end,
     trialImagesRemaining: v.images,
     trialVideosRemaining: v.videos,
+    needsTrialSelection: false, // Clear the flag
+    tier: "free_trial", // Set proper tier
+    credits: v.credits || 50, // Set initial credits
   });
+  
   res.json({ ok:true, variant, endsAt: end.toISOString() });
 });

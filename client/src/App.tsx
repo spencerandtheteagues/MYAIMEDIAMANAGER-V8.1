@@ -22,6 +22,7 @@ import Trial from "./pages/trial";
 import Landing from "./pages/landing";
 import Auth from "./pages/auth";
 import Pricing from "./pages/pricing";
+import TrialSelection from "./pages/trial-selection";
 import Sidebar from "./components/layout/sidebar";
 import Header from "./components/layout/header";
 import TrialWelcomePopup from "./components/trial-welcome-popup";
@@ -53,8 +54,19 @@ function Router() {
         <Route path="/" component={Landing} />
         <Route path="/auth" component={Auth} />
         <Route path="/trial" component={Trial} />
+        <Route path="/trial-selection" component={TrialSelection} />
         <Route path="/pricing" component={Pricing} />
         <Route component={Landing} />
+      </Switch>
+    );
+  }
+  
+  // Check if user needs to select a trial
+  if (user?.needsTrialSelection) {
+    return (
+      <Switch>
+        <Route path="/trial-selection" component={TrialSelection} />
+        <Route component={TrialSelection} />
       </Switch>
     );
   }
@@ -81,6 +93,7 @@ function Router() {
           <Route path="/referrals" component={Referrals} />
           <Route path="/help" component={Help} />
           <Route path="/trial" component={Trial} />
+          <Route path="/trial-selection" component={TrialSelection} />
           <Route path="/admin" component={AdminPanel} />
           <Route component={NotFound} />
         </Switch>

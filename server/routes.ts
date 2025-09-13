@@ -37,6 +37,32 @@ function getUserId(req: any): string | null {
   return null;
 }
 
+// Middleware to check if user needs to select a trial
+async function checkTrialSelection(req: any, res: any, next: Function) {
+  const userId = getUserId(req);
+  
+  // Skip check for auth endpoints and trial selection endpoint
+  if (req.path === '/api/trial/select' || req.path === '/api/user' || req.path.startsWith('/api/auth/')) {
+    return next();
+  }
+  
+  if (userId) {
+    try {
+      const user = await storage.getUser(userId);
+      if (user?.needsTrialSelection) {
+        return res.status(403).json({ 
+          message: "Trial selection required",
+          needsTrialSelection: true 
+        });
+      }
+    } catch (error) {
+      console.error("Error checking trial selection:", error);
+    }
+  }
+  
+  next();
+}
+
 export async function registerRoutes(app: Express): Promise<Server> {
   // Add metrics middleware
   app.use(trackApiMetrics);
@@ -60,6 +86,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Use app auth routes
     app.use("/api/auth", authRoutes);
   }
+  
+  // Add trial selection check middleware
+  app.use(checkTrialSelection);
   
   // Use appropriate auth middleware based on configuration
   const isAuthenticated = useReplitAuth ? isReplitAuthenticated : requireAuth;

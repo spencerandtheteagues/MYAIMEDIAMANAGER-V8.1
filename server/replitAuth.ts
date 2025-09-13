@@ -68,12 +68,8 @@ async function upsertUser(
   // Check if user already exists
   const existingUser = await storage.getUser(claims["sub"]);
   
-  // If new user, create with no-card trial automatically
+  // If new user, create without trial - they must select it
   if (!existingUser) {
-    const now = new Date();
-    const trialDays = 7; // No-card trial is 7 days
-    const trialEndsAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
-    
     await storage.upsertUser({
       id: claims["sub"],
       username: claims["sub"] || claims["email"],
@@ -82,13 +78,10 @@ async function upsertUser(
       lastName: claims["last_name"],
       profileImageUrl: claims["profile_image_url"],
       emailVerified: true, // OAuth users are already verified by Replit
-      // Automatically assign no-card trial
-      trialVariant: "nocard7",
-      trialStartedAt: now,
-      trialEndsAt: trialEndsAt,
-      trialImagesRemaining: TRIAL_ALLOCATIONS.nocard7.images,
-      trialVideosRemaining: TRIAL_ALLOCATIONS.nocard7.videos,
-      tier: "free_trial",
+      // Mark that they need to select a trial/subscription
+      needsTrialSelection: true,
+      tier: "free", // Default tier until they select
+      credits: 0, // No credits until they select a plan
     });
   } else {
     // Existing user - just update basic info
@@ -145,10 +138,28 @@ export async function setupAuth(app: Express) {
     })(req, res, next);
   });
 
-  app.get("/api/callback", (req, res, next) => {
-    passport.authenticate(`replitauth:${req.hostname}`, {
-      successRedirect: "/?showTrialWelcome=true",
-      failureRedirect: "/api/login",
+  app.get("/api/callback", async (req, res, next) => {
+    passport.authenticate(`replitauth:${req.hostname}`, async (err, user) => {
+      if (err || !user) {
+        return res.redirect("/api/login");
+      }
+      
+      req.logIn(user, async (loginErr) => {
+        if (loginErr) {
+          return res.redirect("/api/login");
+        }
+        
+        // Check if user needs to select a trial
+        const userId = user.claims?.sub;
+        if (userId) {
+          const dbUser = await storage.getUser(userId);
+          if (dbUser?.needsTrialSelection) {
+            return res.redirect("/trial-selection");
+          }
+        }
+        
+        return res.redirect("/?showTrialWelcome=true");
+      });
     })(req, res, next);
   });
 

@@ -59,6 +59,7 @@ export const users = pgTable("users", {
   trialStartDate: timestamp("trial_start_date").defaultNow(),
   trialEndDate: timestamp("trial_end_date").default(sql`NOW() + INTERVAL '7 days'`),
   isPaid: boolean("is_paid").notNull().default(false),
+  needsTrialSelection: boolean("needs_trial_selection").notNull().default(false),
   
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
@@ -178,6 +179,7 @@ export const insertUserSchema = createInsertSchema(users).pick({
   trialImagesRemaining: true,
   trialVideosRemaining: true,
   isNewUser: true,
+  needsTrialSelection: true,
   stripeCustomerId: true,
   stripeSubscriptionId: true,
 });
