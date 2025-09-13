@@ -1,4 +1,26 @@
-import { TRIAL_ALLOCATIONS, CREDIT_COSTS } from "../../../shared/credits";
+// For now, define values directly until import path is resolved
+const CREDIT_COSTS = {
+  text: 1,
+  image: 5, 
+  video: 20
+} as const;
+
+const TRIAL_ALLOCATIONS = {
+  nocard7: {
+    days: 7,
+    images: 6,
+    videos: 0,
+    totalCredits: 30,
+    unlockVideoRequiresCard: true
+  },
+  card14: {
+    days: 14, 
+    images: 10,
+    videos: 2,
+    totalCredits: 90,
+    unlockVideoRequiresCard: false
+  }
+} as const;
 
 export const TRIAL_CARDS = [
   {
