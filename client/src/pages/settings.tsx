@@ -32,6 +32,7 @@ import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { User as UserType } from "@shared/schema";
 import { format } from "date-fns";
+import { useLocation } from "wouter";
 
 interface CreditPack {
   credits: number;
@@ -52,6 +53,7 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState("account");
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const [, setLocation] = useLocation();
   
   // Modals state
   const [showUpgradeModal, setShowUpgradeModal] = useState(false);
@@ -221,23 +223,10 @@ export default function Settings() {
     }
   });
 
-  const upgradePlanMutation = useMutation({
-    mutationFn: async (planId: string) => {
-      return apiRequest("POST", "/api/subscription/upgrade", { planId });
-    },
-    onSuccess: (data) => {
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to initiate upgrade",
-        variant: "destructive",
-      });
-    }
-  });
+  // Redirect to custom checkout for subscription upgrades
+  const handleCheckoutRedirect = (planId: string) => {
+    setLocation(`/checkout?plan=${planId}`);
+  };
 
   const buyCreditsHandler = useMutation({
     mutationFn: async (pack: CreditPack) => {
@@ -343,7 +332,7 @@ export default function Settings() {
 
   const handleUpgradePlan = (plan: SubscriptionPlan) => {
     setSelectedPlan(plan);
-    upgradePlanMutation.mutate(plan.id);
+    handleCheckoutRedirect(plan.id);
   };
 
   const handleBuyCredits = (pack: CreditPack) => {
@@ -825,15 +814,10 @@ export default function Settings() {
                     onClick={() => handleUpgradePlan(plan)}
                     className="w-full"
                     variant={plan.popular ? "default" : "outline"}
-                    disabled={upgradePlanMutation.isPending && selectedPlan?.id === plan.id}
+                    disabled={false}
                     data-testid={`button-select-${plan.id}`}
                   >
-                    {upgradePlanMutation.isPending && selectedPlan?.id === plan.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
-                        Processing...
-                      </>
-                    ) : (
+                    {(
                       <>Select {plan.name}</>
                     )}
                   </Button>

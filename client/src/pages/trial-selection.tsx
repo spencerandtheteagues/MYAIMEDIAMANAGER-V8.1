@@ -75,8 +75,13 @@ export default function TrialSelection() {
     setSelectedOption(optionId);
     
     if (isSubscription) {
-      selectSubscriptionMutation.mutate(optionId);
+      // For subscriptions, redirect to custom checkout
+      setLocation(`/checkout?plan=${optionId}`);
+    } else if (optionId === "card14") {
+      // For Pro trial, redirect to checkout with $1 verification
+      setLocation(`/checkout?plan=professional&trial=true`);
     } else {
+      // For Lite trial, activate directly
       selectTrialMutation.mutate(optionId);
     }
   };
@@ -309,7 +314,7 @@ export default function TrialSelection() {
                 </CardFooter>
               </Card>
 
-              {/* Enterprise Plan */}
+              {/* Business Plan */}
               <Card className="relative overflow-hidden border-2 border-yellow-500/20 bg-gradient-to-br from-slate-900 to-yellow-900/20">
                 <CardHeader>
                   <div className="flex items-center justify-between">
@@ -318,7 +323,7 @@ export default function TrialSelection() {
                       For Teams
                     </span>
                   </div>
-                  <CardTitle className="text-2xl text-white">Enterprise</CardTitle>
+                  <CardTitle className="text-2xl text-white">Business</CardTitle>
                   <div className="mt-4">
                     <span className="text-4xl font-bold text-white">$199</span>
                     <span className="text-gray-400">/month</span>
@@ -355,10 +360,10 @@ export default function TrialSelection() {
                 <CardFooter>
                   <Button
                     className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
-                    onClick={() => handleSelection("enterprise", true)}
-                    disabled={isLoading || selectedOption === "enterprise"}
+                    onClick={() => handleSelection("business", true)}
+                    disabled={isLoading || selectedOption === "business"}
                   >
-                    {selectedOption === "enterprise" && isLoading ? "Processing..." : "Subscribe to Enterprise"}
+                    {selectedOption === "business" && isLoading ? "Processing..." : "Subscribe to Business"}
                   </Button>
                 </CardFooter>
               </Card>
