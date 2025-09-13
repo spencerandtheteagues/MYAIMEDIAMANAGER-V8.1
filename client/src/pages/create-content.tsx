@@ -25,7 +25,7 @@ import type { User } from "@shared/schema";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function CreateContent() {
-  const [location] = useLocation();
+  const [location, navigate] = useLocation();
   const urlParams = new URLSearchParams(location.split('?')[1] || '');
   const typeParam = urlParams.get('type');
   
@@ -430,6 +430,8 @@ export default function CreateContent() {
         title: "Video Generated",
         description: "AI has created a custom 8-second video with audio",
       });
+      // Refresh user data to update credits and trial videos
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
     },
     onError: (error: any) => {
       console.error('Video generation error:', error);
@@ -625,6 +627,22 @@ export default function CreateContent() {
   };
 
   const handleGenerateVideo = () => {
+    // Runtime guard to prevent bypassing disabled state
+    if (!videoEligibility.allowed) {
+      toast({
+        title: "Video Generation Locked",
+        description: videoEligibility.reason,
+        variant: "destructive",
+      });
+      // Navigate to appropriate action
+      if (videoEligibility.action === "upgrade") {
+        setTimeout(() => navigate("/pricing"), 1500);
+      } else if (videoEligibility.action === "buy_credits") {
+        setTimeout(() => navigate("/billing"), 1500);
+      }
+      return;
+    }
+    
     generateVideoMutation.mutate({
       businessName,
       productName,
@@ -736,7 +754,7 @@ export default function CreateContent() {
               <CardContent className="pt-6">
                 <div className="flex items-center justify-center space-x-4">
                   <Label htmlFor="mode-toggle" className={`cursor-pointer transition-colors ${!isBusinessMode ? "text-primary font-medium" : "text-muted-foreground"}`}>
-                    <User className="w-4 h-4 inline mr-1" />
+                    <UserIcon className="w-4 h-4 inline mr-1" />
                     Personal
                   </Label>
                   <Switch
@@ -761,7 +779,7 @@ export default function CreateContent() {
                   {isBusinessMode ? (
                     <Building2 className="w-5 h-5 text-primary" />
                   ) : (
-                    <User className="w-5 h-5 text-primary" />
+                    <UserIcon className="w-5 h-5 text-primary" />
                   )}
                   {isBusinessMode ? "Business Information" : "Personal Information"}
                 </CardTitle>
