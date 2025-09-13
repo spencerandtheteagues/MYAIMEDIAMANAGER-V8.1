@@ -3,7 +3,7 @@ import { storage } from "./storage";
 import { z } from "zod";
 import bcrypt from "bcryptjs";
 import { requireAuth } from "./auth";
-import stripe from "./billing/stripe";
+// Stripe import removed - will use stripeRoutes instead
 import type { Request, Response } from "express";
 
 const router = Router();
