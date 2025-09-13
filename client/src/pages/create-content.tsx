@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from "react";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient, useQuery } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -15,12 +15,14 @@ import {
   Bot, Bold, Italic, Link as LinkIcon, Image, Wand2, Target, Palette, 
   Building2, MessageSquare, Megaphone, Sparkles, Type, ImagePlus, Video,
   Camera, Globe, Brush, Sun, Upload, Play, Trash2, Send, Clock, Film,
-  Music, Mic, Aperture, Zap, Layers, Monitor, Eye, Copy, FileText, User
+  Music, Mic, Aperture, Zap, Layers, Monitor, Eye, Copy, FileText, User as UserIcon
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import PlatformSelector from "../components/content/platform-selector";
 import AiSuggestions from "../components/content/ai-suggestions";
+import type { User } from "@shared/schema";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 
 export default function CreateContent() {
   const [location] = useLocation();
@@ -101,6 +103,43 @@ export default function CreateContent() {
   
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  
+  // Get current user data for video eligibility checking
+  const { data: user } = useQuery<User>({
+    queryKey: ["/api/user"],
+  });
+  
+  // Video eligibility logic - bulletproof implementation
+  const checkVideoEligibility = () => {
+    if (!user) return { allowed: false, reason: "Loading user data..." };
+    
+    // Check if user is on Lite trial (nocard7) with insufficient credits
+    if (user.trialVariant === "nocard7") {
+      const hasTrialVideos = (user.trialVideosRemaining || 0) > 0;
+      const hasSufficientCredits = (user.credits || 0) >= 20; // Video costs 20 credits
+      
+      if (!hasTrialVideos && !hasSufficientCredits) {
+        return {
+          allowed: false,
+          reason: "Video generation requires 20 credits or upgrade to Pro trial",
+          action: "upgrade"
+        };
+      }
+    }
+    
+    // For paid users, check if they have enough credits
+    if (user.tier !== "free_trial" && (user.credits || 0) < 20) {
+      return {
+        allowed: false,
+        reason: "Video generation requires 20 credits",
+        action: "buy_credits"
+      };
+    }
+    
+    return { allowed: true, reason: "" };
+  };
+  
+  const videoEligibility = checkVideoEligibility();
   
   // Update content type when URL param changes
   useEffect(() => {
@@ -902,21 +941,35 @@ export default function CreateContent() {
                     </div>
                   </button>
                   
-                  <button
-                    onClick={() => setContentType("text-video")}
-                    className={`p-4 rounded-lg border-2 transition-all ${
-                      contentType === "text-video" 
-                        ? "border-primary bg-primary/10 neon-glow" 
-                        : "border-border hover:border-primary/50"
-                    }`}
-                    data-testid="button-content-text-video"
-                  >
-                    <Video className="w-6 h-6 mx-auto mb-2 text-primary" />
-                    <div className="text-sm font-medium">Text + Video</div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      Dynamic content
-                    </div>
-                  </button>
+                  <TooltipProvider>
+                    <Tooltip>
+                      <TooltipTrigger asChild>
+                        <button
+                          onClick={() => videoEligibility.allowed && setContentType("text-video")}
+                          disabled={!videoEligibility.allowed}
+                          className={`p-4 rounded-lg border-2 transition-all ${
+                            !videoEligibility.allowed
+                              ? "border-border bg-muted/50 opacity-50 cursor-not-allowed"
+                              : contentType === "text-video" 
+                                ? "border-primary bg-primary/10 neon-glow" 
+                                : "border-border hover:border-primary/50"
+                          }`}
+                          data-testid="button-content-text-video"
+                        >
+                          <Video className={`w-6 h-6 mx-auto mb-2 ${!videoEligibility.allowed ? 'text-muted-foreground' : 'text-primary'}`} />
+                          <div className="text-sm font-medium">Text + Video</div>
+                          <div className="text-xs text-muted-foreground mt-1">
+                            {videoEligibility.allowed ? "Dynamic content" : "Requires upgrade"}
+                          </div>
+                        </button>
+                      </TooltipTrigger>
+                      {!videoEligibility.allowed && (
+                        <TooltipContent>
+                          <p>{videoEligibility.reason}</p>
+                        </TooltipContent>
+                      )}
+                    </Tooltip>
+                  </TooltipProvider>
                 </div>
               </CardContent>
             </Card>
@@ -1592,15 +1645,38 @@ export default function CreateContent() {
 
                   {/* Generate Video Button - Moved below instructions */}
                   <div className="flex justify-center">
-                    <Button
-                      onClick={handleGenerateVideo}
-                      disabled={generateVideoMutation.isPending}
-                      className="neon-glow"
-                      data-testid="button-generate-video"
-                    >
-                      <Video className="w-4 h-4 mr-2" />
-                      {generateVideoMutation.isPending ? "Generating..." : "Generate Video"}
-                    </Button>
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <Button
+                            onClick={videoEligibility.allowed ? handleGenerateVideo : undefined}
+                            disabled={!videoEligibility.allowed || generateVideoMutation.isPending}
+                            className={`${videoEligibility.allowed ? 'neon-glow' : 'opacity-50'}`}
+                            variant={videoEligibility.allowed ? "default" : "secondary"}
+                            data-testid="button-generate-video"
+                          >
+                            <Video className="w-4 h-4 mr-2" />
+                            {!videoEligibility.allowed 
+                              ? "Video Locked" 
+                              : generateVideoMutation.isPending 
+                                ? "Generating..." 
+                                : "Generate Video"}
+                          </Button>
+                        </TooltipTrigger>
+                        {!videoEligibility.allowed && (
+                          <TooltipContent className="max-w-xs">
+                            <div className="text-center">
+                              <p className="font-medium mb-1">{videoEligibility.reason}</p>
+                              {videoEligibility.action === "upgrade" && (
+                                <p className="text-xs text-muted-foreground">
+                                  Upgrade to Pro trial or add 20+ credits to unlock video generation
+                                </p>
+                              )}
+                            </div>
+                          </TooltipContent>
+                        )}
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
 
                   {/* Video Preview Box */}
