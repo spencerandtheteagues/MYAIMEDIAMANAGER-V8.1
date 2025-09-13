@@ -123,10 +123,10 @@ router.post("/webhook",
           console.log(`✅ Invoice paid: ${invoice.id}`);
           
           // Handle successful recurring payment - refresh monthly credits
-          const subscription = invoice.subscription as string;
-          const customerId = invoice.customer as string;
+          const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
+          const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
           
-          if (subscription) {
+          if (subscriptionId) {
             // Find user by customer ID
             const users = await storage.getAllUsers();
             const user = users.find(u => u.stripeCustomerId === customerId);

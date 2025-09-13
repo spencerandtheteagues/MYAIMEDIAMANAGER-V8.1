@@ -43,6 +43,7 @@ export const users = pgTable("users", {
   
   // Credits system
   credits: integer("credits").notNull().default(50),
+  monthlyCredits: integer("monthly_credits").notNull().default(0), // Credits allocated per month for subscription
   freeCreditsUsed: boolean("free_credits_used").notNull().default(false),
   totalCreditsUsed: integer("total_credits_used").notNull().default(0),
   
@@ -55,6 +56,7 @@ export const users = pgTable("users", {
   // Trial system
   cardOnFile: boolean("card_on_file").default(false),
   trialVariant: text("trial_variant", { enum: ['nocard7', 'card14'] }).default('nocard7'),
+  trialPlan: text("trial_plan"), // Which plan they selected for trial (starter, professional, business)
   trialStartedAt: timestamp("trial_started_at").defaultNow(),
   trialEndsAt: timestamp("trial_ends_at").default(sql`now() + interval '7 days'`),
   trialImagesRemaining: integer("trial_images_remaining").default(6),
@@ -178,13 +180,14 @@ export const insertUserSchema = createInsertSchema(users).pick({
   role: true,
   tier: true,
   credits: true,
+  monthlyCredits: true,
   emailVerified: true,
   trialVariant: true,
+  trialPlan: true,
   trialStartedAt: true,
   trialEndsAt: true,
   trialImagesRemaining: true,
   trialVideosRemaining: true,
-  isNewUser: true,
   needsTrialSelection: true,
   stripeCustomerId: true,
   stripeSubscriptionId: true,
@@ -253,6 +256,7 @@ export const creditTransactions = pgTable("credit_transactions", {
   type: text("type").notNull(), // purchase, usage, refund, admin_adjustment, bonus
   description: text("description"),
   stripePaymentIntentId: text("stripe_payment_intent_id"),
+  stripeSessionId: text("stripe_session_id"), // Stripe checkout session ID
   createdAt: timestamp("created_at").defaultNow(),
   createdBy: varchar("created_by"), // Admin user ID if admin adjustment
 });
