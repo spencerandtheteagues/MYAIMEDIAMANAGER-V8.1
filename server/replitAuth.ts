@@ -60,6 +60,8 @@ function updateUserSession(
   user.expires_at = user.claims?.exp;
 }
 
+import { TRIAL_ALLOCATIONS } from "../shared/credits";
+
 async function upsertUser(
   claims: any,
 ) {
@@ -83,8 +85,8 @@ async function upsertUser(
       trialVariant: "nocard7",
       trialStartedAt: now,
       trialEndsAt: trialEndsAt,
-      trialImagesRemaining: 6,
-      trialVideosRemaining: 0,
+      trialImagesRemaining: TRIAL_ALLOCATIONS.nocard7.images,
+      trialVideosRemaining: TRIAL_ALLOCATIONS.nocard7.videos,
       tier: "free_trial",
     });
   } else {

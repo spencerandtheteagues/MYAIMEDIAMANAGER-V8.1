@@ -1,10 +1,5 @@
 import { storage } from "../storage";
-
-const CREDIT_COSTS = {
-  text: 1,
-  image: 5, 
-  video: 20
-};
+import { CREDIT_COSTS } from "../../shared/credits";
 
 export function requireCredits(kind:"text"|"image"|"video"){
   return async (req:any,res:any,next:any)=>{

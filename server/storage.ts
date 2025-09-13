@@ -187,26 +187,6 @@ export class MemStorage implements IStorage {
   private initializeSubscriptionPlans() {
     const plans: SubscriptionPlan[] = [
       {
-        id: "plan-free",
-        tier: "free",
-        name: "Free Trial",
-        priceMonthly: "0",
-        creditsPerMonth: 50,
-        features: [
-          "50 free credits to start",
-          "Text post generation",
-          "Image generation (5 credits each)",
-          "Basic scheduling",
-          "Manual uploads only after credits expire"
-        ] as any,
-        stripePriceId: null,
-        maxCampaigns: 0,
-        hasVideoGeneration: false,
-        hasAiAssistant: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      },
-      {
         id: "plan-starter",
         tier: "starter",
         name: "Starter",

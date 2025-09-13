@@ -75,15 +75,6 @@ export default function TrialPage() {
           onSelect={handleTrialSelect}
           isLoading={selecting}
         />
-        <div className="text-center mt-8">
-          <Button 
-            onClick={() => setLocation('/auth')}
-            className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
-            data-testid="button-sign-in-trial"
-          >
-            Sign In to Start Trial
-          </Button>
-        </div>
       </div>
     </div>
   );

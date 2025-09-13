@@ -2,6 +2,7 @@ import { Router } from "express";
 import Stripe from "stripe";
 import { storage } from "./storage";
 import { isAuthenticated } from "./replitAuth";
+import { TRIAL_ALLOCATIONS } from "../shared/credits";
 
 if (!process.env.STRIPE_SECRET_KEY) {
   throw new Error('Missing required Stripe secret: STRIPE_SECRET_KEY');
@@ -360,8 +361,8 @@ router.post("/webhook", async (req, res) => {
             trialVariant: 'card14',
             trialStartedAt: now,
             trialEndsAt: trialEndsAt,
-            trialImagesRemaining: 30,
-            trialVideosRemaining: 3,
+            trialImagesRemaining: TRIAL_ALLOCATIONS.card14.images,
+            trialVideosRemaining: TRIAL_ALLOCATIONS.card14.videos,
             cardOnFile: true,
             tier: 'free_trial',
           });
