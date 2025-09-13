@@ -11,6 +11,7 @@ import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
 import type { User } from "@shared/schema";
 import { Logo } from "@/components/ui/logo";
+import EmbeddedCheckoutForm from "@/components/embedded-checkout";
 
 interface PricingPlan {
   id: string;
@@ -99,6 +100,7 @@ export default function CheckoutPage() {
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
+  const [showEmbedded, setShowEmbedded] = useState(false);
 
   const { data: user, isLoading: userLoading, error: userError } = useQuery<User>({
     queryKey: ["/api/user"],
@@ -125,48 +127,8 @@ export default function CheckoutPage() {
       return;
     }
     
-    setIsProcessing(true);
-    
-    try {
-      // For Pro trial ($1 verification)
-      if (trial && selectedPlan.id === "professional") {
-        const response = await apiRequest("POST", "/api/billing/pro-trial", {
-          successUrl: window.location.origin + "/?trial=success",
-          cancelUrl: window.location.origin + "/checkout?plan=professional&trial=true"
-        });
-        const data = await response.json();
-        
-        if (data.url) {
-          window.location.href = data.url;
-        } else {
-          throw new Error("No checkout URL received");
-        }
-        return;
-      }
-      
-      // Regular subscription checkout
-      const response = await apiRequest("POST", "/api/billing/custom-checkout", {
-        planId: selectedPlan.id,
-        billingCycle,
-        price: billingCycle === "monthly" ? selectedPlan.monthlyPrice : selectedPlan.yearlyPrice,
-        successUrl: window.location.origin + "/?subscribed=true",
-        cancelUrl: window.location.origin + "/checkout?plan=" + selectedPlan.id
-      });
-      const data = await response.json();
-      
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error("No checkout URL received");
-      }
-    } catch (error: any) {
-      toast({
-        title: "Checkout Failed",
-        description: error.message || "Unable to start checkout process. Please try again.",
-        variant: "destructive"
-      });
-      setIsProcessing(false);
-    }
+    // Show embedded checkout form
+    setShowEmbedded(true);
   };
 
   if (!selectedPlan) {
@@ -302,23 +264,38 @@ export default function CheckoutPage() {
                 </div>
               </div>
 
-              {/* Checkout Button */}
-              <Button
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
-                size="lg"
-                onClick={handleCheckout}
-                disabled={isProcessing}
-                data-testid="button-proceed-checkout"
-              >
-                {isProcessing ? (
-                  "Processing..."
-                ) : (
+              {/* Checkout Button or Embedded Form */}
+              {!showEmbedded ? (
+                <Button
+                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                  size="lg"
+                  onClick={handleCheckout}
+                  disabled={isProcessing}
+                  data-testid="button-proceed-checkout"
+                >
                   <>
                     <CreditCard className="w-4 h-4 mr-2" />
-                    {trial ? "Start $1 Trial" : `Subscribe for $${displayPrice}/${billingCycle === "yearly" ? "year" : "month"}`}
+                    {trial ? "Start $1 Trial" : `Continue to Payment`}
                   </>
-                )}
-              </Button>
+                </Button>
+              ) : (
+                <div className="space-y-4">
+                  <Button
+                    variant="outline"
+                    className="w-full"
+                    onClick={() => setShowEmbedded(false)}
+                  >
+                    <ArrowLeft className="w-4 h-4 mr-2" />
+                    Back to Summary
+                  </Button>
+                  <EmbeddedCheckoutForm
+                    planId={selectedPlan.id}
+                    billingCycle={billingCycle}
+                    price={billingCycle === "monthly" ? selectedPlan.monthlyPrice : selectedPlan.yearlyPrice}
+                    trial={trial}
+                  />
+                </div>
+              )}
 
               {/* Security Badge */}
               <div className="flex items-center justify-center gap-2 text-xs text-gray-500">
