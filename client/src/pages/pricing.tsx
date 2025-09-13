@@ -2,6 +2,9 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { Check } from "lucide-react";
 import { useLocation } from "wouter";
+import { useMutation } from "@tanstack/react-query";
+import { apiRequest } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 const SUBSCRIPTION_PLANS = [
   {
@@ -67,9 +70,36 @@ const SUBSCRIPTION_PLANS = [
 export default function PricingPage() {
   const [, setLocation] = useLocation();
 
+  const { toast } = useToast();
+
+  const createCheckoutMutation = useMutation({
+    mutationFn: async (planId: string) => {
+      const response = await apiRequest("POST", "/api/billing/create-checkout", {
+        priceId: planId
+      });
+      return response.json();
+    },
+    onSuccess: (data) => {
+      if (data.url) {
+        window.location.href = data.url;
+      }
+    },
+    onError: (error: any) => {
+      // If user is not authenticated, redirect to auth
+      if (error.message?.includes('401') || error.message?.includes('Not authenticated')) {
+        setLocation('/auth');
+        return;
+      }
+      toast({
+        title: "Error",
+        description: error.message || "Failed to start checkout process",
+        variant: "destructive"
+      });
+    }
+  });
+
   const handleSelectPlan = (planId: string) => {
-    // For now, redirect to trial to get started
-    setLocation('/trial');
+    createCheckoutMutation.mutate(planId);
   };
 
   return (

@@ -130,9 +130,9 @@ router.post("/create-checkout", isAuthenticated, async (req, res) => {
 
     // Map priceId to actual pricing
     const priceMap: Record<string, { price: number, name: string }> = {
-      'starter': { price: 29, name: 'Starter Plan' },
-      'professional': { price: 79, name: 'Professional Plan' },
-      'business': { price: 199, name: 'Business Plan' },
+      'starter': { price: 19, name: 'Starter Plan' },
+      'professional': { price: 49, name: 'Professional Plan' },
+      'enterprise': { price: 199, name: 'Enterprise Plan' },
     };
 
     const planDetails = priceMap[priceId];
