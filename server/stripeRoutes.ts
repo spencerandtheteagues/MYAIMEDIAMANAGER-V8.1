@@ -439,7 +439,7 @@ router.post("/cancel", isAuthenticated, async (req, res) => {
   }
 });
 
-// Custom checkout with monthly/yearly pricing
+// Custom checkout with monthly/yearly pricing (supports embedded mode)
 router.post("/custom-checkout", isAuthenticated, async (req, res) => {
   try {
     const userId = getUserId(req);
@@ -447,7 +447,7 @@ router.post("/custom-checkout", isAuthenticated, async (req, res) => {
       return res.status(401).json({ message: "Not authenticated" });
     }
     
-    const { planId, billingCycle, price, successUrl, cancelUrl } = req.body;
+    const { planId, billingCycle, price, mode = 'hosted' } = req.body;
     
     const dbUser = await storage.getUser(userId);
     if (!dbUser) {
@@ -506,8 +506,8 @@ router.post("/custom-checkout", isAuthenticated, async (req, res) => {
       await storage.updateUser(userId, { stripeCustomerId: customerId });
     }
 
-    // Create checkout session
-    const session = await stripe.checkout.sessions.create({
+    // Create checkout session params
+    const sessionParams: any = {
       customer: customerId,
       payment_method_types: ['card'],
       line_items: [{
@@ -530,17 +530,31 @@ router.post("/custom-checkout", isAuthenticated, async (req, res) => {
         quantity: 1,
       }],
       mode: 'subscription',
-      success_url: successUrl || `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/?subscribed=true`,
-      cancel_url: cancelUrl || `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/checkout?plan=${planId}`,
       metadata: {
         userId: dbUser.id,
         tier: planId,
         billingCycle,
         action: 'subscription'
       }
-    });
+    };
 
-    res.json({ url: session.url });
+    // Set up for embedded mode or hosted mode
+    if (mode === 'embedded') {
+      sessionParams.ui_mode = 'embedded';
+      sessionParams.return_url = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/checkout/return?session_id={CHECKOUT_SESSION_ID}`;
+    } else {
+      sessionParams.success_url = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/?subscribed=true`;
+      sessionParams.cancel_url = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/checkout?plan=${planId}`;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
+    // Return appropriate response based on mode
+    if (mode === 'embedded') {
+      res.json({ clientSecret: session.client_secret });
+    } else {
+      res.json({ url: session.url });
+    }
   } catch (error: any) {
     console.error("Error creating custom checkout session:", error);
     res.status(500).json({ message: "Error creating checkout session: " + error.message });
@@ -605,6 +619,24 @@ router.post("/pro-trial", isAuthenticated, async (req, res) => {
   } catch (error: any) {
     console.error("Error creating Pro trial session:", error);
     res.status(500).json({ message: "Error creating trial session: " + error.message });
+  }
+});
+
+// Get checkout session status (for embedded return page)
+router.get("/session-status/:sessionId", isAuthenticated, async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    
+    const session = await stripe.checkout.sessions.retrieve(sessionId);
+    
+    res.json({
+      status: session.status,
+      paymentStatus: session.payment_status,
+      customerEmail: session.customer_details?.email,
+    });
+  } catch (error: any) {
+    console.error("Error retrieving session:", error);
+    res.status(500).json({ message: "Error retrieving session: " + error.message });
   }
 });
 
