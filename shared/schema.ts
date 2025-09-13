@@ -159,8 +159,11 @@ export const analytics = pgTable("analytics", {
 
 // Insert schemas
 export const insertUserSchema = createInsertSchema(users).pick({
+  email: true,
   username: true,
   password: true,
+  firstName: true,
+  lastName: true,
   fullName: true,
   businessName: true,
   avatar: true,
@@ -168,6 +171,13 @@ export const insertUserSchema = createInsertSchema(users).pick({
   role: true,
   tier: true,
   credits: true,
+  emailVerified: true,
+  trialVariant: true,
+  trialStartedAt: true,
+  trialEndsAt: true,
+  trialImagesRemaining: true,
+  trialVideosRemaining: true,
+  isNewUser: true,
   stripeCustomerId: true,
   stripeSubscriptionId: true,
 });
