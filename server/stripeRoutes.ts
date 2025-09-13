@@ -1,7 +1,6 @@
 import { Router } from "express";
 import Stripe from "stripe";
 import { storage } from "./storage";
-import { isAuthenticated } from "./replitAuth";
 import { TRIAL_ALLOCATIONS } from "../shared/credits";
 
 if (!process.env.STRIPE_SECRET_KEY) {
@@ -22,6 +21,15 @@ function getUserId(req: any): string | null {
   return null;
 }
 
+// Simple authentication middleware that works with both auth systems
+const requireAuth = async (req: any, res: any, next: any) => {
+  const userId = getUserId(req);
+  if (!userId) {
+    return res.status(401).json({ message: "Not authenticated" });
+  }
+  next();
+};
+
 // Get subscription plans
 router.get("/plans", async (req, res) => {
   try {
@@ -33,7 +41,7 @@ router.get("/plans", async (req, res) => {
 });
 
 // Start Pro trial (requires card)
-router.post("/start-pro-trial", isAuthenticated, async (req, res) => {
+router.post("/start-pro-trial", requireAuth, async (req, res) => {
   try {
     const user = req.user as any;
     const userId = user.claims?.sub || user.id;
@@ -79,7 +87,7 @@ router.post("/start-pro-trial", isAuthenticated, async (req, res) => {
 });
 
 // Upgrade trial by adding card
-router.post("/upgrade-trial", isAuthenticated, async (req, res) => {
+router.post("/upgrade-trial", requireAuth, async (req, res) => {
   try {
     const user = req.user as any;
     const userId = user.claims?.sub || user.id;
@@ -131,7 +139,7 @@ router.post("/upgrade-trial", isAuthenticated, async (req, res) => {
 // Old create-subscription endpoint removed - subscriptions are created via webhooks after checkout
 
 // Cancel subscription
-router.post("/cancel-subscription", isAuthenticated, async (req, res) => {
+router.post("/cancel-subscription", requireAuth, async (req, res) => {
   try {
     const user = req.user as any;
     const userId = user.claims?.sub;
@@ -156,7 +164,7 @@ router.post("/cancel-subscription", isAuthenticated, async (req, res) => {
 });
 
 // Purchase credits (pay-as-you-go)
-router.post("/purchase-credits", isAuthenticated, async (req, res) => {
+router.post("/purchase-credits", requireAuth, async (req, res) => {
   try {
     const userId = getUserId(req);
     if (!userId) {
@@ -326,7 +334,7 @@ router.post("/webhook", async (req, res) => {
 });
 
 // New route for subscription upgrade
-router.post("/upgrade", isAuthenticated, async (req, res) => {
+router.post("/upgrade", requireAuth, async (req, res) => {
   try {
     const userId = getUserId(req);
     if (!userId) {
@@ -404,7 +412,7 @@ router.post("/upgrade", isAuthenticated, async (req, res) => {
 });
 
 // Cancel subscription (at period end)
-router.post("/cancel", isAuthenticated, async (req, res) => {
+router.post("/cancel", requireAuth, async (req, res) => {
   try {
     const userId = getUserId(req);
     if (!userId) {
@@ -440,7 +448,7 @@ router.post("/cancel", isAuthenticated, async (req, res) => {
 });
 
 // Custom checkout with monthly/yearly pricing (supports embedded mode)
-router.post("/custom-checkout", isAuthenticated, async (req, res) => {
+router.post("/custom-checkout", requireAuth, async (req, res) => {
   try {
     const userId = getUserId(req);
     if (!userId) {
@@ -562,7 +570,7 @@ router.post("/custom-checkout", isAuthenticated, async (req, res) => {
 });
 
 // Pro trial checkout ($1 verification)
-router.post("/pro-trial", isAuthenticated, async (req, res) => {
+router.post("/pro-trial", requireAuth, async (req, res) => {
   try {
     const userId = getUserId(req);
     if (!userId) {
@@ -637,7 +645,7 @@ router.post("/pro-trial", isAuthenticated, async (req, res) => {
 });
 
 // Get checkout session status (for embedded return page)
-router.get("/session-status/:sessionId", isAuthenticated, async (req, res) => {
+router.get("/session-status/:sessionId", requireAuth, async (req, res) => {
   try {
     const { sessionId } = req.params;
     
@@ -655,7 +663,7 @@ router.get("/session-status/:sessionId", isAuthenticated, async (req, res) => {
 });
 
 // Purchase credits with different pack options
-router.post("/purchase", isAuthenticated, async (req, res) => {
+router.post("/purchase", requireAuth, async (req, res) => {
   try {
     const userId = getUserId(req);
     if (!userId) {
