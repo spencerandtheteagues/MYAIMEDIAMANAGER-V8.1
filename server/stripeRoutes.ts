@@ -233,8 +233,8 @@ router.post("/create-subscription", isAuthenticated, async (req, res) => {
           product_data: {
             name: plan.name,
             description: `${plan.creditsPerMonth} credits per month`,
-          },
-        },
+          } as any,
+        } as any,
       }],
       payment_behavior: 'default_incomplete',
       payment_settings: { save_default_payment_method: 'on_subscription' },

@@ -4,9 +4,9 @@ export const TRIAL_CARDS = [
     name: "Lite Trial",
     subtitle: "No card required — 7 days",
     bullets: [
-      "Unlimited captions & post ideas",
-      "6 AI images total (Imagen 4)",
-      "Video locked (add card or buy $5 pack to unlock 1 video)"
+      "Unlimited text generation",
+      "6 AI image credits included",
+      "0 video credits (upgrade for video)"
     ],
     primaryCta: "Start Lite Trial",
     footnote: "Best for trying content creation without a card."
@@ -16,9 +16,9 @@ export const TRIAL_CARDS = [
     name: "Pro Trial",
     subtitle: "Card on file — 14 days",
     bullets: [
-      "Everything in Pro for 14 days",
-      "30 AI images + 3 videos (8s, Veo Fast)",
-      "Cancel anytime during trial"
+      "30 AI image credits included",
+      "3 AI video credits (8s max)",
+      "Cancel anytime during 14-day trial"
     ],
     primaryCta: "Start Pro Trial (Add Card)",
     footnote: "Best for testing full workflow including video."
