@@ -57,6 +57,14 @@ router.post("/signup", async (req: Request, res: Response) => {
     // Hash password
     const hashedPassword = await bcrypt.hash(data.password, 10);
     
+    // Import verification functions
+    const { generateVerificationCode, hashVerificationCode, sendVerificationEmail } = await import('./emailService');
+    
+    // Generate verification code
+    const verificationCode = generateVerificationCode();
+    const hashedCode = await hashVerificationCode(verificationCode);
+    const verificationExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+    
     // Set up no-card trial for new users
     const now = new Date();
     const trialDays = 7;
@@ -76,7 +84,10 @@ router.post("/signup", async (req: Request, res: Response) => {
       role: "user",
       tier: "free_trial",
       credits: 50, // Initial free credits
-      emailVerified: true, // New signups should be verified immediately
+      emailVerified: false, // Require email verification
+      emailVerificationCode: hashedCode,
+      emailVerificationExpiry: verificationExpiry,
+      emailVerificationAttempts: 0,
       // Automatically assign no-card trial
       trialVariant: "nocard7",
       trialStartedAt: now,
@@ -85,6 +96,9 @@ router.post("/signup", async (req: Request, res: Response) => {
       trialVideosRemaining: 0,
       isNewUser: true, // Flag to show welcome popup
     });
+    
+    // Send verification email
+    await sendVerificationEmail(data.email, verificationCode);
     
     // Create session
     createUserSession(req, user);
@@ -103,6 +117,9 @@ router.post("/signup", async (req: Request, res: Response) => {
         businessName: user.businessName,
         tier: user.tier,
         credits: user.credits,
+        emailVerified: false,
+        requiresVerification: true,
+        message: 'Account created! Please check your email for verification code.',
       });
     });
   } catch (error) {
@@ -141,6 +158,15 @@ router.post("/login", async (req: Request, res: Response) => {
       });
     }
     
+    // Check if email is verified (for non-OAuth accounts)
+    if (!user.emailVerified && user.password) {
+      return res.status(403).json({ 
+        message: 'Please verify your email before logging in.',
+        requiresVerification: true,
+        email: user.email,
+      });
+    }
+    
     // Update last login
     await storage.updateUser(user.id, { lastLoginAt: new Date() });
     
@@ -162,6 +188,7 @@ router.post("/login", async (req: Request, res: Response) => {
         tier: user.tier,
         credits: user.credits,
         isAdmin: user.isAdmin,
+        emailVerified: user.emailVerified,
       });
     });
   } catch (error) {
@@ -213,6 +240,7 @@ router.get("/me", async (req: Request, res: Response) => {
       role: user.role,
       subscriptionStatus: user.subscriptionStatus,
       trialEndDate: user.trialEndDate,
+      emailVerified: user.emailVerified,
     });
   } catch (error) {
     console.error("Get user error:", error);
@@ -233,6 +261,33 @@ export const requireAuth = (req: Request, res: Response, next: Function) => {
   if (!req.session.userId) {
     return res.status(401).json({ message: "Authentication required" });
   }
+  next();
+};
+
+// Middleware to check if user's email is verified
+export const requireVerifiedEmail = async (req: Request, res: Response, next: Function) => {
+  if (!req.session.userId) {
+    return res.status(401).json({ message: "Authentication required" });
+  }
+  
+  const user = await storage.getUser(req.session.userId);
+  if (!user) {
+    return res.status(404).json({ message: "User not found" });
+  }
+  
+  // Skip verification check for OAuth users (no password)
+  if (!user.password) {
+    return next();
+  }
+  
+  if (!user.emailVerified) {
+    return res.status(403).json({ 
+      message: "Email verification required",
+      requiresVerification: true,
+      email: user.email,
+    });
+  }
+  
   next();
 };
 

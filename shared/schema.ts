@@ -46,9 +46,14 @@ export const users = pgTable("users", {
   freeCreditsUsed: boolean("free_credits_used").notNull().default(false),
   totalCreditsUsed: integer("total_credits_used").notNull().default(0),
   
+  // Email verification
+  emailVerified: boolean("email_verified").default(false),
+  emailVerificationCode: text("email_verification_code"),
+  emailVerificationExpiry: timestamp("email_verification_expiry"),
+  emailVerificationAttempts: integer("email_verification_attempts").default(0),
+  
   // Trial system
   cardOnFile: boolean("card_on_file").default(false),
-  emailVerified: boolean("email_verified").default(false),
   trialVariant: text("trial_variant", { enum: ['nocard7', 'card14'] }).default('nocard7'),
   trialStartedAt: timestamp("trial_started_at").defaultNow(),
   trialEndsAt: timestamp("trial_ends_at").default(sql`now() + interval '7 days'`),

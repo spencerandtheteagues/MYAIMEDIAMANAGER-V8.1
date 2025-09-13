@@ -78,21 +78,43 @@ export default function Auth() {
       const response = await apiRequest("POST", "/api/auth/login", data);
       return await response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      toast({
-        title: "Welcome back!",
-        description: "You have successfully logged in.",
-      });
-      setLocation("/");
+    onSuccess: (data) => {
+      if (data.requiresVerification) {
+        // Redirect to verification page
+        localStorage.setItem("verificationEmail", data.email);
+        toast({
+          title: "Email verification required",
+          description: "Please verify your email to access your account.",
+        });
+        setLocation(`/verify-email?email=${encodeURIComponent(data.email)}`);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        toast({
+          title: "Welcome back!",
+          description: "You have successfully logged in.",
+        });
+        setLocation("/");
+      }
     },
     onError: (error: any) => {
-      toast({
-        title: "Login failed",
-        description: error.message || "Invalid email or password",
-        variant: "destructive",
-      });
+      const errorData = error.response?.data || error;
+      
+      if (errorData.requiresVerification) {
+        // Email not verified - redirect to verification
+        localStorage.setItem("verificationEmail", errorData.email);
+        toast({
+          title: "Email verification required",
+          description: errorData.message || "Please verify your email before logging in.",
+        });
+        setLocation(`/verify-email?email=${encodeURIComponent(errorData.email)}`);
+      } else {
+        toast({
+          title: "Login failed",
+          description: errorData.message || "Invalid email or password",
+          variant: "destructive",
+        });
+      }
     },
   });
   
@@ -103,14 +125,24 @@ export default function Auth() {
       const response = await apiRequest("POST", "/api/auth/signup", signupData);
       return await response.json();
     },
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
-      queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
-      toast({
-        title: "Account created!",
-        description: "Welcome to MyAI MediaMgr. Your free trial has started.",
-      });
-      setLocation("/");
+    onSuccess: (data) => {
+      if (data.requiresVerification) {
+        // New account needs email verification
+        localStorage.setItem("verificationEmail", data.email);
+        toast({
+          title: "Account created!",
+          description: data.message || "Please check your email for verification code.",
+        });
+        setLocation(`/verify-email?email=${encodeURIComponent(data.email)}`);
+      } else {
+        queryClient.invalidateQueries({ queryKey: ["/api/user"] });
+        queryClient.invalidateQueries({ queryKey: ["/api/auth/user"] });
+        toast({
+          title: "Account created!",
+          description: "Welcome to MyAI MediaMgr. Your free trial has started.",
+        });
+        setLocation("/");
+      }
     },
     onError: (error: any) => {
       toast({

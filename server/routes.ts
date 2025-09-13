@@ -20,6 +20,7 @@ import { createBrandRoutes } from "./brandRoutes";
 import { createFeedbackRoutes } from "./feedbackRoutes";
 import { createMetricsRoute, trackApiMetrics } from "./metrics";
 import { trialRouter } from "./trial";
+import verificationRoutes from "./verificationRoutes";
 
 // Helper function to get user ID from request regardless of auth method
 function getUserId(req: any): string | null {
@@ -42,8 +43,11 @@ function getUserId(req: any): string | null {
 async function checkTrialSelection(req: any, res: any, next: Function) {
   const userId = getUserId(req);
   
-  // Skip check for auth endpoints and trial selection endpoint
-  if (req.path === '/api/trial/select' || req.path === '/api/user' || req.path.startsWith('/api/auth/')) {
+  // Skip check for auth endpoints, verification, and trial selection endpoint
+  if (req.path === '/api/trial/select' || 
+      req.path === '/api/user' || 
+      req.path.startsWith('/api/auth/') ||
+      req.path.startsWith('/api/verification/')) {
     return next();
   }
   
@@ -87,6 +91,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     // Use app auth routes
     app.use("/api/auth", authRoutes);
   }
+  
+  // Wire up email verification routes (no auth required)
+  app.use("/api/verification", verificationRoutes);
   
   // Add trial selection check middleware
   app.use(checkTrialSelection);
