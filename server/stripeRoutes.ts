@@ -569,7 +569,7 @@ router.post("/pro-trial", isAuthenticated, async (req, res) => {
       return res.status(401).json({ message: "Not authenticated" });
     }
     
-    const { successUrl, cancelUrl } = req.body;
+    const { mode = 'hosted' } = req.body;
     
     const dbUser = await storage.getUser(userId);
     if (!dbUser) {
@@ -590,8 +590,8 @@ router.post("/pro-trial", isAuthenticated, async (req, res) => {
       await storage.updateUser(userId, { stripeCustomerId: customerId });
     }
 
-    // Create checkout session for $1 verification
-    const session = await stripe.checkout.sessions.create({
+    // Create checkout session params for $1 verification
+    const sessionParams: any = {
       customer: customerId,
       payment_method_types: ['card'],
       line_items: [{
@@ -606,16 +606,30 @@ router.post("/pro-trial", isAuthenticated, async (req, res) => {
         quantity: 1,
       }],
       mode: 'payment',
-      success_url: successUrl || `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/?trial=pro_started`,
-      cancel_url: cancelUrl || `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/trial-selection`,
       metadata: {
         userId: dbUser.id,
         action: 'pro_trial',
         tier: 'professional'
       }
-    });
+    };
 
-    res.json({ url: session.url });
+    // Set up for embedded mode or hosted mode
+    if (mode === 'embedded') {
+      sessionParams.ui_mode = 'embedded';
+      sessionParams.return_url = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/checkout/return?session_id={CHECKOUT_SESSION_ID}`;
+    } else {
+      sessionParams.success_url = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/?trial=pro_started`;
+      sessionParams.cancel_url = `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/trial-selection`;
+    }
+
+    const session = await stripe.checkout.sessions.create(sessionParams);
+
+    // Return appropriate response based on mode
+    if (mode === 'embedded') {
+      res.json({ clientSecret: session.client_secret });
+    } else {
+      res.json({ url: session.url });
+    }
   } catch (error: any) {
     console.error("Error creating Pro trial session:", error);
     res.status(500).json({ message: "Error creating trial session: " + error.message });

@@ -33,10 +33,23 @@ export default function EmbeddedCheckoutForm({ planId, billingCycle, price, tria
           : "/api/billing/custom-checkout";
         
         const body = trial 
-          ? {} 
+          ? { mode: "embedded" } 
           : { planId, billingCycle, price, mode: "embedded" };
         
-        const response = await apiRequest("POST", endpoint, body);
+        const response = await fetch(endpoint, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(body),
+        });
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
         
         if (data.clientSecret) {
