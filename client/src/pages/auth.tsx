@@ -45,9 +45,13 @@ type LoginFormData = z.infer<typeof loginSchema>;
 type SignupFormData = z.infer<typeof signupSchema>;
 
 export default function Auth() {
-  const [, setLocation] = useLocation();
+  const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const [tab, setTab] = useState<"login" | "signup">("login");
+  
+  // Parse return URL from query params
+  const params = new URLSearchParams(location.split('?')[1] || '');
+  const returnUrl = params.get('return') ? decodeURIComponent(params.get('return')!) : '/';
   
   // Login form
   const loginForm = useForm<LoginFormData>({
@@ -94,7 +98,7 @@ export default function Auth() {
           title: "Welcome back!",
           description: "You have successfully logged in.",
         });
-        setLocation("/");
+        setLocation(returnUrl);
       }
     },
     onError: (error: any) => {
@@ -141,7 +145,8 @@ export default function Auth() {
           title: "Account created!",
           description: "Welcome to MyAI MediaMgr. Your free trial has started.",
         });
-        setLocation("/");
+        // New accounts go to trial selection, unless they have a specific return URL for checkout
+        setLocation(returnUrl.includes('/checkout') ? returnUrl : "/");
       }
     },
     onError: (error: any) => {

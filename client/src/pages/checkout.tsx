@@ -100,8 +100,9 @@ export default function CheckoutPage() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
 
-  const { data: user } = useQuery<User>({
+  const { data: user, isLoading: userLoading, error: userError } = useQuery<User>({
     queryKey: ["/api/user"],
+    retry: false,
   });
 
   useEffect(() => {
@@ -111,8 +112,18 @@ export default function CheckoutPage() {
     }
   }, [planId]);
 
+  // Don't redirect immediately - allow viewing the checkout page
+
   const handleCheckout = async () => {
     if (!selectedPlan) return;
+    
+    // Check if user is authenticated before proceeding
+    if (!user) {
+      // Redirect to auth page with return URL
+      const returnUrl = encodeURIComponent(location);
+      setLocation(`/auth?return=${returnUrl}`);
+      return;
+    }
     
     setIsProcessing(true);
     
