@@ -12,54 +12,12 @@ export default function TrialPage() {
   const [selecting, setSelecting] = useState(false);
   const { toast } = useToast();
   
-  // Check if user is authenticated
-  const { data: user } = useQuery({
-    queryKey: ["/api/user"],
-    retry: false,
-  });
-  
   // Handle trial selection
   const handleTrialSelect = async (variant: string) => {
-    if (!user) {
-      // Not logged in - redirect to auth
-      setLocation('/auth');
-      return;
-    }
-    
-    if (variant === "card14") {
-      // Pro trial - create Stripe checkout session
-      setSelecting(true);
-      try {
-        const response = await fetch("/api/billing/start-pro-trial", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          credentials: "include"
-        });
-        
-        if (!response.ok) {
-          throw new Error("Failed to create checkout session");
-        }
-        
-        const data = await response.json();
-        
-        if (data.url) {
-          // Redirect to Stripe checkout
-          window.location.href = data.url;
-        }
-      } catch (error: any) {
-        toast({
-          title: "Error",
-          description: error.message || "Failed to start checkout",
-          variant: "destructive"
-        });
-        setSelecting(false);
-      }
-    } else {
-      // Lite trial - already assigned on signup
-      setLocation('/');
-    }
+    // Always redirect to auth first - users need to be logged in to start trials
+    setLocation('/auth');
+    // Note: Actual trial logic will be handled after authentication
+    // For now, just redirect all trial selections to auth
   };
   
   return (
@@ -67,9 +25,7 @@ export default function TrialPage() {
       <div className="max-w-4xl mx-auto p-8">
         <div className="text-center mb-8">
           <h1 className="text-4xl font-bold text-white mb-4">Choose Your Free Trial</h1>
-          <p className="text-gray-300 text-lg">
-            {user ? "Select your trial plan" : "Sign in to activate your free trial"}
-          </p>
+          <p className="text-gray-300 text-lg">Sign in to activate your free trial</p>
         </div>
         <TrialCards 
           onSelect={handleTrialSelect}
