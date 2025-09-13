@@ -577,6 +577,175 @@ router.post("/cancel", isAuthenticated, async (req, res) => {
   }
 });
 
+// Custom checkout with monthly/yearly pricing
+router.post("/custom-checkout", isAuthenticated, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const { planId, billingCycle, price, successUrl, cancelUrl } = req.body;
+    
+    const dbUser = await storage.getUser(userId);
+    if (!dbUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Plan details with monthly and yearly pricing
+    const plans: Record<string, { 
+      name: string, 
+      monthlyPrice: number, 
+      yearlyPrice: number,
+      credits: number 
+    }> = {
+      'starter': { 
+        name: 'Starter Plan', 
+        monthlyPrice: 19, 
+        yearlyPrice: 199,
+        credits: 190 
+      },
+      'professional': { 
+        name: 'Professional Plan', 
+        monthlyPrice: 49, 
+        yearlyPrice: 499,
+        credits: 500 
+      },
+      'business': { 
+        name: 'Business Plan', 
+        monthlyPrice: 199, 
+        yearlyPrice: 1999,
+        credits: 2000 
+      },
+    };
+
+    const plan = plans[planId];
+    if (!plan) {
+      return res.status(400).json({ message: "Invalid plan ID" });
+    }
+
+    // Validate price matches expected
+    const expectedPrice = billingCycle === 'yearly' ? plan.yearlyPrice : plan.monthlyPrice;
+    if (price !== expectedPrice) {
+      return res.status(400).json({ message: "Invalid price for selected plan" });
+    }
+
+    // Create or retrieve Stripe customer
+    let customerId = dbUser.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: dbUser.email || undefined,
+        name: dbUser.fullName || undefined,
+        metadata: {
+          userId: dbUser.id
+        }
+      });
+      customerId = customer.id;
+      await storage.updateUser(userId, { stripeCustomerId: customerId });
+    }
+
+    // Create checkout session
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: `${plan.name} (${billingCycle === 'yearly' ? 'Yearly' : 'Monthly'})`,
+            description: `${plan.credits} credits per month`,
+            metadata: {
+              tier: planId,
+              credits: plan.credits.toString(),
+              billingCycle
+            }
+          },
+          unit_amount: price * 100,
+          recurring: {
+            interval: billingCycle === 'yearly' ? 'year' : 'month',
+          },
+        },
+        quantity: 1,
+      }],
+      mode: 'subscription',
+      success_url: successUrl || `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/?subscribed=true`,
+      cancel_url: cancelUrl || `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/checkout?plan=${planId}`,
+      metadata: {
+        userId: dbUser.id,
+        tier: planId,
+        billingCycle,
+        action: 'subscription'
+      }
+    });
+
+    res.json({ url: session.url });
+  } catch (error: any) {
+    console.error("Error creating custom checkout session:", error);
+    res.status(500).json({ message: "Error creating checkout session: " + error.message });
+  }
+});
+
+// Pro trial checkout ($1 verification)
+router.post("/pro-trial", isAuthenticated, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    const { successUrl, cancelUrl } = req.body;
+    
+    const dbUser = await storage.getUser(userId);
+    if (!dbUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Create or retrieve Stripe customer
+    let customerId = dbUser.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: dbUser.email || undefined,
+        name: dbUser.fullName || undefined,
+        metadata: {
+          userId: dbUser.id
+        }
+      });
+      customerId = customer.id;
+      await storage.updateUser(userId, { stripeCustomerId: customerId });
+    }
+
+    // Create checkout session for $1 verification
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Professional Plan Trial',
+            description: 'Card verification for 14-day Pro trial with 500 credits'
+          },
+          unit_amount: 100, // $1.00
+        },
+        quantity: 1,
+      }],
+      mode: 'payment',
+      success_url: successUrl || `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/?trial=pro_started`,
+      cancel_url: cancelUrl || `${process.env.REPLIT_DOMAINS ? `https://${process.env.REPLIT_DOMAINS.split(',')[0]}` : 'http://localhost:5000'}/trial-selection`,
+      metadata: {
+        userId: dbUser.id,
+        action: 'pro_trial',
+        tier: 'professional'
+      }
+    });
+
+    res.json({ url: session.url });
+  } catch (error: any) {
+    console.error("Error creating Pro trial session:", error);
+    res.status(500).json({ message: "Error creating trial session: " + error.message });
+  }
+});
+
 // Purchase credits with different pack options
 router.post("/purchase", isAuthenticated, async (req, res) => {
   try {

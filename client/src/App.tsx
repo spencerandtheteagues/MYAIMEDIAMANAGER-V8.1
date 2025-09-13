@@ -24,6 +24,7 @@ import Auth from "./pages/auth";
 import Pricing from "./pages/pricing";
 import TrialSelection from "./pages/trial-selection";
 import VerifyEmail from "./pages/verify-email";
+import Checkout from "./pages/checkout";
 import Sidebar from "./components/layout/sidebar";
 import Header from "./components/layout/header";
 import TrialWelcomePopup from "./components/trial-welcome-popup";
@@ -58,6 +59,7 @@ function Router() {
         <Route path="/trial" component={Trial} />
         <Route path="/trial-selection" component={TrialSelection} />
         <Route path="/pricing" component={Pricing} />
+        <Route path="/checkout" component={Checkout} />
         <Route component={Landing} />
       </Switch>
     );
@@ -96,6 +98,7 @@ function Router() {
           <Route path="/help" component={Help} />
           <Route path="/trial" component={Trial} />
           <Route path="/trial-selection" component={TrialSelection} />
+          <Route path="/checkout" component={Checkout} />
           <Route path="/admin" component={AdminPanel} />
           <Route component={NotFound} />
         </Switch>
