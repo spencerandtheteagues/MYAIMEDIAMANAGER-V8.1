@@ -6,6 +6,7 @@ import { Badge } from "@/components/ui/badge";
 import { Check, X, Crown, Star, Zap, ArrowRight } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
+import { useLocation } from "wouter";
 import type { User } from "@shared/schema";
 
 const plans = [
@@ -85,6 +86,7 @@ const plans = [
 
 export default function Billing() {
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
   const [selectedPlan, setSelectedPlan] = useState<string | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   
@@ -94,30 +96,8 @@ export default function Billing() {
   
   const handleUpgrade = async (planId: string) => {
     setSelectedPlan(planId);
-    setIsProcessing(true);
-    
-    try {
-      const response = await apiRequest("POST", "/api/billing/create-checkout", { 
-        planId,
-        successUrl: window.location.origin + "/billing?success=true",
-        cancelUrl: window.location.origin + "/billing"
-      });
-      const data = await response.json();
-      
-      if (data.url) {
-        window.location.href = data.url;
-      } else {
-        throw new Error("No checkout URL received");
-      }
-    } catch (error) {
-      toast({
-        title: "Upgrade Failed",
-        description: "Unable to start upgrade process. Please try again.",
-        variant: "destructive"
-      });
-      setIsProcessing(false);
-      setSelectedPlan(null);
-    }
+    // Redirect to custom checkout page
+    setLocation(`/checkout?plan=${planId}`);
   };
 
   const currentPlanId = user?.tier || "free";

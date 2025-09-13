@@ -49,27 +49,7 @@ export default function TrialSelection() {
     },
   });
 
-  const selectSubscriptionMutation = useMutation({
-    mutationFn: async (planId: string) => {
-      return apiRequest("/api/billing/create-checkout", {
-        method: "POST",
-        body: JSON.stringify({ planId }),
-      });
-    },
-    onSuccess: (data: any) => {
-      // Redirect to Stripe checkout
-      if (data.url) {
-        window.location.href = data.url;
-      }
-    },
-    onError: (error: any) => {
-      toast({
-        title: "Error",
-        description: error.message || "Failed to create checkout session. Please try again.",
-        variant: "destructive",
-      });
-    },
-  });
+  // Note: Subscription checkout is now handled via custom checkout page at /checkout
 
   const handleSelection = (optionId: string, isSubscription: boolean = false) => {
     setSelectedOption(optionId);
@@ -86,7 +66,7 @@ export default function TrialSelection() {
     }
   };
 
-  const isLoading = selectTrialMutation.isPending || selectSubscriptionMutation.isPending;
+  const isLoading = selectTrialMutation.isPending;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-pink-950 py-12">

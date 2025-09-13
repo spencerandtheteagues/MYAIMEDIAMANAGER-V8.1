@@ -7,6 +7,7 @@ import { CheckCircle, Video, Image, Calendar, Sparkles, CreditCard, Zap } from "
 import { Badge } from "@/components/ui/badge";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
+import { useLocation } from "wouter";
 
 interface SubscriptionTier {
   id: string;
@@ -65,6 +66,7 @@ export default function TrialWelcomePopup() {
   const [open, setOpen] = useState(false);
   const [processingUpgrade, setProcessingUpgrade] = useState(false);
   const { toast } = useToast();
+  const [, setLocation] = useLocation();
 
   // Check if we should show the popup (new user from Google login)
   useEffect(() => {
@@ -110,32 +112,11 @@ export default function TrialWelcomePopup() {
     },
   });
 
-  // Handle subscription selection
-  const selectSubscription = useMutation({
-    mutationFn: async (tierId: string) => {
-      setProcessingUpgrade(true);
-      const response = await apiRequest("POST", "/api/billing/create-checkout", {
-        priceId: tierId,
-        mode: "subscription",
-      });
-      return response.json();
-    },
-    onSuccess: (data) => {
-      if (data.url) {
-        // Redirect to Stripe checkout
-        window.location.href = data.url;
-      }
-    },
-    onError: (error) => {
-      setProcessingUpgrade(false);
-      toast({
-        title: "Error",
-        description: "Failed to start checkout. Please try again.",
-        variant: "destructive",
-      });
-      console.error("Subscription error:", error);
-    },
-  });
+  // Handle subscription selection - redirect to custom checkout page
+  const handleSubscriptionSelect = (tierId: string) => {
+    // Redirect to custom checkout page with plan selection
+    setLocation(`/checkout?plan=${tierId}`);
+  };
 
   if (!open) return null;
 
@@ -264,8 +245,7 @@ export default function TrialWelcomePopup() {
                       ))}
                     </ul>
                     <Button
-                      onClick={() => selectSubscription.mutate(tier.id)}
-                      disabled={processingUpgrade}
+                      onClick={() => handleSubscriptionSelect(tier.id)}
                       variant={tier.popular ? "default" : "outline"}
                       className="w-full"
                     >
