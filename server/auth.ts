@@ -76,6 +76,7 @@ router.post("/signup", async (req: Request, res: Response) => {
       role: "user",
       tier: "free_trial",
       credits: 50, // Initial free credits
+      emailVerified: true, // New signups should be verified immediately
       // Automatically assign no-card trial
       trialVariant: "nocard7",
       trialStartedAt: now,

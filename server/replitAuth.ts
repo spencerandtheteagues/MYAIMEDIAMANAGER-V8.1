@@ -81,6 +81,7 @@ async function upsertUser(
       firstName: claims["first_name"],
       lastName: claims["last_name"],
       profileImageUrl: claims["profile_image_url"],
+      emailVerified: true, // OAuth users are already verified by Replit
       // Automatically assign no-card trial
       trialVariant: "nocard7",
       trialStartedAt: now,
