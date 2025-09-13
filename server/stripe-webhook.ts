@@ -8,7 +8,8 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-08-27.basil" as any,
+  apiVersion: "2024-11-20.acacia" as Stripe.LatestApiVersion,
+  typescript: true,
 });
 
 const router = Router();
@@ -120,7 +121,33 @@ router.post("/webhook",
         case 'invoice.paid': {
           const invoice = event.data.object as Stripe.Invoice;
           console.log(`✅ Invoice paid: ${invoice.id}`);
-          // Handle successful recurring payment
+          
+          // Handle successful recurring payment - refresh monthly credits
+          const subscription = invoice.subscription as string;
+          const customerId = invoice.customer as string;
+          
+          if (subscription) {
+            // Find user by customer ID
+            const users = await storage.getAllUsers();
+            const user = users.find(u => u.stripeCustomerId === customerId);
+            
+            if (user && user.monthlyCredits) {
+              // Refresh monthly credits on successful payment
+              await storage.updateUser(user.id, {
+                credits: (user.credits || 0) + user.monthlyCredits
+              });
+              
+              await storage.createCreditTransaction({
+                userId: user.id,
+                amount: user.monthlyCredits,
+                type: 'purchase',
+                description: 'Monthly subscription credits',
+                stripeSessionId: invoice.id
+              });
+              
+              console.log(`✅ Refreshed ${user.monthlyCredits} credits for user ${user.id}`);
+            }
+          }
           break;
         }
         

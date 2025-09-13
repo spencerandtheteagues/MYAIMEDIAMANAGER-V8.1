@@ -8,7 +8,8 @@ if (!process.env.STRIPE_SECRET_KEY) {
 }
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY, {
-  apiVersion: "2025-08-27.basil" as any,
+  apiVersion: "2024-11-20.acacia" as Stripe.LatestApiVersion,
+  typescript: true,
 });
 
 const router = Router();
@@ -226,15 +227,21 @@ router.post("/cancel-subscription", requireAuth, async (req, res) => {
       return res.status(400).json({ message: "No active subscription found" });
     }
     
-    // Cancel the subscription at period end
-    const subscription = await stripe.subscriptions.update(
-      user.stripeSubscriptionId,
-      { cancel_at_period_end: true }
-    );
+    // Cancel the subscription at period end (or immediately based on request)
+    const { immediate } = req.body;
+    const subscription = immediate 
+      ? await stripe.subscriptions.cancel(user.stripeSubscriptionId)
+      : await stripe.subscriptions.update(
+          user.stripeSubscriptionId,
+          { cancel_at_period_end: true }
+        );
     
     res.json({ 
-      message: "Subscription will be cancelled at the end of the billing period",
-      cancelAt: subscription.cancel_at
+      message: immediate 
+        ? "Subscription cancelled immediately"
+        : "Subscription will be cancelled at the end of the billing period",
+      cancelAt: subscription.cancel_at,
+      status: subscription.status
     });
   } catch (error: any) {
     console.error("Error cancelling subscription:", error);
@@ -242,20 +249,167 @@ router.post("/cancel-subscription", requireAuth, async (req, res) => {
   }
 });
 
-// Get subscription plans (for display purposes)
+// Resume a cancelled subscription (remove cancellation)
+router.post("/resume-subscription", requireAuth, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const user = await storage.getUser(userId!);
+    
+    if (!user || !user.stripeSubscriptionId) {
+      return res.status(400).json({ message: "No subscription found" });
+    }
+    
+    // Resume subscription by removing cancellation
+    const subscription = await stripe.subscriptions.update(
+      user.stripeSubscriptionId,
+      { cancel_at_period_end: false }
+    );
+    
+    res.json({ 
+      message: "Subscription resumed successfully",
+      status: subscription.status
+    });
+  } catch (error: any) {
+    console.error("Error resuming subscription:", error);
+    res.status(500).json({ message: "Error resuming subscription: " + error.message });
+  }
+});
+
+// Create customer portal session for subscription management
+router.post("/create-portal-session", requireAuth, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const user = await storage.getUser(userId!);
+    
+    if (!user || !user.stripeCustomerId) {
+      return res.status(400).json({ message: "No customer account found" });
+    }
+    
+    const baseUrl = getBaseUrl(req);
+    const { returnUrl } = req.body;
+    
+    // Create customer portal session
+    const session = await stripe.billingPortal.sessions.create({
+      customer: user.stripeCustomerId,
+      return_url: returnUrl || `${baseUrl}/billing`,
+    });
+    
+    res.json({ url: session.url });
+  } catch (error: any) {
+    console.error("Error creating portal session:", error);
+    res.status(500).json({ message: "Error creating portal session: " + error.message });
+  }
+});
+
+// Get subscription status with detailed information
+router.get("/subscription-status", requireAuth, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const user = await storage.getUser(userId!);
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    if (!user.stripeCustomerId) {
+      return res.json({ 
+        hasSubscription: false,
+        status: 'no_subscription',
+        credits: user.credits || 0
+      });
+    }
+    
+    // Get all subscriptions for the customer
+    const subscriptions = await stripe.subscriptions.list({
+      customer: user.stripeCustomerId,
+      status: 'all',
+      expand: ['data.default_payment_method'],
+      limit: 1
+    });
+    
+    if (subscriptions.data.length === 0) {
+      return res.json({ 
+        hasSubscription: false,
+        status: 'no_subscription',
+        credits: user.credits || 0
+      });
+    }
+    
+    const subscription = subscriptions.data[0];
+    const planId = subscription.metadata.planId;
+    const plan = planId ? PLAN_PRICES[planId as keyof typeof PLAN_PRICES] : null;
+    
+    res.json({
+      hasSubscription: true,
+      subscriptionId: subscription.id,
+      status: subscription.status,
+      cancelAtPeriodEnd: subscription.cancel_at_period_end,
+      currentPeriodEnd: subscription.current_period_end,
+      plan: plan ? {
+        id: planId,
+        name: plan.name,
+        credits: plan.credits,
+        price: plan.price / 100
+      } : null,
+      credits: user.credits || 0
+    });
+  } catch (error: any) {
+    console.error("Error getting subscription status:", error);
+    res.status(500).json({ message: "Error getting subscription status: " + error.message });
+  }
+});
+
+// Get subscription plans with trial info
 router.get("/plans", async (req, res) => {
   try {
+    const userId = getUserId(req);
+    let userTrialPlan = null;
+    
+    if (userId) {
+      const user = await storage.getUser(userId);
+      userTrialPlan = user?.trialPlan || null;
+    }
+    
     const plans = Object.entries(PLAN_PRICES).map(([id, details]) => ({
       id,
       name: details.name,
       price: details.price / 100, // Convert to dollars
       credits: details.credits,
-      description: details.description
+      description: details.description,
+      trialCredits: userTrialPlan === id ? TRIAL_ALLOCATIONS[id as keyof typeof TRIAL_ALLOCATIONS] : null
     }));
     
     res.json(plans);
   } catch (error: any) {
     res.status(500).json({ message: "Error fetching plans: " + error.message });
+  }
+});
+
+// Update payment method
+router.post("/update-payment-method", requireAuth, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const user = await storage.getUser(userId!);
+    
+    if (!user || !user.stripeCustomerId) {
+      return res.status(400).json({ message: "No customer account found" });
+    }
+    
+    const baseUrl = getBaseUrl(req);
+    
+    // Create setup session for updating payment method
+    const session = await stripe.checkout.sessions.create({
+      customer: user.stripeCustomerId,
+      payment_method_types: ['card'],
+      mode: 'setup',
+      success_url: `${baseUrl}/billing?payment_updated=true`,
+      cancel_url: `${baseUrl}/billing`,
+    });
+    
+    res.json({ url: session.url });
+  } catch (error: any) {
+    console.error("Error creating payment update session:", error);
+    res.status(500).json({ message: "Error updating payment method: " + error.message });
   }
 });
 
