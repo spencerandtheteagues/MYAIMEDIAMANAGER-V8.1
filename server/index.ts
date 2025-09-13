@@ -4,6 +4,7 @@ import cors from "cors";
 import rateLimit from "express-rate-limit";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
+import stripeWebhook from "./stripe-webhook";
 
 const app = express();
 
@@ -56,6 +57,11 @@ const authLimiter = rateLimit({
 app.use('/api/login', authLimiter);
 app.use('/api/callback', authLimiter);
 
+// IMPORTANT: Stripe webhook MUST be registered BEFORE body parser middleware
+// to preserve raw body for signature verification
+app.use('/api/stripe', stripeWebhook);
+
+// Body parser middleware - MUST come AFTER webhook routes
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
 
