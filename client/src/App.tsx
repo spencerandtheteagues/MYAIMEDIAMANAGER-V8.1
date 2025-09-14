@@ -13,7 +13,6 @@ import Library from "./pages/library";
 import Settings from "./pages/settings";
 import Campaigns from "./pages/campaigns";
 import Platforms from "./pages/platforms";
-import Schedule from "./pages/schedule";
 import AdminPanel from "./pages/admin";
 import Billing from "./pages/billing";
 import Referrals from "./pages/referrals";
@@ -93,7 +92,6 @@ function Router() {
           <Route path="/library" component={Library} />
           <Route path="/campaigns" component={Campaigns} />
           <Route path="/platforms" component={Platforms} />
-          <Route path="/schedule" component={Schedule} />
           <Route path="/settings" component={Settings} />
           <Route path="/billing" component={Billing} />
           <Route path="/referrals" component={Referrals} />

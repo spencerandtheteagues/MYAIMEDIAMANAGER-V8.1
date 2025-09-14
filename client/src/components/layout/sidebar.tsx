@@ -23,7 +23,6 @@ const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Create Content", href: "/create", icon: PlusCircle },
   { name: "Campaigns", href: "/campaigns", icon: Rocket },
-  { name: "Schedule", href: "/schedule", icon: CalendarDays },
   { name: "Platforms", href: "/platforms", icon: Share2 },
   { name: "Content Calendar", href: "/calendar", icon: Calendar },
   { name: "Approval Queue", href: "/approval", icon: CheckCircle, badge: true },
