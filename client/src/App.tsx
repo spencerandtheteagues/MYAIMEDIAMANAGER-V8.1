@@ -34,6 +34,8 @@ import Header from "./components/layout/header";
 import TrialWelcomePopup from "./components/trial-welcome-popup";
 import RestrictionDialog from "./components/restriction-dialogs";
 import TrialExpired from "./pages/trial-expired";
+import { NotificationPopup } from "./components/NotificationPopup";
+import { TrialCountdown } from "./components/TrialCountdown";
 import { useRestrictionHandler } from "./hooks/useRestrictionHandler";
 import { useEffect, useState } from "react";
 
@@ -102,6 +104,7 @@ function Router() {
     <>
       <div className="flex min-h-screen overflow-hidden bg-background">
         <TrialWelcomePopup />
+        <NotificationPopup />
         
         {/* Desktop Sidebar - hidden on mobile */}
         <div className="hidden md:block">
@@ -118,6 +121,7 @@ function Router() {
         <main className="flex-1 min-w-0 overflow-y-auto">
           <Header onMobileMenuClick={() => setIsMobileSidebarOpen(true)} />
           <div className="p-4 sm:p-6">
+            <TrialCountdown />
             <Switch>
             <Route path="/" component={Dashboard} />
             <Route path="/create" component={CreateContent} />

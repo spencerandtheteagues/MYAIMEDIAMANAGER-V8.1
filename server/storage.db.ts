@@ -548,6 +548,92 @@ export class DbStorage implements IStorage {
       .orderBy(desc(creditTransactions.createdAt));
   }
   
+  async pauseUser(userId: string, reason: string): Promise<User | undefined> {
+    const result = await db.update(users)
+      .set({
+        accountStatus: "frozen",
+        pausedAt: new Date(),
+        pausedReason: reason,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
+  }
+
+  async unpauseUser(userId: string): Promise<User | undefined> {
+    const result = await db.update(users)
+      .set({
+        accountStatus: "active",
+        pausedAt: null,
+        pausedReason: null,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
+  }
+
+  async updateUserActivity(userId: string): Promise<User | undefined> {
+    const result = await db.update(users)
+      .set({
+        lastActivityAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
+  }
+
+  async sendMessageToUser(userId: string, title: string, message: string, requiresPopup: boolean = true): Promise<Notification> {
+    const result = await db.insert(notifications)
+      .values({
+        userId,
+        fromUserId: null, // Admin message
+        type: "admin_message",
+        title,
+        message,
+        actionUrl: null,
+        read: false,
+        requiresPopup,
+        deliveredAt: null
+      })
+      .returning();
+    return result[0];
+  }
+
+  async updateTrialPeriod(userId: string, endDate: Date): Promise<User | undefined> {
+    const result = await db.update(users)
+      .set({
+        trialEndDate: endDate,
+        trialEndsAt: endDate,
+        updatedAt: new Date()
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
+  }
+
+  async getUnreadPopupMessages(userId: string): Promise<Notification[]> {
+    return await db.select().from(notifications)
+      .where(and(
+        eq(notifications.userId, userId),
+        eq(notifications.requiresPopup, true),
+        isNull(notifications.deliveredAt)
+      ))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async markMessageDelivered(notificationId: string): Promise<Notification | undefined> {
+    const result = await db.update(notifications)
+      .set({
+        deliveredAt: new Date(),
+        read: true
+      })
+      .where(eq(notifications.id, notificationId))
+      .returning();
+    return result[0];
+  }
+  
   async getSystemStats(): Promise<any> {
     const allUsers = await db.select().from(users);
     const activeUsers = allUsers.filter(u => u.accountStatus === "active");

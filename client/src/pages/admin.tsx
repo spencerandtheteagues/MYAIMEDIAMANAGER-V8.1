@@ -3,7 +3,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   Bell, Send, Users, UserCheck, CreditCard, Activity, DollarSign, TrendingUp, Shield, 
   Edit, Trash2, Plus, Minus, Key, Mail, Ban, UserCog, RefreshCw, Save, X, AlertTriangle,
-  Eye, EyeOff, Lock, Unlock, UserX, UserPlus
+  Eye, EyeOff, Lock, Unlock, UserX, UserPlus, Pause, Play, MessageSquare, Clock, Calendar
 } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -49,6 +49,12 @@ interface Transaction extends CreditTransaction {
   userEmail?: string;
 }
 
+interface EnhancedUser extends User {
+  isOnline?: boolean;
+  trialDaysRemaining?: number | null;
+  trialStatus?: 'active' | 'expired' | null;
+}
+
 export default function AdminPanel() {
   const queryClient = useQueryClient();
   const { toast } = useToast();
@@ -58,8 +64,8 @@ export default function AdminPanel() {
     queryKey: ["/api/user"],
   });
 
-  // Get all users
-  const { data: users = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery<User[]>({
+  // Get all users with enhanced info
+  const { data: users = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery<EnhancedUser[]>({
     queryKey: ["/api/admin/users"],
     enabled: currentUser?.isAdmin === true,
   });
@@ -77,13 +83,16 @@ export default function AdminPanel() {
   });
 
   // State for modals and forms
-  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [selectedUser, setSelectedUser] = useState<EnhancedUser | null>(null);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [creditModalOpen, setCreditModalOpen] = useState(false);
   const [creditHistoryModalOpen, setCreditHistoryModalOpen] = useState(false);
   const [createUserModalOpen, setCreateUserModalOpen] = useState(false);
+  const [pauseModalOpen, setPauseModalOpen] = useState(false);
+  const [messageModalOpen, setMessageModalOpen] = useState(false);
+  const [trialModalOpen, setTrialModalOpen] = useState(false);
   
   // Form states
   const [editForm, setEditForm] = useState<Partial<User>>({});
@@ -95,6 +104,9 @@ export default function AdminPanel() {
   const [creditReason, setCreditReason] = useState("");
   const [selectedTier, setSelectedTier] = useState("");
   const [userCreditHistory, setUserCreditHistory] = useState<CreditTransaction[]>([]);
+  const [pauseReason, setPauseReason] = useState("");
+  const [messageForm, setMessageForm] = useState({ title: "", message: "", requiresPopup: true });
+  const [trialDaysToAdd, setTrialDaysToAdd] = useState("");
   
   // Create user form state
   const [createUserForm, setCreateUserForm] = useState({
@@ -335,6 +347,83 @@ export default function AdminPanel() {
     onError: (error: any) => {
       toast({
         title: "Error suspending account",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Pause user mutation
+  const pauseUserMutation = useMutation({
+    mutationFn: async ({ userId, reason }: { userId: string; reason: string }) => {
+      return await apiRequest("POST", `/api/admin/users/${userId}/pause`, { reason });
+    },
+    onSuccess: () => {
+      toast({ title: "User account paused successfully" });
+      refetchUsers();
+      setPauseModalOpen(false);
+      setPauseReason("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error pausing account",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Unpause user mutation
+  const unpauseUserMutation = useMutation({
+    mutationFn: async (userId: string) => {
+      return await apiRequest("POST", `/api/admin/users/${userId}/unpause`);
+    },
+    onSuccess: () => {
+      toast({ title: "User account unpaused successfully" });
+      refetchUsers();
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error unpausing account",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Send message mutation
+  const sendMessageMutation = useMutation({
+    mutationFn: async ({ userId, title, message, requiresPopup }: { userId: string; title: string; message: string; requiresPopup: boolean }) => {
+      return await apiRequest("POST", `/api/admin/users/${userId}/message`, { title, message, requiresPopup });
+    },
+    onSuccess: () => {
+      toast({ title: "Message sent successfully" });
+      setMessageModalOpen(false);
+      setMessageForm({ title: "", message: "", requiresPopup: true });
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error sending message",
+        description: error.message,
+        variant: "destructive",
+      });
+    },
+  });
+
+  // Update trial mutation
+  const updateTrialMutation = useMutation({
+    mutationFn: async ({ userId, daysToAdd }: { userId: string; daysToAdd: number }) => {
+      return await apiRequest("PATCH", `/api/admin/users/${userId}/trial`, { daysToAdd });
+    },
+    onSuccess: () => {
+      toast({ title: "Trial period updated successfully" });
+      refetchUsers();
+      setTrialModalOpen(false);
+      setTrialDaysToAdd("");
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error updating trial",
         description: error.message,
         variant: "destructive",
       });
@@ -785,8 +874,10 @@ export default function AdminPanel() {
                         <TableHead className="min-w-[100px]">Tier</TableHead>
                         <TableHead className="min-w-[80px]">Credits</TableHead>
                         <TableHead className="min-w-[100px]">Status</TableHead>
+                        <TableHead className="min-w-[80px]">Online</TableHead>
+                        <TableHead className="min-w-[120px]">Trial</TableHead>
                         <TableHead className="min-w-[80px]">Admin</TableHead>
-                        <TableHead className="min-w-[500px]">Actions</TableHead>
+                        <TableHead className="min-w-[700px]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                   <TableBody>
@@ -808,7 +899,29 @@ export default function AdminPanel() {
                         <TableCell>
                           <Badge className={getStatusColor(user.accountStatus)}>
                             {user.accountStatus}
+                            {user.isPaused && " (Paused)"}
                           </Badge>
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-2">
+                            <div className={`w-2 h-2 rounded-full ${user.isOnline ? 'bg-green-500' : 'bg-gray-400'}`} />
+                            <span className="text-sm">{user.isOnline ? 'Online' : 'Offline'}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell>
+                          {user.tier === 'free' && user.trialDaysRemaining !== null ? (
+                            <div className="text-sm">
+                              {user.trialStatus === 'active' ? (
+                                <span className={user.trialDaysRemaining <= 3 ? 'text-red-600 font-medium' : ''}>
+                                  {user.trialDaysRemaining} days left
+                                </span>
+                              ) : (
+                                <span className="text-red-600 font-medium">Expired</span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <Switch
@@ -1119,6 +1232,246 @@ export default function AdminPanel() {
                                 </DialogFooter>
                               </DialogContent>
                             </Dialog>
+
+                            {/* Pause/Unpause User */}
+                            {user.isPaused ? (
+                              <Button
+                                variant="outline"
+                                size="sm"
+                                onClick={() => unpauseUserMutation.mutate(user.id)}
+                                data-testid={`button-unpause-${user.id}`}
+                              >
+                                <Play className="h-4 w-4 mr-1" />
+                                Unpause
+                              </Button>
+                            ) : (
+                              <Dialog
+                                open={pauseModalOpen && selectedUser?.id === user.id}
+                                onOpenChange={(open) => {
+                                  setPauseModalOpen(open);
+                                  if (!open) {
+                                    setSelectedUser(null);
+                                    setPauseReason("");
+                                  }
+                                }}
+                              >
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setSelectedUser(user)}
+                                    data-testid={`button-pause-${user.id}`}
+                                  >
+                                    <Pause className="h-4 w-4 mr-1" />
+                                    Pause
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Pause User Account</DialogTitle>
+                                    <DialogDescription>
+                                      Pausing {user.fullName || user.username}'s account
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div>
+                                      <Label>Reason for pausing</Label>
+                                      <Textarea
+                                        value={pauseReason}
+                                        onChange={(e) => setPauseReason(e.target.value)}
+                                        placeholder="Enter reason for pausing this account"
+                                        rows={3}
+                                        data-testid="textarea-pause-reason"
+                                      />
+                                    </div>
+                                  </div>
+                                  <DialogFooter>
+                                    <Button variant="outline" onClick={() => setPauseModalOpen(false)}>
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      onClick={() => {
+                                        if (pauseReason.trim()) {
+                                          pauseUserMutation.mutate({ userId: user.id, reason: pauseReason });
+                                        } else {
+                                          toast({
+                                            title: "Reason required",
+                                            description: "Please provide a reason for pausing",
+                                            variant: "destructive",
+                                          });
+                                        }
+                                      }}
+                                      data-testid="button-confirm-pause"
+                                    >
+                                      Pause Account
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            )}
+
+                            {/* Send Message */}
+                            <Dialog
+                              open={messageModalOpen && selectedUser?.id === user.id}
+                              onOpenChange={(open) => {
+                                setMessageModalOpen(open);
+                                if (!open) {
+                                  setSelectedUser(null);
+                                  setMessageForm({ title: "", message: "", requiresPopup: true });
+                                }
+                              }}
+                            >
+                              <DialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => setSelectedUser(user)}
+                                  data-testid={`button-message-${user.id}`}
+                                >
+                                  <MessageSquare className="h-4 w-4 mr-1" />
+                                  Message
+                                </Button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>Send Message to User</DialogTitle>
+                                  <DialogDescription>
+                                    Send a message to {user.fullName || user.username}
+                                  </DialogDescription>
+                                </DialogHeader>
+                                <div className="space-y-4">
+                                  <div>
+                                    <Label>Title</Label>
+                                    <Input
+                                      value={messageForm.title}
+                                      onChange={(e) => setMessageForm({ ...messageForm, title: e.target.value })}
+                                      placeholder="Message title"
+                                      data-testid="input-message-title"
+                                    />
+                                  </div>
+                                  <div>
+                                    <Label>Message</Label>
+                                    <Textarea
+                                      value={messageForm.message}
+                                      onChange={(e) => setMessageForm({ ...messageForm, message: e.target.value })}
+                                      placeholder="Message content"
+                                      rows={4}
+                                      data-testid="textarea-message-content"
+                                    />
+                                  </div>
+                                  <div className="flex items-center space-x-2">
+                                    <Switch
+                                      checked={messageForm.requiresPopup}
+                                      onCheckedChange={(checked) => setMessageForm({ ...messageForm, requiresPopup: checked })}
+                                      data-testid="switch-popup"
+                                    />
+                                    <Label className="font-normal cursor-pointer">
+                                      Show as popup notification
+                                    </Label>
+                                  </div>
+                                </div>
+                                <DialogFooter>
+                                  <Button variant="outline" onClick={() => setMessageModalOpen(false)}>
+                                    Cancel
+                                  </Button>
+                                  <Button
+                                    onClick={() => {
+                                      if (messageForm.title && messageForm.message) {
+                                        sendMessageMutation.mutate({
+                                          userId: user.id,
+                                          title: messageForm.title,
+                                          message: messageForm.message,
+                                          requiresPopup: messageForm.requiresPopup,
+                                        });
+                                      } else {
+                                        toast({
+                                          title: "Missing fields",
+                                          description: "Title and message are required",
+                                          variant: "destructive",
+                                        });
+                                      }
+                                    }}
+                                    data-testid="button-send-message"
+                                  >
+                                    Send Message
+                                  </Button>
+                                </DialogFooter>
+                              </DialogContent>
+                            </Dialog>
+
+                            {/* Extend Trial */}
+                            {user.tier === 'free' && (
+                              <Dialog
+                                open={trialModalOpen && selectedUser?.id === user.id}
+                                onOpenChange={(open) => {
+                                  setTrialModalOpen(open);
+                                  if (!open) {
+                                    setSelectedUser(null);
+                                    setTrialDaysToAdd("");
+                                  }
+                                }}
+                              >
+                                <DialogTrigger asChild>
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => setSelectedUser(user)}
+                                    data-testid={`button-trial-${user.id}`}
+                                  >
+                                    <Calendar className="h-4 w-4 mr-1" />
+                                    Trial
+                                  </Button>
+                                </DialogTrigger>
+                                <DialogContent>
+                                  <DialogHeader>
+                                    <DialogTitle>Manage Trial Period</DialogTitle>
+                                    <DialogDescription>
+                                      Extend trial for {user.fullName || user.username}
+                                      {user.trialDaysRemaining !== null && (
+                                        <div className="mt-2">
+                                          Current trial: {user.trialDaysRemaining} days remaining
+                                        </div>
+                                      )}
+                                    </DialogDescription>
+                                  </DialogHeader>
+                                  <div className="space-y-4">
+                                    <div>
+                                      <Label>Days to add</Label>
+                                      <Input
+                                        type="number"
+                                        value={trialDaysToAdd}
+                                        onChange={(e) => setTrialDaysToAdd(e.target.value)}
+                                        placeholder="Number of days to add"
+                                        min="1"
+                                        data-testid="input-trial-days"
+                                      />
+                                    </div>
+                                  </div>
+                                  <DialogFooter>
+                                    <Button variant="outline" onClick={() => setTrialModalOpen(false)}>
+                                      Cancel
+                                    </Button>
+                                    <Button
+                                      onClick={() => {
+                                        const days = parseInt(trialDaysToAdd);
+                                        if (days > 0) {
+                                          updateTrialMutation.mutate({ userId: user.id, daysToAdd: days });
+                                        } else {
+                                          toast({
+                                            title: "Invalid days",
+                                            description: "Please enter a valid number of days",
+                                            variant: "destructive",
+                                          });
+                                        }
+                                      }}
+                                      data-testid="button-extend-trial"
+                                    >
+                                      Extend Trial
+                                    </Button>
+                                  </DialogFooter>
+                                </DialogContent>
+                              </Dialog>
+                            )}
 
                             {/* Delete User */}
                             <AlertDialog>

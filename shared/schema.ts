@@ -68,6 +68,11 @@ export const users = pgTable("users", {
   isPaid: boolean("is_paid").notNull().default(false),
   needsTrialSelection: boolean("needs_trial_selection").notNull().default(false),
   
+  // Activity and pause status
+  lastActivityAt: timestamp("last_activity_at"),
+  pausedAt: timestamp("paused_at"),
+  pausedReason: text("paused_reason"),
+  
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -303,6 +308,8 @@ export const notifications = pgTable("notifications", {
   message: text("message").notNull(),
   actionUrl: text("action_url"), // Optional URL to navigate to
   read: boolean("read").default(false),
+  requiresPopup: boolean("requires_popup").default(false), // Whether to show as popup
+  deliveredAt: timestamp("delivered_at"), // When popup was shown to user
   createdAt: timestamp("created_at").defaultNow(),
 });
 

@@ -91,6 +91,8 @@ export interface IStorage {
   markNotificationAsRead(id: string): Promise<Notification | undefined>;
   markAllNotificationsAsRead(userId: string): Promise<void>;
   createGlobalNotification(notification: Omit<InsertNotification, 'userId'>): Promise<void>;
+  getUnreadPopupMessages(userId: string): Promise<Notification[]>;
+  markMessageDelivered(notificationId: string): Promise<Notification | undefined>;
   
   // Content Library
   getContentLibraryByUserId(userId: string): Promise<ContentLibraryItem[]>;
@@ -120,6 +122,13 @@ export interface IStorage {
   getUserCreditHistory(userId: string): Promise<CreditTransaction[]>;
   getSystemStats(): Promise<any>;
   getAllTransactions(): Promise<CreditTransaction[]>;
+  
+  // User activity and pause/unpause
+  pauseUser(userId: string, reason: string): Promise<User | undefined>;
+  unpauseUser(userId: string): Promise<User | undefined>;
+  updateUserActivity(userId: string): Promise<User | undefined>;
+  sendMessageToUser(userId: string, title: string, message: string, requiresPopup?: boolean): Promise<Notification>;
+  updateTrialPeriod(userId: string, endDate: Date): Promise<User | undefined>;
 }
 
 export class MemStorage implements IStorage {
@@ -976,6 +985,104 @@ export class MemStorage implements IStorage {
   async getAllTransactions(): Promise<CreditTransaction[]> {
     return Array.from(this.creditTransactions.values())
       .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async pauseUser(userId: string, reason: string): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+    
+    const updatedUser = { 
+      ...user, 
+      accountStatus: "frozen",
+      pausedAt: new Date(),
+      pausedReason: reason,
+      updatedAt: new Date()
+    };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+
+  async unpauseUser(userId: string): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+    
+    const updatedUser = { 
+      ...user, 
+      accountStatus: "active",
+      pausedAt: null,
+      pausedReason: null,
+      updatedAt: new Date()
+    };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+
+  async updateUserActivity(userId: string): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+    
+    const updatedUser = { 
+      ...user, 
+      lastActivityAt: new Date()
+    };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+
+  async sendMessageToUser(userId: string, title: string, message: string, requiresPopup: boolean = true): Promise<Notification> {
+    const id = randomUUID();
+    const notification: Notification = {
+      id,
+      userId,
+      fromUserId: null, // Admin message
+      type: "admin_message",
+      title,
+      message,
+      actionUrl: null,
+      read: false,
+      requiresPopup,
+      deliveredAt: null,
+      createdAt: new Date()
+    };
+    this.notifications.set(id, notification);
+    return notification;
+  }
+
+  async updateTrialPeriod(userId: string, endDate: Date): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+    
+    const updatedUser = { 
+      ...user, 
+      trialEndDate: endDate,
+      trialEndsAt: endDate,
+      updatedAt: new Date()
+    };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+
+  async getUnreadPopupMessages(userId: string): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter(n => 
+        n.userId === userId && 
+        n.requiresPopup === true && 
+        !n.deliveredAt
+      )
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async markMessageDelivered(notificationId: string): Promise<Notification | undefined> {
+    const notification = this.notifications.get(notificationId);
+    if (!notification) return undefined;
+    
+    const updatedNotification = { 
+      ...notification, 
+      deliveredAt: new Date(),
+      read: true
+    };
+    this.notifications.set(notificationId, updatedNotification);
+    return updatedNotification;
   }
   
   async getSystemStats(): Promise<any> {

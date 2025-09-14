@@ -24,6 +24,8 @@ import { createMetricsRoute, trackApiMetrics } from "./metrics";
 import { trialRouter } from "./trial";
 import verificationRoutes from "./verificationRoutes";
 import { enforceTrialExpiration, isUserTrialExpired } from "./middleware/trialEnforcement";
+import { checkUserAccess } from "./middleware/accessControl";
+import { trackUserActivity } from "./middleware/activityTracker";
 
 // Helper function to get user ID from request regardless of auth method
 function getUserId(req: any): string | null {
@@ -103,6 +105,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Add trial selection check middleware
   app.use(checkTrialSelection);
+  
+  // Add activity tracking middleware (must come after auth)
+  app.use(trackUserActivity);
+  
+  // Add access control middleware (check pause and trial)
+  app.use(checkUserAccess);
   
   // Add trial expiration enforcement middleware
   // This must come after authentication but before route handlers
@@ -1607,6 +1615,75 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
+  // Notification endpoints
+  app.get("/api/notifications/popup", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const popupMessages = await storage.getUnreadPopupMessages(userId);
+      res.json(popupMessages);
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get popup messages" });
+    }
+  });
+
+  app.post("/api/notifications/:id/delivered", async (req: any, res) => {
+    try {
+      const { id } = req.params;
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      await storage.markMessageDelivered(id);
+      res.json({ success: true });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to mark message delivered" });
+    }
+  });
+
+  // Trial status endpoint
+  app.get("/api/user/trial-status", async (req: any, res) => {
+    try {
+      const userId = getUserId(req);
+      if (!userId) {
+        return res.status(401).json({ message: "Not authenticated" });
+      }
+      
+      const user = await storage.getUser(userId);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const now = new Date();
+      const trialEndDate = user.trialEndDate || user.trialEndsAt;
+      
+      let isTrialUser = false;
+      let daysRemaining = 0;
+      let hasExpired = false;
+      
+      if (user.tier === 'free' && !user.isPaid && trialEndDate) {
+        isTrialUser = true;
+        const endDate = new Date(trialEndDate);
+        const timeDiff = endDate.getTime() - now.getTime();
+        daysRemaining = Math.max(0, Math.ceil(timeDiff / (1000 * 60 * 60 * 24)));
+        hasExpired = daysRemaining === 0 && timeDiff < 0;
+      }
+      
+      res.json({
+        isTrialUser,
+        trialEndDate,
+        daysRemaining,
+        hasExpired,
+      });
+    } catch (error) {
+      res.status(500).json({ message: "Failed to get trial status" });
+    }
+  });
+  
   // Admin endpoints  
   app.get("/api/admin/users", async (req, res) => {
     const userId = getUserId(req);

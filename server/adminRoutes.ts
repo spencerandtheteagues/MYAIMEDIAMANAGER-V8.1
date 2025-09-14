@@ -3,6 +3,7 @@ import { storage } from "./storage";
 import { hash } from "bcryptjs";
 import { randomUUID } from "crypto";
 import Stripe from "stripe";
+import { isUserOnline } from "./middleware/activityTracker";
 
 const stripe = process.env.STRIPE_SECRET_KEY 
   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" as any })
@@ -159,11 +160,39 @@ router.post("/users", async (req, res) => {
   }
 });
 
-// Get all users
+// Get all users with enhanced info
 router.get("/users", async (req, res) => {
   try {
     const users = await storage.getAllUsers();
-    res.json(users);
+    
+    // Enhance users with online status and trial info
+    const enhancedUsers = await Promise.all(
+      users.map(async (user) => {
+        const isOnline = await isUserOnline(user.id);
+        const now = new Date();
+        const trialEndDate = user.trialEndDate || user.trialEndsAt;
+        
+        let trialDaysRemaining = null;
+        let trialStatus = null;
+        
+        if (user.tier === 'free' && !user.isPaid && trialEndDate) {
+          const daysRemaining = Math.ceil(
+            (new Date(trialEndDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+          );
+          trialDaysRemaining = Math.max(0, daysRemaining);
+          trialStatus = trialDaysRemaining > 0 ? 'active' : 'expired';
+        }
+        
+        return {
+          ...user,
+          isOnline,
+          trialDaysRemaining,
+          trialStatus,
+        };
+      })
+    );
+    
+    res.json(enhancedUsers);
   } catch (error: any) {
     res.status(500).json({ message: "Error fetching users: " + error.message });
   }
@@ -667,6 +696,131 @@ router.get("/users/:id/credit-history", async (req, res) => {
     res.json(history);
   } catch (error: any) {
     res.status(500).json({ message: "Error fetching credit history: " + error.message });
+  }
+});
+
+// Pause user account
+router.post("/users/:id/pause", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    if (!reason) {
+      return res.status(400).json({ message: "Reason is required for pausing account" });
+    }
+    
+    const updatedUser = await storage.pauseUser(id, reason);
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: id,
+      action: "pause_account",
+      details: { reason },
+    });
+    
+    res.json({ message: "User account paused", user: updatedUser });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error pausing account: " + error.message });
+  }
+});
+
+// Unpause user account
+router.post("/users/:id/unpause", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const { id } = req.params;
+    
+    const updatedUser = await storage.unpauseUser(id);
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: id,
+      action: "unpause_account",
+      details: {},
+    });
+    
+    res.json({ message: "User account unpaused", user: updatedUser });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error unpausing account: " + error.message });
+  }
+});
+
+// Send message to user
+router.post("/users/:id/message", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const { id } = req.params;
+    const { title, message, requiresPopup = true } = req.body;
+    
+    if (!title || !message) {
+      return res.status(400).json({ message: "Title and message are required" });
+    }
+    
+    const notification = await storage.sendMessageToUser(id, title, message, requiresPopup);
+    
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: id,
+      action: "send_message",
+      details: { title, message, requiresPopup },
+    });
+    
+    res.json({ message: "Message sent", notification });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error sending message: " + error.message });
+  }
+});
+
+// Update trial period
+router.patch("/users/:id/trial", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const { id } = req.params;
+    const { endDate, daysToAdd } = req.body;
+    
+    let newEndDate: Date;
+    
+    if (endDate) {
+      newEndDate = new Date(endDate);
+    } else if (daysToAdd) {
+      const user = await storage.getUser(id);
+      if (!user) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      const currentEndDate = user.trialEndDate || user.trialEndsAt || new Date();
+      newEndDate = new Date(currentEndDate);
+      newEndDate.setDate(newEndDate.getDate() + daysToAdd);
+    } else {
+      return res.status(400).json({ message: "Either endDate or daysToAdd is required" });
+    }
+    
+    const updatedUser = await storage.updateTrialPeriod(id, newEndDate);
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: id,
+      action: "update_trial",
+      details: { newEndDate, daysToAdd },
+    });
+    
+    res.json({ message: "Trial period updated", user: updatedUser });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error updating trial: " + error.message });
   }
 });
 
