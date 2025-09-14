@@ -29,13 +29,13 @@
   --chart-3: hsl(60, 100%, 50%);
   --chart-4: hsl(320, 100%, 50%);
   --chart-5: hsl(200, 100%, 50%);
-  --sidebar: hsl(0, 0%, 2%);
+  --sidebar: hsl(270, 50%, 8%);
   --sidebar-foreground: hsl(0, 0%, 90%);
   --sidebar-primary: hsl(280, 100%, 60%);
   --sidebar-primary-foreground: hsl(0, 0%, 100%);
-  --sidebar-accent: hsl(280, 100%, 10%);
+  --sidebar-accent: hsl(270, 45%, 15%);
   --sidebar-accent-foreground: hsl(280, 100%, 70%);
-  --sidebar-border: hsl(280, 50%, 15%);
+  --sidebar-border: hsl(270, 40%, 20%);
   --sidebar-ring: hsl(280, 100%, 60%);
   --font-sans: 'Space Grotesk', system-ui, sans-serif;
   --font-display: 'Orbitron', system-ui, sans-serif;
@@ -94,13 +94,13 @@
   --chart-3: hsl(60, 100%, 50%);
   --chart-4: hsl(220, 100%, 50%);
   --chart-5: hsl(160, 100%, 50%);
-  --sidebar: hsl(0, 0%, 2%);
+  --sidebar: hsl(270, 50%, 8%);
   --sidebar-foreground: hsl(0, 0%, 90%);
   --sidebar-primary: hsl(200, 100%, 60%);
   --sidebar-primary-foreground: hsl(0, 0%, 100%);
-  --sidebar-accent: hsl(200, 100%, 10%);
+  --sidebar-accent: hsl(270, 45%, 15%);
   --sidebar-accent-foreground: hsl(200, 100%, 70%);
-  --sidebar-border: hsl(200, 50%, 15%);
+  --sidebar-border: hsl(270, 40%, 20%);
   --sidebar-ring: hsl(200, 100%, 60%);
   
   /* Gradients for Neon Blue theme */
@@ -137,13 +137,13 @@
   --chart-3: hsl(45, 80%, 55%);
   --chart-4: hsl(330, 60%, 50%);
   --chart-5: hsl(180, 60%, 45%);
-  --sidebar: hsl(210, 20%, 10%);
+  --sidebar: hsl(270, 40%, 10%);
   --sidebar-foreground: hsl(0, 0%, 85%);
   --sidebar-primary: hsl(160, 70%, 45%);
   --sidebar-primary-foreground: hsl(0, 0%, 100%);
-  --sidebar-accent: hsl(210, 15%, 15%);
+  --sidebar-accent: hsl(270, 35%, 17%);
   --sidebar-accent-foreground: hsl(160, 70%, 55%);
-  --sidebar-border: hsl(210, 20%, 20%);
+  --sidebar-border: hsl(270, 35%, 22%);
   --sidebar-ring: hsl(160, 70%, 45%);
   
   /* Subtle gradients for Professional theme */
@@ -175,13 +175,13 @@
   --border: hsl(280, 50%, 20%);
   --input: hsl(0, 0%, 10%);
   --ring: hsl(280, 100%, 60%);
-  --sidebar: hsl(0, 0%, 2%);
+  --sidebar: hsl(270, 50%, 8%);
   --sidebar-foreground: hsl(0, 0%, 90%);
   --sidebar-primary: hsl(280, 100%, 60%);
   --sidebar-primary-foreground: hsl(0, 0%, 100%);
-  --sidebar-accent: hsl(280, 100%, 10%);
+  --sidebar-accent: hsl(270, 45%, 15%);
   --sidebar-accent-foreground: hsl(280, 100%, 70%);
-  --sidebar-border: hsl(280, 50%, 15%);
+  --sidebar-border: hsl(270, 40%, 20%);
   --sidebar-ring: hsl(280, 100%, 60%);
 }
 
