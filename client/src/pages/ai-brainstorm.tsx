@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Avatar } from "@/components/ui/avatar";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { 
   Send, 
   Sparkles, 
@@ -28,10 +29,14 @@ import {
   Video,
   Image as ImageIcon,
   FileText,
-  ChevronRight
+  ChevronRight,
+  CreditCard,
+  Info
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { format } from "date-fns";
+import { useQuery } from "@tanstack/react-query";
+import { Link } from "wouter";
 
 interface Message {
   id: string;
@@ -123,6 +128,20 @@ export default function AIBrainstorm() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  // Fetch user data to get credit balance
+  const { data: user, refetch: refetchUser } = useQuery<{
+    id: string;
+    email: string;
+    credits: number;
+    tier?: string;
+    isPaid?: boolean;
+  }>({
+    queryKey: ["/api/user"],
+  });
+
+  const credits = user?.credits || 0;
+  const hasCredits = credits > 0;
+
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
@@ -167,6 +186,17 @@ export default function AIBrainstorm() {
 
       if (!response.ok) {
         const error = await response.json();
+        
+        // Handle insufficient credits (402 Payment Required)
+        if (response.status === 402) {
+          const errorWithCredits = {
+            ...error,
+            status: 402,
+            isInsufficientCredits: true
+          };
+          throw errorWithCredits;
+        }
+        
         throw new Error(error.message || `Server responded with ${response.status}`);
       }
 
@@ -216,21 +246,47 @@ export default function AIBrainstorm() {
       setMessages(prev => [...prev, assistantMessage]);
       setStreamedContent("");
       
+      // Refetch user data to update credit balance after successful message
+      refetchUser();
+      
     } catch (error: any) {
       console.error("Chat error:", error);
       
       let errorMessage = "Failed to get response. ";
-      if (error.message.includes("API key")) {
+      let showUpgradeLink = false;
+      
+      // Handle insufficient credits error
+      if (error.isInsufficientCredits || error.status === 402) {
+        errorMessage = error.message || "Insufficient credits. You need at least 1 credit to send a message.";
+        showUpgradeLink = true;
+        
+        // Update credit balance from error response if available
+        if (error.credits !== undefined) {
+          refetchUser();
+        }
+      } else if (error.message?.includes("API key")) {
         errorMessage += `${selectedModel === "openai" ? "OpenAI" : "Gemini"} API key is not configured. Please add it in Settings.`;
-      } else if (error.message.includes("Authentication")) {
+      } else if (error.message?.includes("Authentication")) {
         errorMessage += "Please log in to use the AI chat feature.";
       } else {
         errorMessage += error.message || "Please try again.";
       }
       
       toast({
-        title: "Chat Error",
-        description: errorMessage,
+        title: error.isInsufficientCredits ? "Insufficient Credits" : "Chat Error",
+        description: (
+          <div className="space-y-2">
+            <p>{errorMessage}</p>
+            {showUpgradeLink && (
+              <Link href="/billing">
+                <Button variant="link" className="p-0 h-auto text-blue-500">
+                  <CreditCard className="w-4 h-4 mr-1" />
+                  Purchase more credits
+                </Button>
+              </Link>
+            )}
+          </div>
+        ),
         variant: "destructive",
       });
 
@@ -297,27 +353,50 @@ export default function AIBrainstorm() {
           </p>
         </div>
         
-        {/* Model Selector */}
-        <Card className="p-4">
-          <div className="flex items-center space-x-4">
-            <Label htmlFor="model-switch" className="text-sm font-medium">
-              AI Model:
-            </Label>
-            <div className="flex items-center space-x-2">
-              <Badge variant={selectedModel === "openai" ? "default" : "outline"}>
-                ChatGPT-5
-              </Badge>
-              <Switch
-                id="model-switch"
-                checked={selectedModel === "gemini"}
-                onCheckedChange={(checked) => setSelectedModel(checked ? "gemini" : "openai")}
-              />
-              <Badge variant={selectedModel === "gemini" ? "default" : "outline"}>
-                Gemini 2.5 Pro
-              </Badge>
+        <div className="flex items-center gap-4">
+          {/* Credit Balance Display */}
+          <Card className="p-4">
+            <div className="flex items-center gap-3">
+              <CreditCard className="w-5 h-5 text-muted-foreground" />
+              <div>
+                <p className="text-sm font-medium">Credits</p>
+                <p className="text-2xl font-bold">
+                  {user ? credits.toLocaleString() : "--"}
+                </p>
+              </div>
+              {credits === 0 && (
+                <Link href="/billing">
+                  <Button variant="destructive" size="sm">
+                    <Zap className="w-4 h-4 mr-1" />
+                    Buy Credits
+                  </Button>
+                </Link>
+              )}
             </div>
-          </div>
-        </Card>
+          </Card>
+          
+          {/* Model Selector */}
+          <Card className="p-4">
+            <div className="flex items-center space-x-4">
+              <Label htmlFor="model-switch" className="text-sm font-medium">
+                AI Model:
+              </Label>
+              <div className="flex items-center space-x-2">
+                <Badge variant={selectedModel === "openai" ? "default" : "outline"}>
+                  ChatGPT-5
+                </Badge>
+                <Switch
+                  id="model-switch"
+                  checked={selectedModel === "gemini"}
+                  onCheckedChange={(checked) => setSelectedModel(checked ? "gemini" : "openai")}
+                />
+                <Badge variant={selectedModel === "gemini" ? "default" : "outline"}>
+                  Gemini 2.5 Pro
+                </Badge>
+              </div>
+            </div>
+          </Card>
+        </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -444,27 +523,74 @@ export default function AIBrainstorm() {
             
             {/* Message Input */}
             <div className="border-t p-4">
-              <div className="flex gap-2">
-                <Textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={(e) => setInput(e.target.value)}
-                  onKeyPress={handleKeyPress}
-                  placeholder="Ask about content ideas, strategies, hashtags, or anything social media related..."
-                  className="min-h-[60px] flex-1"
-                  disabled={isLoading}
-                />
-                <Button
-                  onClick={() => handleSendMessage()}
-                  disabled={!input.trim() || isLoading}
-                  className="px-6"
-                >
-                  {isLoading ? (
-                    <Loader2 className="w-4 h-4 animate-spin" />
-                  ) : (
-                    <Send className="w-4 h-4" />
+              {/* Credit cost indicator */}
+              {!hasCredits && (
+                <Alert className="mb-3" variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription className="flex items-center justify-between">
+                    <span>You have no credits. Purchase credits to continue chatting.</span>
+                    <Link href="/billing">
+                      <Button variant="link" size="sm" className="text-blue-500">
+                        <CreditCard className="w-4 h-4 mr-1" />
+                        Buy Credits
+                      </Button>
+                    </Link>
+                  </AlertDescription>
+                </Alert>
+              )}
+              
+              <div className="flex gap-2 items-end">
+                <div className="flex-1">
+                  <Textarea
+                    ref={textareaRef}
+                    value={input}
+                    onChange={(e) => setInput(e.target.value)}
+                    onKeyPress={handleKeyPress}
+                    placeholder={hasCredits 
+                      ? "Ask about content ideas, strategies, hashtags, or anything social media related..."
+                      : "Purchase credits to start chatting..."
+                    }
+                    className="min-h-[60px]"
+                    disabled={isLoading || !hasCredits}
+                  />
+                  {hasCredits && (
+                    <div className="flex items-center gap-2 mt-2 text-xs text-muted-foreground">
+                      <Info className="w-3 h-3" />
+                      <span>1 credit will be charged per message</span>
+                    </div>
                   )}
-                </Button>
+                </div>
+                
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        onClick={() => handleSendMessage()}
+                        disabled={!input.trim() || isLoading || !hasCredits}
+                        className="px-6"
+                      >
+                        {isLoading ? (
+                          <Loader2 className="w-4 h-4 animate-spin" />
+                        ) : (
+                          <>
+                            <Send className="w-4 h-4" />
+                            {hasCredits && (
+                              <Badge variant="secondary" className="ml-2 text-xs">
+                                -1
+                              </Badge>
+                            )}
+                          </>
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      {!hasCredits 
+                        ? "No credits available" 
+                        : "Send message (1 credit)"
+                      }
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
           </Card>
@@ -577,6 +703,22 @@ export default function AIBrainstorm() {
                 <p>• Ask for hashtag recommendations</p>
                 <p>• Request engagement strategies</p>
               </div>
+              
+              {/* Credit info */}
+              <Alert className="mt-4">
+                <CreditCard className="h-4 w-4" />
+                <AlertDescription>
+                  <div className="space-y-1">
+                    <p className="font-medium">Credit Usage</p>
+                    <p className="text-xs">Each message costs 1 credit</p>
+                    {credits < 5 && credits > 0 && (
+                      <p className="text-xs text-yellow-600 dark:text-yellow-400">
+                        Low balance: {credits} credits remaining
+                      </p>
+                    )}
+                  </div>
+                </AlertDescription>
+              </Alert>
             </CardContent>
           </Card>
         </div>
