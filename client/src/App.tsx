@@ -29,6 +29,8 @@ import AIBrainstorm from "./pages/ai-brainstorm";
 import Sidebar from "./components/layout/sidebar";
 import Header from "./components/layout/header";
 import TrialWelcomePopup from "./components/trial-welcome-popup";
+import TrialExpiredGuard from "./components/TrialExpiredGuard";
+import TrialExpired from "./pages/trial-expired";
 
 function Router() {
   // Check authentication status
@@ -77,36 +79,39 @@ function Router() {
     );
   }
 
-  // If authenticated, show the main app
+  // If authenticated, show the main app with trial expired guard
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <TrialWelcomePopup />
-      <Sidebar />
-      <main className="flex-1 overflow-y-auto">
-        <Header />
-        <Switch>
-          <Route path="/" component={Dashboard} />
-          <Route path="/create" component={CreateContent} />
-          <Route path="/ai-brainstorm" component={AIBrainstorm} />
-          <Route path="/calendar" component={Calendar} />
-          <Route path="/approval" component={Approval} />
-          <Route path="/analytics" component={Analytics} />
-          <Route path="/library" component={Library} />
-          <Route path="/campaigns" component={Campaigns} />
-          <Route path="/platforms" component={Platforms} />
-          <Route path="/settings" component={Settings} />
-          <Route path="/billing" component={Billing} />
-          <Route path="/referrals" component={Referrals} />
-          <Route path="/help" component={Help} />
-          <Route path="/trial" component={Trial} />
-          <Route path="/trial-selection" component={TrialSelection} />
-          <Route path="/checkout" component={Checkout} />
-          <Route path="/checkout/return" component={CheckoutReturn} />
-          <Route path="/admin" component={AdminPanel} />
-          <Route component={NotFound} />
-        </Switch>
-      </main>
-    </div>
+    <TrialExpiredGuard>
+      <div className="flex h-screen overflow-hidden bg-background">
+        <TrialWelcomePopup />
+        <Sidebar />
+        <main className="flex-1 overflow-y-auto">
+          <Header />
+          <Switch>
+            <Route path="/" component={Dashboard} />
+            <Route path="/create" component={CreateContent} />
+            <Route path="/ai-brainstorm" component={AIBrainstorm} />
+            <Route path="/calendar" component={Calendar} />
+            <Route path="/approval" component={Approval} />
+            <Route path="/analytics" component={Analytics} />
+            <Route path="/library" component={Library} />
+            <Route path="/campaigns" component={Campaigns} />
+            <Route path="/platforms" component={Platforms} />
+            <Route path="/settings" component={Settings} />
+            <Route path="/billing" component={Billing} />
+            <Route path="/referrals" component={Referrals} />
+            <Route path="/help" component={Help} />
+            <Route path="/trial" component={Trial} />
+            <Route path="/trial-selection" component={TrialSelection} />
+            <Route path="/trial-expired" component={TrialExpired} />
+            <Route path="/checkout" component={Checkout} />
+            <Route path="/checkout/return" component={CheckoutReturn} />
+            <Route path="/admin" component={AdminPanel} />
+            <Route component={NotFound} />
+          </Switch>
+        </main>
+      </div>
+    </TrialExpiredGuard>
   );
 }
 

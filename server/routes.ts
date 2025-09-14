@@ -23,6 +23,7 @@ import { createFeedbackRoutes } from "./feedbackRoutes";
 import { createMetricsRoute, trackApiMetrics } from "./metrics";
 import { trialRouter } from "./trial";
 import verificationRoutes from "./verificationRoutes";
+import { enforceTrialExpiration, isUserTrialExpired } from "./middleware/trialEnforcement";
 
 // Helper function to get user ID from request regardless of auth method
 function getUserId(req: any): string | null {
@@ -102,6 +103,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Add trial selection check middleware
   app.use(checkTrialSelection);
+  
+  // Add trial expiration enforcement middleware
+  // This must come after authentication but before route handlers
+  app.use(enforceTrialExpiration);
   
   // Use appropriate auth middleware based on configuration
   const isAuthenticated = useReplitAuth ? isReplitAuthenticated : requireAuth;
