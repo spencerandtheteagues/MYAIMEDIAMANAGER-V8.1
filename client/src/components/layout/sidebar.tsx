@@ -44,7 +44,7 @@ export default function Sidebar() {
   });
 
   return (
-    <aside className="w-64 shadow-lg flex flex-col bg-background">
+    <aside className="w-64 shadow-lg flex flex-col bg-background border-r-4 border-primary/50">
       <div className="p-6 border-b border-border">
         <Logo size="md" animated={true} />
       </div>
@@ -58,7 +58,7 @@ export default function Sidebar() {
                 className={cn(
                   "flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer",
                   isActive
-                    ? "bg-primary/20 text-white border border-primary/50"
+                    ? "bg-primary text-white shadow-lg shadow-primary/50 border border-primary"
                     : "text-gray-300 hover:bg-muted hover:text-white"
                 )}
               >
@@ -81,7 +81,7 @@ export default function Sidebar() {
               className={cn(
                 "flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer mt-2",
                 location === "/admin"
-                  ? "bg-primary/20 text-white border border-primary/50"
+                  ? "bg-primary text-white shadow-lg shadow-primary/50 border border-primary"
                   : "text-gray-300 hover:bg-muted hover:text-white"
               )}
             >
