@@ -4,8 +4,8 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { storage } from "./storage";
 import type { User } from "@shared/schema";
 
-// Enable OAuth debug logging when DEBUG_OAUTH is set
-const isDebugEnabled = process.env.DEBUG_OAUTH === 'true';
+// Enable OAuth debug logging - always enabled in production for now
+const isDebugEnabled = true; // process.env.DEBUG_OAUTH === 'true';
 
 // Helper function to mask email for logging
 function maskEmail(email: string): string {
@@ -108,6 +108,49 @@ async function generateUniqueReferralCode(): Promise<string> {
 
 const router = Router();
 
+// Debug endpoint to check OAuth configuration
+router.get("/debug", (req: Request, res: Response) => {
+  const debugInfo = {
+    oauth: {
+      configured: !!(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET),
+      clientIdLength: process.env.GOOGLE_CLIENT_ID?.length || 0,
+      clientSecretLength: process.env.GOOGLE_CLIENT_SECRET?.length || 0,
+    },
+    session: {
+      exists: !!req.session,
+      sessionId: req.sessionID,
+      userId: req.session?.userId,
+      userEmail: req.session?.user?.email ? maskEmail(req.session.user.email) : null,
+      cookie: req.session?.cookie ? {
+        maxAge: req.session.cookie.maxAge,
+        expires: req.session.cookie.expires,
+        httpOnly: req.session.cookie.httpOnly,
+        secure: req.session.cookie.secure,
+        sameSite: req.session.cookie.sameSite,
+        domain: req.session.cookie.domain,
+        path: req.session.cookie.path,
+      } : null,
+    },
+    environment: {
+      nodeEnv: process.env.NODE_ENV,
+      isProduction: process.env.NODE_ENV === 'production',
+      host: req.get('Host'),
+      origin: req.get('Origin'),
+      protocol: req.protocol,
+      secure: req.secure,
+    },
+    headers: {
+      cookie: !!req.headers.cookie,
+      userAgent: req.get('User-Agent'),
+      xForwardedProto: req.get('X-Forwarded-Proto'),
+      xForwardedHost: req.get('X-Forwarded-Host'),
+    },
+  };
+  
+  console.log('[OAuth Debug Endpoint] Request:', debugInfo);
+  res.json(debugInfo);
+});
+
 // Validate Google OAuth is configured
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   console.warn("Google OAuth not configured - GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET required");
@@ -176,7 +219,8 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
       : '/api/auth/google/callback',
     scope: ['openid', 'email', 'profile'],
     state: true, // Enable state parameter for CSRF protection
-    passReqToCallback: true
+    passReqToCallback: true,
+    proxy: true, // Trust proxy for production environment
   },
   async (req: Request, accessToken: string, refreshToken: string, profile: any, done: Function) => {
     const debugInfo = {
@@ -483,6 +527,7 @@ router.get("/google/callback",
     passport.authenticate('google', {
       failureRedirect: '/auth?error=google_auth_failed',
       failureMessage: true,
+      session: true, // Explicitly enable session support
     })(req, res, (err: any) => {
       if (err) {
         safeDebugLog('[OAuth Error] Passport authentication failed in callback:', {
@@ -542,37 +587,47 @@ router.get("/google/callback",
       console.log('[OAuth] Session created, attempting to save...');
       safeDebugLog('[OAuth Debug] Session created, attempting to save...');
       
-      // Use async/await for session save to ensure it completes
+      // Don't regenerate session in production, just update it
+      // Session regeneration can cause issues with OAuth redirects
+      createUserSession(req, user);
+      
+      // Force session save
       await new Promise<void>((resolve, reject) => {
         req.session.save((err) => {
-        if (err) {
-          console.error('[OAuth Error] Session save failed:', err.message);
-          safeDebugLog('[OAuth Error] Session save failed:', {
+          if (err) {
+            console.error('[OAuth Error] Session save failed:', err.message);
+            safeDebugLog('[OAuth Error] Session save failed:', {
+              ...debugInfo,
+              userId: user.id,
+              email: user.email,
+              error: err instanceof Error ? {
+                name: err.name,
+                message: err.message,
+                stack: isDebugEnabled ? err.stack : undefined,
+              } : err,
+              sessionData: {
+                userId: req.session.userId,
+                userEmail: req.session.user?.email,
+                sessionId: req.sessionID,
+              },
+            });
+            reject(err);
+            return;
+          }
+          
+          console.log('[OAuth] Session saved successfully');
+          console.log('[OAuth] Session ID:', req.sessionID);
+          console.log('[OAuth] Session userId:', req.session.userId);
+          console.log('[OAuth] Session user email:', req.session.user?.email ? maskEmail(req.session.user.email) : 'none');
+          
+          safeDebugLog('[OAuth Debug] Session saved successfully:', {
             ...debugInfo,
             userId: user.id,
-            email: user.email,
-            error: err instanceof Error ? {
-              name: err.name,
-              message: err.message,
-              stack: isDebugEnabled ? err.stack : undefined,
-            } : err,
-            sessionData: {
-              userId: req.session.userId,
-              userEmail: req.session.user?.email,
-            },
+            sessionUserId: req.session.userId,
+            sessionId: req.sessionID,
           });
-          reject(err);
-          return;
-        }
-        
-        console.log('[OAuth] Session saved successfully');
-        safeDebugLog('[OAuth Debug] Session saved successfully:', {
-          ...debugInfo,
-          userId: user.id,
-          sessionUserId: req.session.userId,
+          resolve();
         });
-        resolve();
-      });
       });
       
       // Check if user needs trial selection
@@ -610,7 +665,12 @@ router.get("/google/callback",
       
       console.log('[OAuth] Final redirect to:', returnTo);
       safeDebugLog('[OAuth Debug] Final redirect to:', { returnTo });
-      res.redirect(returnTo);
+      
+      // Send response with explicit headers to ensure cookies are set
+      res.status(302);
+      res.setHeader('Location', returnTo);
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.end();
     } catch (error) {
       console.error('[OAuth Error] Exception in callback success handler:', error instanceof Error ? error.message : error);
       safeDebugLog('[OAuth Error] Exception in callback success handler:', {
@@ -622,7 +682,28 @@ router.get("/google/callback",
           stack: isDebugEnabled ? error.stack : undefined,
         } : error,
       });
-      res.redirect("/auth?error=callback_exception");
+      
+      // Try to fallback to creating a basic session without regeneration
+      try {
+        createUserSession(req, user);
+        await new Promise<void>((resolve, reject) => {
+          req.session.save((err) => {
+            if (err) {
+              reject(err);
+            } else {
+              resolve();
+            }
+          });
+        });
+        
+        // If session saved successfully in fallback, redirect to dashboard
+        console.log('[OAuth] Fallback session save successful');
+        const redirectTo = user.needsTrialSelection ? "/trial-selection" : "/dashboard";
+        res.redirect(redirectTo);
+      } catch (fallbackError) {
+        console.error('[OAuth Error] Fallback session save also failed:', fallbackError);
+        res.redirect("/auth?error=session_failed&details=" + encodeURIComponent('Session creation failed. Please try again or use email/password login.'));
+      }
     }
   }
 );

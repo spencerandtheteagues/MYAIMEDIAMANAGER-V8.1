@@ -35,18 +35,33 @@ export function getSession() {
     ttl: sessionTtl,
     tableName: "sessions",
   });
+  
+  // Determine if we're in production
+  const isProduction = process.env.NODE_ENV === 'production';
+  
+  // For production, don't set domain to allow cookies to work on the exact domain
+  // Setting domain to .myaimediamgr.com can cause issues with OAuth redirects
+  const cookieDomain = undefined; // Let the browser handle domain automatically
+  
+  console.log('[Session Config] Environment:', process.env.NODE_ENV);
+  console.log('[Session Config] Cookie domain:', cookieDomain || 'auto (browser default)');
+  console.log('[Session Config] Secure cookies:', isProduction);
+  console.log('[Session Config] SameSite:', isProduction ? "lax" : "lax");
+  
   return session({
     name: "connect.sid",
     secret: process.env.SESSION_SECRET || "myaimediamgr-secret-key-change-in-production",
     store: sessionStore,
     resave: false,
-    saveUninitialized: false,
+    saveUninitialized: true, // Changed to true to ensure session is created for OAuth
+    proxy: isProduction, // Trust proxy in production
     cookie: {
       httpOnly: true,
-      secure: process.env.NODE_ENV === 'production', // Use secure cookies in production
-      sameSite: "lax",
+      secure: isProduction, // Use secure cookies in production
+      sameSite: "lax", // Use 'lax' for better compatibility
       maxAge: sessionTtl,
-      domain: process.env.NODE_ENV === 'production' ? '.myaimediamgr.com' : undefined, // Allow cookies across subdomains
+      domain: cookieDomain, // Let browser handle domain
+      path: '/', // Ensure cookie is available on all paths
     },
   });
 }
