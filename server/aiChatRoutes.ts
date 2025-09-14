@@ -2,8 +2,27 @@ import { Router, Request, Response } from 'express';
 import { z } from 'zod';
 import OpenAI from 'openai';
 import { GoogleGenerativeAI } from '@google/generative-ai';
+import { storage } from './storage';
+import { CREDIT_COSTS } from '../shared/credits';
 
 const router = Router();
+
+// Helper function to get user ID from request
+function getUserId(req: any): string | null {
+  // Check session-based auth first
+  if (req.session?.userId) {
+    return req.session.userId;
+  }
+  // Check if user object has id directly (from session auth middleware)
+  if (req.user?.id) {
+    return req.user.id;
+  }
+  // Check Replit auth claims
+  if (req.user?.claims?.sub) {
+    return req.user.claims.sub;
+  }
+  return null;
+}
 
 // Chat request schema
 const chatRequestSchema = z.object({
@@ -39,8 +58,39 @@ Be creative, enthusiastic, and supportive. Help users overcome creative blocks a
 
 // OpenAI chat endpoint with streaming
 router.post('/openai', async (req: Request, res: Response) => {
+  let user: any = null;
+  let userId: string | null = null;
+  const requiredCredits = CREDIT_COSTS.text; // 1 credit for text/chat
+  
   try {
     const { message, conversationHistory } = chatRequestSchema.parse(req.body);
+    
+    // Get user and check credits
+    userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        message: 'Please log in to use the AI Brainstorm feature.'
+      });
+    }
+    
+    user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(401).json({ 
+        error: 'User not found',
+        message: 'User account not found. Please log in again.'
+      });
+    }
+    
+    // Check if user has sufficient credits (1 credit per prompt)
+    if ((user.credits ?? 0) < requiredCredits) {
+      return res.status(402).json({ 
+        error: 'Insufficient credits',
+        message: 'You need at least 1 credit to use the AI Brainstorm feature. Please upgrade your plan or purchase additional credits.',
+        required: requiredCredits,
+        have: user.credits || 0
+      });
+    }
     
     // Check for API key
     const apiKey = process.env.OPENAI_API_KEY;
@@ -91,6 +141,21 @@ router.post('/openai', async (req: Request, res: Response) => {
       
       // Send done signal
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      
+      // Deduct credits after successful completion
+      if (userId && user) {
+        try {
+          await storage.updateUser(userId, {
+            credits: (user.credits ?? 0) - requiredCredits,
+            totalCreditsUsed: (user.totalCreditsUsed ?? 0) + requiredCredits
+          });
+          console.log(`Deducted ${requiredCredits} credit(s) from user ${userId} for AI chat`);
+        } catch (creditError) {
+          console.error('Failed to deduct credits:', creditError);
+          // Don't fail the request if credit deduction fails, but log it
+        }
+      }
+      
       res.end();
       
     } catch (streamError: any) {
@@ -128,8 +193,39 @@ router.post('/openai', async (req: Request, res: Response) => {
 
 // Gemini chat endpoint with streaming
 router.post('/gemini', async (req: Request, res: Response) => {
+  let user: any = null;
+  let userId: string | null = null;
+  const requiredCredits = CREDIT_COSTS.text; // 1 credit for text/chat
+  
   try {
     const { message, conversationHistory } = chatRequestSchema.parse(req.body);
+    
+    // Get user and check credits
+    userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ 
+        error: 'Authentication required',
+        message: 'Please log in to use the AI Brainstorm feature.'
+      });
+    }
+    
+    user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(401).json({ 
+        error: 'User not found',
+        message: 'User account not found. Please log in again.'
+      });
+    }
+    
+    // Check if user has sufficient credits (1 credit per prompt)
+    if ((user.credits ?? 0) < requiredCredits) {
+      return res.status(402).json({ 
+        error: 'Insufficient credits',
+        message: 'You need at least 1 credit to use the AI Brainstorm feature. Please upgrade your plan or purchase additional credits.',
+        required: requiredCredits,
+        have: user.credits || 0
+      });
+    }
     
     // Check for API key (prefer GOOGLE_API_KEY, fallback to GEMINI_API_KEY)
     const apiKey = process.env.GOOGLE_API_KEY || process.env.GEMINI_API_KEY;
@@ -198,6 +294,21 @@ router.post('/gemini', async (req: Request, res: Response) => {
       
       // Send done signal
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
+      
+      // Deduct credits after successful completion
+      if (userId && user) {
+        try {
+          await storage.updateUser(userId, {
+            credits: (user.credits ?? 0) - requiredCredits,
+            totalCreditsUsed: (user.totalCreditsUsed ?? 0) + requiredCredits
+          });
+          console.log(`Deducted ${requiredCredits} credit(s) from user ${userId} for AI chat`);
+        } catch (creditError) {
+          console.error('Failed to deduct credits:', creditError);
+          // Don't fail the request if credit deduction fails, but log it
+        }
+      }
+      
       res.end();
       
     } catch (streamError: any) {
