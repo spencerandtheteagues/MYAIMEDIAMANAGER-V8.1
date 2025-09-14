@@ -390,12 +390,16 @@ function isValidReturnUrl(url: string): boolean {
 }
 
 // Initiate Google OAuth flow
-router.get("/google", (req: Request, res: Response, next: Function) => {
+router.get("/google", async (req: Request, res: Response, next: Function) => {
   logMobileDiagnostics(req, 'oauth-initiate');
   
-  // Generate and store state parameter for CSRF protection
-  const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+  // Generate and store state parameter for CSRF protection using crypto for better security
+  const crypto = require('crypto');
+  const state = crypto.randomBytes(32).toString('hex');
   req.session.oauthState = state;
+  
+  console.log('[OAuth] Generated state:', state);
+  console.log('[OAuth] Session ID before save:', req.sessionID);
   
   // Log effective callback URL being used
   const effectiveCallbackUrl = getCallbackUrl(req);
@@ -422,37 +426,52 @@ router.get("/google", (req: Request, res: Response, next: Function) => {
   }
   
   // Store return URL in session if provided and valid
-  if (req.query.return) {
-    const returnUrl = req.query.return as string;
-    console.log('[OAuth] Return URL provided:', returnUrl);
-    safeDebugLog('[OAuth Debug] Return URL provided:', { returnUrl });
-    if (isValidReturnUrl(returnUrl)) {
-      req.session.returnTo = returnUrl;
-      req.session.returnUrl = returnUrl; // Store in both places for compatibility
-      console.log('[OAuth] Valid return URL stored in session:', returnUrl);
-      safeDebugLog('[OAuth Debug] Valid return URL stored in session:', { returnUrl });
-    } else {
-      console.warn('[OAuth Warning] Invalid return URL attempted:', returnUrl);
-      safeDebugLog('[OAuth Warning] Invalid return URL attempted:', {
-        returnUrl,
-        userAgent: req.get('User-Agent'),
-        origin: req.get('Origin'),
-      });
-      req.session.returnTo = '/dashboard';
-      req.session.returnUrl = '/dashboard';
-    }
+  const returnUrl = (req.query.return as string) || '/';
+  if (isValidReturnUrl(returnUrl)) {
+    req.session.returnTo = returnUrl;
+    req.session.returnUrl = returnUrl; // Store in both places for compatibility
+    console.log('[OAuth] Valid return URL stored in session:', returnUrl);
   } else {
-    // Default to dashboard if no return URL provided
-    req.session.returnTo = '/dashboard';
-    req.session.returnUrl = '/dashboard';
-    console.log('[OAuth] No return URL provided, defaulting to /dashboard');
+    console.warn('[OAuth Warning] Invalid return URL attempted:', returnUrl);
+    req.session.returnTo = '/';
+    req.session.returnUrl = '/';
   }
   
-  safeDebugLog('[OAuth Debug] Starting passport.authenticate for Google', { state });
-  passport.authenticate('google', {
-    scope: ['openid', 'email', 'profile'],
-    state: state // Include state parameter for CSRF protection
-  })(req, res, next);
+  console.log('[OAuth] Session state before save:', {
+    sessionId: req.sessionID,
+    oauthState: req.session.oauthState,
+    returnTo: req.session.returnTo,
+    userId: req.session.userId
+  });
+  
+  // Explicitly save session before redirecting to Google
+  try {
+    await new Promise<void>((resolve, reject) => {
+      req.session.save((saveErr) => {
+        if (saveErr) {
+          console.error('[OAuth] Failed to save session before redirect:', saveErr);
+          reject(saveErr);
+          return;
+        }
+        
+        console.log('[OAuth] Session saved successfully, redirecting to Google');
+        console.log('[OAuth] Session ID after save:', req.sessionID);
+        resolve();
+      });
+    });
+    
+    safeDebugLog('[OAuth Debug] Starting passport.authenticate for Google', { state });
+    passport.authenticate('google', {
+      scope: ['openid', 'email', 'profile'],
+      state: state // Include state parameter for CSRF protection
+    })(req, res, next);
+  } catch (error) {
+    console.error('[OAuth] Session save error:', error);
+    return res.status(500).json({ 
+      message: 'Failed to initialize authentication session',
+      error: 'session_save_failed' 
+    });
+  }
 });
 
 // Google OAuth callback handler with comprehensive error logging
@@ -584,14 +603,18 @@ router.get("/google/callback",
     try {
       createUserSession(req, user);
       
-      console.log('[OAuth] Session created, attempting to save...');
+      console.log('[OAuth] Session created with userId:', req.session.userId);
+      console.log('[OAuth] Session ID before save:', req.sessionID);
       safeDebugLog('[OAuth Debug] Session created, attempting to save...');
       
-      // Don't regenerate session in production, just update it
-      // Session regeneration can cause issues with OAuth redirects
-      createUserSession(req, user);
+      // Set cache control headers to prevent redirect caching
+      res.set({
+        'Cache-Control': 'no-store, no-cache, must-revalidate, private',
+        'Pragma': 'no-cache',
+        'Expires': '0',
+      });
       
-      // Force session save
+      // Force session save and wait for completion
       await new Promise<void>((resolve, reject) => {
         req.session.save((err) => {
           if (err) {
@@ -616,7 +639,7 @@ router.get("/google/callback",
           }
           
           console.log('[OAuth] Session saved successfully');
-          console.log('[OAuth] Session ID:', req.sessionID);
+          console.log('[OAuth] Session ID after save:', req.sessionID);
           console.log('[OAuth] Session userId:', req.session.userId);
           console.log('[OAuth] Session user email:', req.session.user?.email ? maskEmail(req.session.user.email) : 'none');
           
@@ -630,38 +653,29 @@ router.get("/google/callback",
         });
       });
       
-      // Check if user needs trial selection
+      // Check if user needs trial selection (new users)
       if (user.needsTrialSelection) {
-        console.log('[OAuth] User needs trial selection, redirecting to /trial-selection');
+        console.log('[OAuth] New user needs trial selection, redirecting to /trial-selection');
         safeDebugLog('[OAuth Debug] User needs trial selection, redirecting to trial-selection');
         return res.redirect("/trial-selection");
       }
       
       // Redirect to home page or validated return URL
-      let returnTo = "/dashboard"; // Default to dashboard instead of root
+      let returnTo = "/"; // Default to home page for better UX
       
       // Check both returnTo and returnUrl for compatibility
       const sessionReturnUrl = req.session.returnTo || req.session.returnUrl;
       
-      if (sessionReturnUrl) {
-        console.log('[OAuth] Return URL found in session:', sessionReturnUrl);
-        safeDebugLog('[OAuth Debug] Return URL found in session:', { returnUrl: sessionReturnUrl });
-        // Re-validate return URL before using it
-        if (isValidReturnUrl(sessionReturnUrl)) {
-          returnTo = sessionReturnUrl;
-          console.log('[OAuth] Using validated return URL:', returnTo);
-          safeDebugLog('[OAuth Debug] Using validated return URL:', { returnTo });
-        } else {
-          console.warn('[OAuth Warning] Invalid return URL in session:', sessionReturnUrl);
-          safeDebugLog('[OAuth Warning] Invalid return URL in session:', {
-            returnUrl: sessionReturnUrl,
-            userAgent: req.get('User-Agent'),
-            origin: req.get('Origin'),
-          });
-        }
-        delete req.session.returnTo;
-        delete req.session.returnUrl;
+      if (sessionReturnUrl && isValidReturnUrl(sessionReturnUrl)) {
+        returnTo = sessionReturnUrl;
+        console.log('[OAuth] Using session return URL:', returnTo);
+      } else {
+        console.log('[OAuth] Using default redirect to home page');
       }
+      
+      // Clean up return URLs from session
+      delete req.session.returnTo;
+      delete req.session.returnUrl;
       
       console.log('[OAuth] Final redirect to:', returnTo);
       safeDebugLog('[OAuth Debug] Final redirect to:', { returnTo });
