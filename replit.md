@@ -39,6 +39,16 @@ The platform implements a sophisticated content lifecycle:
 - **Publishing**: Automated posting to connected social media platforms
 - **Analytics**: Post-publication performance tracking and reporting
 
+### Admin Control System
+Comprehensive administrative features for complete user management:
+- **User Creation**: Direct account creation from admin dashboard with all properties
+- **Pause/Unpause**: Temporarily block user access with reason tracking
+- **Direct Messaging**: Send popup notifications to users (immediate if online, on next login if offline)
+- **Online Status**: Real-time tracking of user activity (online if active within 5 minutes)
+- **Trial Management**: 14-day free trial countdown with auto-lock on expiry, admin can extend/reset
+- **Credit Management**: Grant, deduct, or reset user credits with transaction history
+- **Full User Control**: Edit all user properties including tier, email, password, and admin status
+
 ### AI Integration Architecture
 The system incorporates AI capabilities for:
 - **Content Generation**: AI-powered post creation with customizable tone and style
