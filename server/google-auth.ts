@@ -81,7 +81,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           profileImageUrl: profile.photos?.[0]?.value,
           googleAvatar: profile.photos?.[0]?.value,
           role: "user",
-          tier: null, // Will be set when they select trial
+          tier: "free", // Default tier, will be updated when they select trial
           credits: 0, // Will be set when they select trial
           emailVerified: true, // Google accounts are pre-verified
           needsTrialSelection: true, // New users need to select trial
