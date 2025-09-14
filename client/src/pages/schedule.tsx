@@ -315,7 +315,6 @@ export default function SchedulePage() {
               dayMaxEvents={3}
               moreLinkClick="popover"
               weekends={true}
-              weekendBackgroundColor="#18181b"
               slotLabelFormat={{
                 hour: "numeric",
                 minute: "2-digit",

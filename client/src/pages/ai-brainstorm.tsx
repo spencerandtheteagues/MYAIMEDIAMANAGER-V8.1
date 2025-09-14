@@ -346,7 +346,7 @@ export default function AIBrainstorm() {
     : quickPrompts.filter(p => p.category === selectedCategory);
 
   return (
-    <div className="p-8 max-w-7xl mx-auto space-y-6">
+    <div className="p-4 sm:p-6 lg:p-8 max-w-7xl mx-auto space-y-6">
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -405,9 +405,9 @@ export default function AIBrainstorm() {
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4 lg:gap-6">
         {/* Chat Interface */}
-        <div className="lg:col-span-2">
+        <div className="xl:col-span-2">
           <Card className="h-[700px] flex flex-col">
             <CardHeader className="border-b">
               <div className="flex items-center justify-between">
@@ -603,7 +603,7 @@ export default function AIBrainstorm() {
         </div>
 
         {/* Quick Prompts Sidebar */}
-        <div className="space-y-4">
+        <div className="space-y-4 overflow-x-hidden">
           <Card>
             <CardHeader>
               <CardTitle className="flex items-center gap-2">
@@ -613,10 +613,10 @@ export default function AIBrainstorm() {
             </CardHeader>
             <CardContent>
               <Tabs defaultValue="all" className="space-y-4">
-                <TabsList className="grid w-full grid-cols-3">
-                  <TabsTrigger value="all">All</TabsTrigger>
-                  <TabsTrigger value="content">Content</TabsTrigger>
-                  <TabsTrigger value="strategy">Strategy</TabsTrigger>
+                <TabsList className="grid w-full grid-cols-3 gap-1">
+                  <TabsTrigger value="all" className="text-xs xl:text-sm px-1 xl:px-3">All</TabsTrigger>
+                  <TabsTrigger value="content" className="text-xs xl:text-sm px-1 xl:px-3">Content</TabsTrigger>
+                  <TabsTrigger value="strategy" className="text-xs xl:text-sm px-1 xl:px-3">Strategy</TabsTrigger>
                 </TabsList>
                 
                 <TabsContent value="all" className="space-y-2">
