@@ -73,6 +73,79 @@ function getTierPriority(tier?: string) {
   }
 }
 
+// Create a $1 Pro trial checkout session
+router.post("/create-trial-checkout", requireAuth, async (req, res) => {
+  try {
+    const userId = getUserId(req);
+    const { trialType } = req.body;
+    
+    if (trialType !== "pro") {
+      return res.status(400).json({ message: "Invalid trial type" });
+    }
+    
+    const user = await storage.getUser(userId!);
+    
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Check if user already selected a trial
+    if (user.trialPlan || user.trialStartDate) {
+      return res.status(400).json({ 
+        message: "You have already selected a trial." 
+      });
+    }
+
+    // Create or retrieve Stripe customer
+    let customerId = user.stripeCustomerId;
+    
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email || undefined,
+        name: user.fullName || undefined,
+        metadata: {
+          userId: user.id
+        }
+      });
+      customerId = customer.id;
+      await storage.updateUser(userId!, { stripeCustomerId: customerId });
+    }
+
+    const baseUrl = getBaseUrl(req);
+    
+    // Create one-time $1 payment for Pro trial
+    const session = await stripe.checkout.sessions.create({
+      customer: customerId,
+      payment_method_types: ['card'],
+      mode: 'payment', // One-time payment, not subscription
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: '14-Day Pro Trial',
+            description: 'One-time payment for 14-day Pro trial with 180 AI credits',
+          },
+          unit_amount: 100, // $1.00 in cents
+        },
+        quantity: 1,
+      }],
+      success_url: `${baseUrl}/checkout-return?session_id={CHECKOUT_SESSION_ID}&trial=pro`,
+      cancel_url: `${baseUrl}/trial-selection`,
+      metadata: {
+        userId: user.id,
+        type: 'pro_trial',
+        trialDays: '14',
+        credits: '180'
+      }
+    });
+
+    res.json({ url: session.url });
+  } catch (error: any) {
+    console.error("Error creating trial checkout session:", error);
+    res.status(500).json({ message: "Error creating trial checkout session: " + error.message });
+  }
+});
+
 // Create a Stripe-hosted checkout session for subscription
 router.post("/create-checkout-session", requireAuth, async (req, res) => {
   try {

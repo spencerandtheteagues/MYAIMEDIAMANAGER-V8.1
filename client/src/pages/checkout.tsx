@@ -166,10 +166,11 @@ export default function CheckoutPage() {
     
     try {
       // Create Stripe checkout session and redirect to Stripe-hosted page
+      const endpoint = trial ? "/api/billing/create-trial-checkout" : "/api/billing/create-checkout-session";
       const response = await apiRequest(
         "POST",
-        "/api/billing/create-checkout-session",
-        { planId: selectedPlan.id }
+        endpoint,
+        trial ? { trialType: "pro" } : { planId: selectedPlan.id }
       );
       
       const data = await response.json();
@@ -343,7 +344,7 @@ export default function CheckoutPage() {
                   </div>
                   {trial && (
                     <div className="text-xs text-gray-500">
-                      * $1 charge for card verification. Full subscription starts after trial.
+                      * One-time $1 payment for 14-day Pro trial. No recurring charges during trial.
                     </div>
                   )}
                   <div className="flex justify-between text-white font-semibold text-lg pt-2 border-t border-gray-700">
@@ -371,7 +372,7 @@ export default function CheckoutPage() {
                 ) : (
                   <>
                     <CreditCard className="w-4 h-4 mr-2" />
-                    {trial ? "Start $1 Trial" : `Continue to Payment`}
+                    {trial ? "Pay $1 for Pro Trial" : `Continue to Payment`}
                   </>
                 )}
               </Button>

@@ -85,7 +85,7 @@ export default function TrialSelection() {
 
         <Tabs defaultValue="trials" className="w-full">
           <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
-            <TabsTrigger value="trials">Free Trials</TabsTrigger>
+            <TabsTrigger value="trials">Trials</TabsTrigger>
             <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
           </TabsList>
 
@@ -146,12 +146,12 @@ export default function TrialSelection() {
                   <div className="flex items-center justify-between">
                     <Zap className="h-8 w-8 text-pink-400" />
                     <span className="text-sm bg-pink-500/20 text-pink-300 px-3 py-1 rounded-full">
-                      14 Days Free
+                      14 Days for $1
                     </span>
                   </div>
                   <CardTitle className="text-2xl text-white">Pro Trial</CardTitle>
                   <CardDescription className="text-gray-300">
-                    Full experience with card verification
+                    Full experience for just $1 one-time payment
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -179,7 +179,7 @@ export default function TrialSelection() {
                   </div>
                   <div className="flex items-center gap-2 text-sm text-gray-400">
                     <CreditCard className="h-4 w-4" />
-                    <span>Card required (not charged during trial)</span>
+                    <span>$1 one-time charge (then free for 14 days)</span>
                   </div>
                 </CardContent>
                 <CardFooter>
@@ -188,7 +188,7 @@ export default function TrialSelection() {
                     onClick={() => handleSelection("card14")}
                     disabled={isLoading || selectedOption === "card14"}
                   >
-                    {selectedOption === "card14" && isLoading ? "Activating..." : "Start Pro Trial"}
+                    {selectedOption === "card14" && isLoading ? "Activating..." : "Start Pro Trial ($1)"}
                   </Button>
                 </CardFooter>
               </Card>
@@ -356,7 +356,7 @@ export default function TrialSelection() {
             All plans include AI-powered content generation, scheduling, and analytics.
           </p>
           <p className="text-sm mt-2">
-            No credit card required for Lite Trial. Cancel anytime.
+            Lite Trial is free - no card required. Pro Trial requires a $1 payment.
           </p>
         </div>
       </div>
