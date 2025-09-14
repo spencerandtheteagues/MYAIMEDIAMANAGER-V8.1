@@ -7,10 +7,11 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-import { MessageSquare, Clock, Send, HelpCircle, BookOpen, Mail } from "lucide-react";
+import { MessageSquare, Clock, Send, HelpCircle, BookOpen, Mail, FileText, Scroll } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { User } from "@shared/schema";
+import { Link } from "wouter";
 
 const faqs = [
   {
@@ -327,6 +328,26 @@ export default function Help() {
               <Button variant="outline" className="w-full justify-start">
                 Video Tutorials
               </Button>
+              <Link href="/terms-of-service">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  data-testid="link-terms-of-service"
+                >
+                  <Scroll className="w-4 h-4 mr-2" />
+                  Terms of Service
+                </Button>
+              </Link>
+              <Link href="/privacy-policy">
+                <Button 
+                  variant="outline" 
+                  className="w-full justify-start"
+                  data-testid="link-privacy-policy"
+                >
+                  <FileText className="w-4 h-4 mr-2" />
+                  Privacy Policy
+                </Button>
+              </Link>
             </CardContent>
           </Card>
         </div>
