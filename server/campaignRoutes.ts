@@ -16,6 +16,7 @@ declare global {
     current: number;
     status: string;
     posts: any[];
+    userId?: string;
   }>;
 }
 
