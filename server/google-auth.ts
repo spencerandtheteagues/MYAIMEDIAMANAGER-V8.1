@@ -53,7 +53,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
     callbackURL: process.env.NODE_ENV === 'production' 
       ? 'https://myaimediamgr.com/api/auth/google/callback'
       : '/api/auth/google/callback',
-    scope: ['profile', 'email'],
+    scope: ['openid', 'email', 'profile'],
     passReqToCallback: true
   },
   async (req: Request, accessToken: string, refreshToken: string, profile: any, done: Function) => {
@@ -182,7 +182,7 @@ router.get("/google", (req: Request, res: Response, next: Function) => {
   }
   
   passport.authenticate('google', {
-    scope: ['profile', 'email']
+    scope: ['openid', 'email', 'profile']
   })(req, res, next);
 });
 
