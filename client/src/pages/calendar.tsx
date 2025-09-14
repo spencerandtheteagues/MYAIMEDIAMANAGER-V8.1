@@ -260,7 +260,7 @@ export default function Calendar() {
                                 />
                               ))}
                               <span className="text-xs text-muted-foreground truncate">
-                                {post.scheduledFor && format(new Date(post.scheduledFor), 'HH:mm')}
+                                {(post.scheduledFor || post.publishedAt) && format(new Date(post.scheduledFor || post.publishedAt), 'HH:mm')}
                               </span>
                             </div>
                           );
