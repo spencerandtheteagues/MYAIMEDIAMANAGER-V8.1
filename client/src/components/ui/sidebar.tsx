@@ -80,16 +80,16 @@ const SidebarProvider = React.forwardRef<
     const open = openProp ?? _open
     
     // Store refs to access current values without dependency issues
-    const stateRef = React.useRef({ openProp, setOpenProp, _open })
+    const stateRef = React.useRef({ openProp, setOpenProp, _open, isMobile, setOpenMobile })
     React.useEffect(() => {
-      stateRef.current = { openProp, setOpenProp, _open }
+      stateRef.current = { openProp, setOpenProp, _open, isMobile, setOpenMobile }
     })
     
     // FIX for React error #310: Remove ALL circular dependencies
     // This callback has NO dependencies to avoid infinite loop
     const setOpen = React.useCallback(
       (value: boolean | ((value: boolean) => boolean)) => {
-        console.log('[SIDEBAR FIX v3] setOpen called with:', typeof value)  // Force output change
+        console.log('[SIDEBAR FIX v6 - DEPS FIXED] setOpen called with:', typeof value)  // Fixed useMemo deps
         const { openProp: currentOpenProp, setOpenProp: currentSetOpenProp, _open: currentInternalOpen } = stateRef.current
         
         // Calculate new state
@@ -109,12 +109,13 @@ const SidebarProvider = React.forwardRef<
       []  // Empty dependencies - uses ref to access current values
     )
 
-    // Helper to toggle the sidebar.
+    // Helper to toggle the sidebar - completely stable with NO dependencies
     const toggleSidebar = React.useCallback(() => {
-      return isMobile
-        ? setOpenMobile((open) => !open)
+      const { isMobile: currentIsMobile, setOpenMobile: currentSetOpenMobile } = stateRef.current
+      return currentIsMobile
+        ? currentSetOpenMobile((open) => !open)
         : setOpen((open) => !open)
-    }, [isMobile, setOpen, setOpenMobile])
+    }, [])  // NO dependencies - uses ref to access current values
 
     // Adds a keyboard shortcut to toggle the sidebar.
     React.useEffect(() => {
@@ -146,7 +147,7 @@ const SidebarProvider = React.forwardRef<
         setOpenMobile,
         toggleSidebar,
       }),
-      [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
+      [state, open, isMobile, openMobile]  // Only include primitive values, not functions - setOpen and toggleSidebar are stable with empty deps
     )
 
     return (

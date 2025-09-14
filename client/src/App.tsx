@@ -193,12 +193,12 @@ function Router() {
         />
       )}
       
-      {/* Trial Expired Modal */}
-      <TrialExpiredModal 
+      {/* Trial Expired Modal - TEMPORARILY COMMENTED TO DEBUG INFINITE LOOP */}
+      {/* <TrialExpiredModal 
         open={showTrialExpiredModal} 
         trialEndDate={(user as any)?.trialEndsAt}
         onOpenChange={setShowTrialExpiredModal}
-      />
+      /> */}
     </>
   );
 }
