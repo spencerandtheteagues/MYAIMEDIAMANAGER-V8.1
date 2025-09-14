@@ -83,6 +83,7 @@ export default function AdminPanel() {
   const [emailModalOpen, setEmailModalOpen] = useState(false);
   const [creditModalOpen, setCreditModalOpen] = useState(false);
   const [creditHistoryModalOpen, setCreditHistoryModalOpen] = useState(false);
+  const [createUserModalOpen, setCreateUserModalOpen] = useState(false);
   
   // Form states
   const [editForm, setEditForm] = useState<Partial<User>>({});
@@ -94,6 +95,20 @@ export default function AdminPanel() {
   const [creditReason, setCreditReason] = useState("");
   const [selectedTier, setSelectedTier] = useState("");
   const [userCreditHistory, setUserCreditHistory] = useState<CreditTransaction[]>([]);
+  
+  // Create user form state
+  const [createUserForm, setCreateUserForm] = useState({
+    username: "",
+    email: "",
+    password: "",
+    firstName: "",
+    lastName: "",
+    businessName: "",
+    tier: "free",
+    credits: "50",
+    isAdmin: false,
+  });
+  const [showCreatePassword, setShowCreatePassword] = useState(false);
 
   // Notification form state
   const [notificationForm, setNotificationForm] = useState({
@@ -102,6 +117,42 @@ export default function AdminPanel() {
     message: "",
     type: "admin_message" as string,
     actionUrl: "",
+  });
+
+  // Create user mutation
+  const createUserMutation = useMutation({
+    mutationFn: async (userData: typeof createUserForm) => {
+      return await apiRequest("POST", "/api/admin/users", {
+        ...userData,
+        credits: parseInt(userData.credits) || 50,
+      });
+    },
+    onSuccess: () => {
+      toast({ title: "User created successfully" });
+      refetchUsers();
+      refetchStats();
+      setCreateUserModalOpen(false);
+      // Reset form
+      setCreateUserForm({
+        username: "",
+        email: "",
+        password: "",
+        firstName: "",
+        lastName: "",
+        businessName: "",
+        tier: "free",
+        credits: "50",
+        isAdmin: false,
+      });
+      setShowCreatePassword(false);
+    },
+    onError: (error: any) => {
+      toast({
+        title: "Error creating user",
+        description: error.message || "Failed to create user",
+        variant: "destructive",
+      });
+    },
   });
 
   // Update user mutation
@@ -517,10 +568,211 @@ export default function AdminPanel() {
         <TabsContent value="users" className="space-y-4">
           <Card>
             <CardHeader>
-              <CardTitle>User Management</CardTitle>
-              <CardDescription>
-                Manage all user accounts with full control
-              </CardDescription>
+              <div className="flex items-center justify-between">
+                <div>
+                  <CardTitle>User Management</CardTitle>
+                  <CardDescription>
+                    Manage all user accounts with full control
+                  </CardDescription>
+                </div>
+                
+                {/* Create New User Dialog */}
+                <Dialog open={createUserModalOpen} onOpenChange={setCreateUserModalOpen}>
+                  <DialogTrigger asChild>
+                    <Button className="flex items-center gap-2" data-testid="button-create-user">
+                      <UserPlus className="h-4 w-4" />
+                      Create New User
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-2xl">
+                    <DialogHeader>
+                      <DialogTitle>Create New User</DialogTitle>
+                      <DialogDescription>
+                        Create a new user account with specified settings
+                      </DialogDescription>
+                    </DialogHeader>
+                    <div className="grid gap-4 py-4">
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="username">Username *</Label>
+                          <Input
+                            id="username"
+                            value={createUserForm.username}
+                            onChange={(e) => setCreateUserForm({ ...createUserForm, username: e.target.value })}
+                            placeholder="johndoe"
+                            required
+                            data-testid="input-create-username"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="email">Email *</Label>
+                          <Input
+                            id="email"
+                            type="email"
+                            value={createUserForm.email}
+                            onChange={(e) => setCreateUserForm({ ...createUserForm, email: e.target.value })}
+                            placeholder="john@example.com"
+                            required
+                            data-testid="input-create-email"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="password">Password * (min 6 characters)</Label>
+                        <div className="relative">
+                          <Input
+                            id="password"
+                            type={showCreatePassword ? "text" : "password"}
+                            value={createUserForm.password}
+                            onChange={(e) => setCreateUserForm({ ...createUserForm, password: e.target.value })}
+                            placeholder="Enter password"
+                            required
+                            data-testid="input-create-password"
+                          />
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-0 top-0 h-full px-3 hover:bg-transparent"
+                            onClick={() => setShowCreatePassword(!showCreatePassword)}
+                            data-testid="button-toggle-create-password"
+                          >
+                            {showCreatePassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                          </Button>
+                        </div>
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="firstName">First Name</Label>
+                          <Input
+                            id="firstName"
+                            value={createUserForm.firstName}
+                            onChange={(e) => setCreateUserForm({ ...createUserForm, firstName: e.target.value })}
+                            placeholder="John"
+                            data-testid="input-create-first-name"
+                          />
+                        </div>
+                        <div>
+                          <Label htmlFor="lastName">Last Name</Label>
+                          <Input
+                            id="lastName"
+                            value={createUserForm.lastName}
+                            onChange={(e) => setCreateUserForm({ ...createUserForm, lastName: e.target.value })}
+                            placeholder="Doe"
+                            data-testid="input-create-last-name"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div>
+                        <Label htmlFor="businessName">Business Name</Label>
+                        <Input
+                          id="businessName"
+                          value={createUserForm.businessName}
+                          onChange={(e) => setCreateUserForm({ ...createUserForm, businessName: e.target.value })}
+                          placeholder="Acme Corp"
+                          data-testid="input-create-business-name"
+                        />
+                      </div>
+                      
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <Label htmlFor="tier">Subscription Tier</Label>
+                          <Select
+                            value={createUserForm.tier}
+                            onValueChange={(value) => setCreateUserForm({ ...createUserForm, tier: value })}
+                          >
+                            <SelectTrigger data-testid="select-create-tier">
+                              <SelectValue />
+                            </SelectTrigger>
+                            <SelectContent>
+                              <SelectItem value="free">Free</SelectItem>
+                              <SelectItem value="starter">Starter</SelectItem>
+                              <SelectItem value="professional">Professional</SelectItem>
+                              <SelectItem value="business">Business</SelectItem>
+                              <SelectItem value="enterprise">Enterprise</SelectItem>
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div>
+                          <Label htmlFor="credits">Initial Credits</Label>
+                          <Input
+                            id="credits"
+                            type="number"
+                            value={createUserForm.credits}
+                            onChange={(e) => setCreateUserForm({ ...createUserForm, credits: e.target.value })}
+                            min="0"
+                            data-testid="input-create-credits"
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Switch
+                          id="isAdmin"
+                          checked={createUserForm.isAdmin}
+                          onCheckedChange={(checked) => setCreateUserForm({ ...createUserForm, isAdmin: checked })}
+                          data-testid="switch-create-admin"
+                        />
+                        <Label htmlFor="isAdmin" className="font-normal cursor-pointer">
+                          Grant admin privileges
+                        </Label>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                      <Button 
+                        variant="outline" 
+                        onClick={() => {
+                          setCreateUserModalOpen(false);
+                          // Reset form
+                          setCreateUserForm({
+                            username: "",
+                            email: "",
+                            password: "",
+                            firstName: "",
+                            lastName: "",
+                            businessName: "",
+                            tier: "free",
+                            credits: "50",
+                            isAdmin: false,
+                          });
+                          setShowCreatePassword(false);
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={() => {
+                          // Basic validation
+                          if (!createUserForm.username || !createUserForm.email || !createUserForm.password) {
+                            toast({
+                              title: "Missing required fields",
+                              description: "Username, email, and password are required",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          if (createUserForm.password.length < 6) {
+                            toast({
+                              title: "Password too short",
+                              description: "Password must be at least 6 characters",
+                              variant: "destructive",
+                            });
+                            return;
+                          }
+                          createUserMutation.mutate(createUserForm);
+                        }}
+                        disabled={createUserMutation.isPending}
+                        data-testid="button-submit-create-user"
+                      >
+                        {createUserMutation.isPending ? "Creating..." : "Create User"}
+                      </Button>
+                    </DialogFooter>
+                  </DialogContent>
+                </Dialog>
+              </div>
             </CardHeader>
             <CardContent className="p-0">
               <div className="w-full overflow-x-auto">

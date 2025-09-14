@@ -1,5 +1,7 @@
 import { Router, Request, Response, NextFunction } from "express";
 import { storage } from "./storage";
+import { hash } from "bcryptjs";
+import { randomUUID } from "crypto";
 import Stripe from "stripe";
 
 const stripe = process.env.STRIPE_SECRET_KEY 
@@ -44,6 +46,118 @@ const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
 
 // All admin routes require admin authentication
 router.use(isAdmin);
+
+// Create new user
+router.post("/users", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const {
+      username,
+      email,
+      password,
+      firstName,
+      lastName,
+      businessName,
+      tier = "free",
+      credits = 50,
+      isAdmin = false,
+    } = req.body;
+
+    // Validate required fields
+    if (!username || !email || !password) {
+      return res.status(400).json({ 
+        message: "Username, email, and password are required" 
+      });
+    }
+
+    // Validate password length
+    if (password.length < 6) {
+      return res.status(400).json({ 
+        message: "Password must be at least 6 characters" 
+      });
+    }
+
+    // Validate email format
+    if (!email.includes("@") || !email.includes(".")) {
+      return res.status(400).json({ 
+        message: "Invalid email format" 
+      });
+    }
+
+    // Check if username is unique
+    const existingUsername = await storage.getUserByUsername(username);
+    if (existingUsername) {
+      return res.status(400).json({ 
+        message: "Username already exists" 
+      });
+    }
+
+    // Check if email is unique
+    const existingEmail = await storage.getUserByEmail(email);
+    if (existingEmail) {
+      return res.status(400).json({ 
+        message: "Email already exists" 
+      });
+    }
+
+    // Validate tier
+    const validTiers = ["free", "starter", "professional", "business", "enterprise"];
+    if (!validTiers.includes(tier)) {
+      return res.status(400).json({ 
+        message: "Invalid subscription tier" 
+      });
+    }
+
+    // Hash the password
+    const hashedPassword = await hash(password, 10);
+
+    // Create the user
+    const newUser = await storage.createUser({
+      id: randomUUID(),
+      username,
+      email,
+      password: hashedPassword,
+      fullName: firstName && lastName ? `${firstName} ${lastName}` : firstName || lastName || username,
+      firstName: firstName || null,
+      lastName: lastName || null,
+      businessName: businessName || null,
+      tier,
+      credits,
+      isAdmin,
+      emailVerified: true, // Admin-created users are pre-verified
+      accountStatus: "active",
+      trialType: null,
+      trialStartDate: null,
+      trialEndDate: null,
+      createdAt: new Date(),
+      updatedAt: new Date(),
+    });
+
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: newUser.id,
+      action: "create_user",
+      details: {
+        username,
+        email,
+        tier,
+        credits,
+        isAdmin,
+      },
+    });
+
+    // Remove password from response
+    const { password: _, ...userWithoutPassword } = newUser;
+
+    res.status(201).json(userWithoutPassword);
+  } catch (error: any) {
+    console.error("Error creating user:", error);
+    res.status(500).json({ 
+      message: "Error creating user: " + error.message 
+    });
+  }
+});
 
 // Get all users
 router.get("/users", async (req, res) => {
