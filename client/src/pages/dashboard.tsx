@@ -18,8 +18,11 @@ import {
   Bot,
   BarChart3,
   Copy,
-  Gift
+  Gift,
+  Check
 } from "lucide-react";
+import { useState } from "react";
+import { useToast } from "@/hooks/use-toast";
 import { Link } from "wouter";
 import instagramLogo from "@/assets/logos/instagram.svg";
 import facebookLogo from "@/assets/logos/facebook.svg";
@@ -77,6 +80,9 @@ const platformLogos: Record<string, string> = {
 };
 
 export default function Dashboard() {
+  const [copiedReferral, setCopiedReferral] = useState(false);
+  const { toast } = useToast();
+  
   const { data: dashboardData, isLoading: isLoadingDashboard } = useQuery<DashboardData>({
     queryKey: ["/api/analytics/dashboard"],
   });
@@ -84,9 +90,34 @@ export default function Dashboard() {
   const { data: platforms = [], isLoading: isLoadingPlatforms } = useQuery<PlatformStatus[]>({
     queryKey: ["/api/platforms"],
   });
+  
+  const { data: currentUser } = useQuery({
+    queryKey: ["/api/auth/me"],
+  });
+  
+  const { data: referralStats } = useQuery({
+    queryKey: ["/api/referrals/stats"],
+    enabled: !!currentUser,
+  });
 
   const isLoading = isLoadingDashboard || isLoadingPlatforms;
   const hasConnectedPlatforms = platforms.some(p => p.connected);
+  
+  const referralLink = currentUser?.referralCode 
+    ? `${window.location.origin}/auth?ref=${currentUser.referralCode}`
+    : '';
+    
+  const handleCopyReferralLink = () => {
+    if (referralLink) {
+      navigator.clipboard.writeText(referralLink);
+      setCopiedReferral(true);
+      toast({
+        title: "Copied!",
+        description: "Your referral link has been copied to clipboard.",
+      });
+      setTimeout(() => setCopiedReferral(false), 2000);
+    }
+  };
 
   if (isLoading) {
     return (
@@ -109,6 +140,68 @@ export default function Dashboard() {
 
   return (
     <div className="space-y-6">
+      {/* Referral Program Section - PROMINENT DISPLAY */}
+      {currentUser?.referralCode && (
+        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200 dark:border-purple-800">
+          <CardContent className="p-6">
+            <div className="flex items-start justify-between gap-4">
+              <div className="flex-1">
+                <div className="flex items-center gap-3 mb-3">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                    <Gift className="w-5 h-5 text-white" />
+                  </div>
+                  <div>
+                    <h3 className="text-lg font-semibold text-foreground">Refer Friends & Earn Credits</h3>
+                    <p className="text-sm text-muted-foreground">Share your link and get 100 credits for each friend who joins!</p>
+                  </div>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <div className="flex-1 bg-white dark:bg-gray-900 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
+                      <p className="text-sm font-mono text-foreground break-all">{referralLink}</p>
+                    </div>
+                    <Button
+                      onClick={handleCopyReferralLink}
+                      variant="default"
+                      size="sm"
+                      className="min-w-[100px]"
+                    >
+                      {copiedReferral ? (
+                        <>
+                          <Check className="w-4 h-4 mr-1" />
+                          Copied!
+                        </>
+                      ) : (
+                        <>
+                          <Copy className="w-4 h-4 mr-1" />
+                          Copy Link
+                        </>
+                      )}
+                    </Button>
+                  </div>
+                  
+                  {referralStats && (
+                    <div className="flex items-center gap-4 text-sm">
+                      <div className="flex items-center gap-1">
+                        <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
+                        <span className="font-medium">{referralStats.totalReferrals || 0}</span>
+                        <span className="text-muted-foreground">friends referred</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
+                        <span className="font-medium">{referralStats.totalCreditsEarned || 0}</span>
+                        <span className="text-muted-foreground">credits earned</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+      
       {/* Connected Platforms Status - REAL STATUS */}
       <section>
         <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Platform Connections</h3>

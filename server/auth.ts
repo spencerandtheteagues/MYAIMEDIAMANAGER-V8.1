@@ -4,6 +4,31 @@ import { storage } from "./storage";
 import { z } from "zod";
 import type { User } from "@shared/schema";
 
+// Helper function to generate unique referral code
+function generateReferralCode(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+async function generateUniqueReferralCode(): Promise<string> {
+  let code = '';
+  let isUnique = false;
+  
+  while (!isUnique) {
+    code = generateReferralCode();
+    const existing = await storage.getUserByReferralCode(code);
+    if (!existing) {
+      isUnique = true;
+    }
+  }
+  
+  return code;
+}
+
 const router = Router();
 
 // Validation schemas
@@ -66,12 +91,15 @@ router.post("/signup", async (req: Request, res: Response) => {
     const hashedCode = await hashVerificationCode(verificationCode);
     const verificationExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
     
+    // Generate unique referral code for the new user
+    const userReferralCode = await generateUniqueReferralCode();
+    
     // Set up no-card trial for new users
     const now = new Date();
     const trialDays = 7;
     const trialEndsAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
     
-    // Create user with automatic no-card trial
+    // Create user with automatic no-card trial and referral code
     const user = await storage.createUser({
       email: data.email,
       username: data.username,
@@ -95,6 +123,8 @@ router.post("/signup", async (req: Request, res: Response) => {
       trialEndsAt: trialEndsAt,
       trialImagesRemaining: 6,
       trialVideosRemaining: 0,
+      // Add referral code for this user
+      referralCode: userReferralCode,
     });
     
     // Send verification email
@@ -172,6 +202,7 @@ router.post("/signup", async (req: Request, res: Response) => {
         credits: user.credits,
         emailVerified: false,
         requiresVerification: true,
+        referralCode: user.referralCode,
         message: 'Account created! Please check your email for verification code.',
       });
     });
@@ -242,6 +273,7 @@ router.post("/login", async (req: Request, res: Response) => {
         credits: user.credits,
         isAdmin: user.isAdmin,
         emailVerified: user.emailVerified,
+        referralCode: user.referralCode,
       });
     });
   } catch (error) {
@@ -294,6 +326,7 @@ router.get("/me", async (req: Request, res: Response) => {
       subscriptionStatus: user.subscriptionStatus,
       trialEndDate: user.trialEndDate,
       emailVerified: user.emailVerified,
+      referralCode: user.referralCode,
     });
   } catch (error) {
     console.error("Get user error:", error);
