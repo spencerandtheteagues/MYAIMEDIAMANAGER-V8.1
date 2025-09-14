@@ -227,15 +227,24 @@ router.post("/signup", async (req: Request, res: Response) => {
 router.post("/login", async (req: Request, res: Response) => {
   try {
     const data = loginSchema.parse(req.body);
+    console.log('Login attempt for email:', data.email);
     
     // Find user by email
     const user = await storage.getUserByEmail(data.email);
-    if (!user || !user.password) {
+    if (!user) {
+      console.log('User not found:', data.email);
+      return res.status(401).json({ message: "Invalid email or password" });
+    }
+    
+    if (!user.password) {
+      console.log('User has no password (OAuth user?):', data.email);
       return res.status(401).json({ message: "Invalid email or password" });
     }
     
     // Check password
+    console.log('Comparing passwords for:', data.email);
     const isValid = await bcrypt.compare(data.password, user.password);
+    console.log('Password comparison result:', isValid);
     if (!isValid) {
       return res.status(401).json({ message: "Invalid email or password" });
     }
