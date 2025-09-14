@@ -11,7 +11,8 @@ import {
   Rocket,
   Share2,
   CalendarDays,
-  Shield
+  Shield,
+  Sparkles
 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -22,6 +23,7 @@ import type { Post, User } from "@shared/schema";
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
   { name: "Create Content", href: "/create", icon: PlusCircle },
+  { name: "AI Brainstorm", href: "/ai-brainstorm", icon: Sparkles },
   { name: "Campaigns", href: "/campaigns", icon: Rocket },
   { name: "Platforms", href: "/platforms", icon: Share2 },
   { name: "Content Calendar", href: "/calendar", icon: Calendar },

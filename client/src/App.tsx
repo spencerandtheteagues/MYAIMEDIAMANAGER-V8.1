@@ -25,6 +25,7 @@ import TrialSelection from "./pages/trial-selection";
 import VerifyEmail from "./pages/verify-email";
 import Checkout from "./pages/checkout";
 import CheckoutReturn from "./pages/checkout-return";
+import AIBrainstorm from "./pages/ai-brainstorm";
 import Sidebar from "./components/layout/sidebar";
 import Header from "./components/layout/header";
 import TrialWelcomePopup from "./components/trial-welcome-popup";
@@ -86,6 +87,7 @@ function Router() {
         <Switch>
           <Route path="/" component={Dashboard} />
           <Route path="/create" component={CreateContent} />
+          <Route path="/ai-brainstorm" component={AIBrainstorm} />
           <Route path="/calendar" component={Calendar} />
           <Route path="/approval" component={Approval} />
           <Route path="/analytics" component={Analytics} />
