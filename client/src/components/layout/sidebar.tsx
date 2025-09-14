@@ -44,8 +44,8 @@ export default function Sidebar() {
   });
 
   return (
-    <aside className="w-64 shadow-lg flex flex-col" style={{ backgroundColor: 'hsl(280, 50%, 12%)' }}>
-      <div className="p-6 border-b border-purple-800/30 bg-gradient-to-r from-transparent via-purple-900/20 to-transparent">
+    <aside className="w-64 shadow-lg flex flex-col bg-background">
+      <div className="p-6 border-b border-border">
         <Logo size="md" animated={true} />
       </div>
       
@@ -58,8 +58,8 @@ export default function Sidebar() {
                 className={cn(
                   "flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer",
                   isActive
-                    ? "bg-purple-600/30 text-white border border-purple-500/50"
-                    : "text-gray-300 hover:bg-purple-700/20 hover:text-white"
+                    ? "bg-primary/20 text-white border border-primary/50"
+                    : "text-gray-300 hover:bg-muted hover:text-white"
                 )}
               >
                 <item.icon className="w-5 h-5" />
@@ -81,13 +81,13 @@ export default function Sidebar() {
               className={cn(
                 "flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer mt-2",
                 location === "/admin"
-                  ? "bg-purple-600/30 text-white border border-purple-500/50"
-                  : "text-gray-300 hover:bg-purple-700/20 hover:text-white"
+                  ? "bg-primary/20 text-white border border-primary/50"
+                  : "text-gray-300 hover:bg-muted hover:text-white"
               )}
             >
               <Shield className="w-5 h-5" />
               <span>Admin Panel</span>
-              <Badge variant="secondary" className="ml-auto bg-purple-500/20 text-purple-500">
+              <Badge variant="secondary" className="ml-auto bg-primary/20 text-primary">
                 Admin
               </Badge>
             </div>
@@ -95,7 +95,7 @@ export default function Sidebar() {
         )}
       </nav>
       
-      <div className="p-4 border-t border-purple-800/30">
+      <div className="p-4 border-t border-border">
         <div className="flex items-center space-x-3">
           <UserAvatar user={user} />
           <div className="flex-1">
