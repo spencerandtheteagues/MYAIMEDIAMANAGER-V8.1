@@ -78,44 +78,27 @@ const SidebarProvider = React.forwardRef<
     // We use openProp and setOpenProp for control from outside the component.
     const [_open, _setOpen] = React.useState(defaultOpen)
     const open = openProp ?? _open
-    
-    // Store refs to access current values without dependency issues
-    const stateRef = React.useRef({ openProp, setOpenProp, _open, isMobile, setOpenMobile })
-    React.useEffect(() => {
-      stateRef.current = { openProp, setOpenProp, _open, isMobile, setOpenMobile }
-    })
-    
-    // FIX for React error #310: Remove ALL circular dependencies
-    // This callback has NO dependencies to avoid infinite loop
     const setOpen = React.useCallback(
       (value: boolean | ((value: boolean) => boolean)) => {
-        console.log('[SIDEBAR FIX v6 - DEPS FIXED] setOpen called with:', typeof value)  // Fixed useMemo deps
-        const { openProp: currentOpenProp, setOpenProp: currentSetOpenProp, _open: currentInternalOpen } = stateRef.current
-        
-        // Calculate new state
-        const currentOpen = currentOpenProp ?? currentInternalOpen
-        const newState = typeof value === "function" ? value(currentOpen) : value
-        
-        // Set the cookie
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=${newState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
-        
-        // Update state
-        if (currentSetOpenProp) {
-          currentSetOpenProp(newState)
+        const openState = typeof value === "function" ? value(open) : value
+        if (setOpenProp) {
+          setOpenProp(openState)
         } else {
-          _setOpen(newState)
+          _setOpen(openState)
         }
+
+        // This sets the cookie to keep the sidebar state.
+        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
       },
-      []  // Empty dependencies - uses ref to access current values
+      [setOpenProp, open]
     )
 
-    // Helper to toggle the sidebar - completely stable with NO dependencies
+    // Helper to toggle the sidebar.
     const toggleSidebar = React.useCallback(() => {
-      const { isMobile: currentIsMobile, setOpenMobile: currentSetOpenMobile } = stateRef.current
-      return currentIsMobile
-        ? currentSetOpenMobile((open) => !open)
+      return isMobile
+        ? setOpenMobile((open) => !open)
         : setOpen((open) => !open)
-    }, [])  // NO dependencies - uses ref to access current values
+    }, [isMobile, setOpen, setOpenMobile])
 
     // Adds a keyboard shortcut to toggle the sidebar.
     React.useEffect(() => {
@@ -147,7 +130,7 @@ const SidebarProvider = React.forwardRef<
         setOpenMobile,
         toggleSidebar,
       }),
-      [state, open, isMobile, openMobile]  // Only include primitive values, not functions - setOpen and toggleSidebar are stable with empty deps
+      [state, open, setOpen, isMobile, openMobile, setOpenMobile, toggleSidebar]
     )
 
     return (

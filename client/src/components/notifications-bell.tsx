@@ -157,7 +157,7 @@ export function NotificationsBell() {
                       {notification.message}
                     </p>
                     <p className="text-xs text-muted-foreground">
-                      {notification.createdAt ? formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true }) : 'Just now'}
+                      {formatDistanceToNow(new Date(notification.createdAt), { addSuffix: true })}
                     </p>
                   </div>
                 </div>

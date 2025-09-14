@@ -108,32 +108,6 @@ async function generateUniqueReferralCode(): Promise<string> {
 
 const router = Router();
 
-// OAuth configuration test endpoint
-router.get("/test-config", (req: Request, res: Response) => {
-  const config = {
-    googleClientIdExists: !!process.env.GOOGLE_CLIENT_ID,
-    googleClientSecretExists: !!process.env.GOOGLE_CLIENT_SECRET,
-    sessionSecretExists: !!process.env.SESSION_SECRET,
-    nodeEnv: process.env.NODE_ENV,
-    debugOAuthEnabled: process.env.DEBUG_OAUTH === 'true',
-    callbackUrl: req ? getCallbackUrl(req) : '/api/auth/google/callback',
-    sessionCookieSettings: req.session?.cookie ? {
-      httpOnly: req.session.cookie.httpOnly,
-      secure: req.session.cookie.secure,
-      sameSite: req.session.cookie.sameSite,
-      domain: req.session.cookie.domain,
-      path: req.session.cookie.path,
-      maxAge: req.session.cookie.maxAge,
-    } : null,
-    sessionExists: !!req.session,
-    sessionId: req.sessionID,
-    userAgent: req.get('User-Agent'),
-    isMobile: /Mobile|Android|iPhone|iPad|BlackBerry|Opera Mini|IEMobile/.test(req.get('User-Agent') || ''),
-  };
-  
-  res.json(config);
-});
-
 // Validate Google OAuth is configured
 if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
   console.warn("Google OAuth not configured - GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET required");
@@ -177,16 +151,18 @@ function createUserSession(req: Request, user: User) {
 
 // Get the base URL for callbacks
 function getCallbackUrl(req: Request): string {
-  // Use the current request host for dynamic callback URL
-  const protocol = req.get('X-Forwarded-Proto') || req.protocol || 'https';
-  const host = req.get('Host') || req.hostname;
-  
-  // For production and Replit, use the actual host from the request
-  if (host) {
-    return `${protocol}://${host}/api/auth/google/callback`;
+  // In production, always use the apex domain for OAuth consistency
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://myaimediamgr.com/api/auth/google/callback';
   }
   
-  // Fallback to localhost for development
+  // In development, check for Replit domains first
+  if (process.env.REPLIT_DOMAINS) {
+    const firstDomain = process.env.REPLIT_DOMAINS.split(',')[0];
+    return `https://${firstDomain}/api/auth/google/callback`;
+  }
+  
+  // Local development
   return 'http://localhost:5000/api/auth/google/callback';
 }
 
@@ -195,10 +171,11 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.NODE_ENV === 'production' ? 'https://myaimediamgr.com/api/auth/google/callback' : '/api/auth/google/callback', // Use full URL in production, relative in dev
+    callbackURL: process.env.NODE_ENV === 'production' 
+      ? 'https://myaimediamgr.com/api/auth/google/callback'
+      : '/api/auth/google/callback',
     scope: ['openid', 'email', 'profile'],
     state: true, // Enable state parameter for CSRF protection
-    proxy: true, // Trust proxy headers for proper protocol/host detection
     passReqToCallback: true
   },
   async (req: Request, accessToken: string, refreshToken: string, profile: any, done: Function) => {
@@ -376,13 +353,6 @@ router.get("/google", (req: Request, res: Response, next: Function) => {
   const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
   req.session.oauthState = state;
   
-  // Force session save before redirecting to Google
-  req.session.save((err) => {
-    if (err) {
-      console.error('[OAuth Error] Failed to save session before OAuth redirect:', err);
-    }
-  });
-  
   // Log effective callback URL being used
   const effectiveCallbackUrl = getCallbackUrl(req);
   
@@ -446,22 +416,19 @@ router.get("/google/callback",
   (req: Request, res: Response, next: Function) => {
     console.log('[OAuth] Callback received with query params:', Object.keys(req.query));
     console.log('[OAuth] Session exists:', !!req.session);
-    console.log('[OAuth] Session ID:', req.sessionID);
-    console.log('[OAuth] Session cookie settings:', req.session?.cookie);
+    console.log('[OAuth] Session ID:', req.session?.id);
     
     logMobileDiagnostics(req, 'oauth-callback');
     
-    // Verify CSRF state parameter (but don't fail if missing on mobile)
+    // Verify CSRF state parameter
     const receivedState = req.query.state;
-    const expectedState = req.session?.oauthState;
+    const expectedState = req.session.oauthState;
     const stateMatches = receivedState === expectedState;
-    const isMobile = /Mobile|Android|iPhone|iPad|BlackBerry|Opera Mini|IEMobile/.test(req.get('User-Agent') || '');
     
     console.log('[OAuth] CSRF state check:', { 
       receivedState: receivedState ? 'present' : 'missing',
       expectedState: expectedState ? 'present' : 'missing',
-      matches: stateMatches,
-      isMobile
+      matches: stateMatches 
     });
     
     const debugInfo = {
@@ -482,7 +449,7 @@ router.get("/google/callback",
     
     safeDebugLog('[OAuth Debug] Google callback received:', debugInfo);
     
-    // Log CSRF state mismatch explicitly (but be more lenient on mobile)
+    // Log CSRF state mismatch explicitly
     if (!stateMatches && process.env.NODE_ENV === 'production') {
       console.error('[OAuth Error] CSRF state parameter mismatch detected');
       safeDebugLog('[OAuth Error] CSRF state parameter mismatch detected:', {
@@ -491,11 +458,12 @@ router.get("/google/callback",
         userAgent: req.get('User-Agent'),
         origin: req.get('Origin'),
       });
-      // Be more lenient on mobile browsers where state can get lost
-      if (receivedState && expectedState && !isMobile) {
+      // In production, only fail on state mismatch if both states exist
+      // Sometimes state gets lost in mobile browsers or due to cookie issues
+      if (receivedState && expectedState) {
         return res.redirect('/auth?error=csrf_state_mismatch');
       }
-      console.warn('[OAuth Warning] State parameter issue detected, continuing authentication due to', isMobile ? 'mobile browser' : 'missing state');
+      console.warn('[OAuth Warning] State parameter missing, continuing authentication');
     }
     
     // Clean up state from session
@@ -515,7 +483,6 @@ router.get("/google/callback",
     passport.authenticate('google', {
       failureRedirect: '/auth?error=google_auth_failed',
       failureMessage: true,
-      session: true, // Ensure passport uses sessions
     })(req, res, (err: any) => {
       if (err) {
         safeDebugLog('[OAuth Error] Passport authentication failed in callback:', {
@@ -570,22 +537,9 @@ router.get("/google/callback",
     });
     
     try {
-      // Check if user is valid before creating session
-      if (!user.id || !user.email) {
-        console.error('[OAuth Error] Invalid user data:', { 
-          hasId: !!user.id, 
-          hasEmail: !!user.email 
-        });
-        return res.redirect('/auth?error=invalid_user');
-      }
-      
       createUserSession(req, user);
       
-      console.log('[OAuth] Session created with userId:', user.id);
-      console.log('[OAuth] Session data:', {
-        sessionUserId: req.session.userId,
-        sessionUser: req.session.user ? { id: req.session.user.id, email: req.session.user.email } : null
-      });
+      console.log('[OAuth] Session created, attempting to save...');
       safeDebugLog('[OAuth Debug] Session created, attempting to save...');
       
       // Use async/await for session save to ensure it completes
@@ -607,28 +561,7 @@ router.get("/google/callback",
               userEmail: req.session.user?.email,
             },
           });
-          
-          // Try to regenerate session and save again
-          req.session.regenerate((regenErr) => {
-            if (regenErr) {
-              console.error('[OAuth Error] Session regeneration failed:', regenErr.message);
-              reject(regenErr);
-              return;
-            }
-            
-            // Re-create session after regeneration
-            createUserSession(req, user);
-            
-            req.session.save((finalErr) => {
-              if (finalErr) {
-                console.error('[OAuth Error] Final session save failed:', finalErr.message);
-                reject(finalErr);
-              } else {
-                console.log('[OAuth] Session regenerated and saved successfully');
-                resolve();
-              }
-            });
-          });
+          reject(err);
           return;
         }
         
@@ -643,12 +576,6 @@ router.get("/google/callback",
       });
       
       // Check if user needs trial selection
-      console.log('[OAuth] Checking user trial status:', {
-        needsTrialSelection: user.needsTrialSelection,
-        tier: user.tier,
-        trialVariant: user.trialVariant
-      });
-      
       if (user.needsTrialSelection) {
         console.log('[OAuth] User needs trial selection, redirecting to /trial-selection');
         safeDebugLog('[OAuth Debug] User needs trial selection, redirecting to trial-selection');

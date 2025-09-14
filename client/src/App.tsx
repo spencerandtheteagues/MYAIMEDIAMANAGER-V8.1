@@ -38,7 +38,7 @@ import { NotificationPopup } from "./components/NotificationPopup";
 import { TrialCountdown } from "./components/TrialCountdown";
 import { TrialExpiredModal } from "./components/TrialExpiredModal";
 import { useRestrictionHandler } from "./hooks/useRestrictionHandler";
-import { useEffect, useState, useMemo, useCallback } from "react";
+import { useEffect, useState } from "react";
 
 function Router() {
   // Initialize restriction handler
@@ -48,8 +48,8 @@ function Router() {
   
   // Set up global restriction handler
   useEffect(() => {
-    setGlobalRestrictionHandler({ showRestriction });
-  }, []); // Empty dependency array - only set once on mount
+    setGlobalRestrictionHandler(showRestriction);
+  }, [showRestriction]);
 
   // Check authentication status
   const { data: user, isLoading, error } = useQuery({
@@ -101,22 +101,17 @@ function Router() {
     );
   }
 
-  // Check if account is locked or trial has expired (memoized to prevent re-computation)
-  const { isTrialExpired, isTrialUser, isAccountLocked } = useMemo(() => {
-    const userData = user as any;
-    return {
-      isTrialExpired: userData?.trialEndsAt && new Date(userData.trialEndsAt) < new Date(),
-      isTrialUser: userData?.tier === 'free' && userData?.subscriptionStatus === 'trial',
-      isAccountLocked: userData?.isLocked
-    };
-  }, [user]);
+  // Check if account is locked or trial has expired
+  const isTrialExpired = (user as any)?.trialEndsAt && new Date((user as any).trialEndsAt) < new Date();
+  const isTrialUser = (user as any)?.tier === 'free' && (user as any)?.subscriptionStatus === 'trial';
+  const isAccountLocked = (user as any)?.isLocked;
 
-  // Show trial expired modal for expired trial users who haven't upgraded (only once)
+  // Show trial expired modal for expired trial users who haven't upgraded
   useEffect(() => {
     if (isTrialUser && isTrialExpired && !isAccountLocked) {
       setShowTrialExpiredModal(true);
     }
-  }, [isTrialUser, isTrialExpired, isAccountLocked]); // Remove showTrialExpiredModal from dependencies to prevent loop
+  }, [isTrialUser, isTrialExpired, isAccountLocked]);
 
   // If account is locked, redirect to trial-expired page
   if (isAccountLocked) {
@@ -193,12 +188,11 @@ function Router() {
         />
       )}
       
-      {/* Trial Expired Modal - TEMPORARILY COMMENTED TO DEBUG INFINITE LOOP */}
-      {/* <TrialExpiredModal 
+      {/* Trial Expired Modal */}
+      <TrialExpiredModal 
         open={showTrialExpiredModal} 
         trialEndDate={(user as any)?.trialEndsAt}
-        onOpenChange={setShowTrialExpiredModal}
-      /> */}
+      />
     </>
   );
 }

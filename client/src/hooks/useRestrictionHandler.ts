@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface RestrictionData {
@@ -34,20 +34,20 @@ export function useRestrictionHandler() {
   const queryClient = useQueryClient();
 
   // Function to show restriction dialog with data
-  const showRestriction = useCallback((data: RestrictionData) => {
+  const showRestriction = (data: RestrictionData) => {
     setRestrictionState({
       isOpen: true,
       data,
     });
-  }, []);
+  };
 
   // Function to hide restriction dialog
-  const hideRestriction = useCallback(() => {
+  const hideRestriction = () => {
     setRestrictionState({
       isOpen: false,
       data: null,
     });
-  }, []);
+  };
 
   // Function to handle API error responses that contain restriction data
   const handleApiError = (error: any) => {
