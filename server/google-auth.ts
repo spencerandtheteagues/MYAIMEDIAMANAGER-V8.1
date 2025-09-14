@@ -116,7 +116,7 @@ router.get("/test-config", (req: Request, res: Response) => {
     sessionSecretExists: !!process.env.SESSION_SECRET,
     nodeEnv: process.env.NODE_ENV,
     debugOAuthEnabled: process.env.DEBUG_OAUTH === 'true',
-    callbackUrl: 'https://myaimediamgr.com/api/auth/google/callback',
+    callbackUrl: req ? getCallbackUrl(req) : '/api/auth/google/callback',
     sessionCookieSettings: req.session?.cookie ? {
       httpOnly: req.session.cookie.httpOnly,
       secure: req.session.cookie.secure,
@@ -177,18 +177,16 @@ function createUserSession(req: Request, user: User) {
 
 // Get the base URL for callbacks
 function getCallbackUrl(req: Request): string {
-  // In production, always use the apex domain for OAuth consistency
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://myaimediamgr.com/api/auth/google/callback';
+  // Use the current request host for dynamic callback URL
+  const protocol = req.get('X-Forwarded-Proto') || req.protocol || 'https';
+  const host = req.get('Host') || req.hostname;
+  
+  // For production and Replit, use the actual host from the request
+  if (host) {
+    return `${protocol}://${host}/api/auth/google/callback`;
   }
   
-  // In development, check for Replit domains first
-  if (process.env.REPLIT_DOMAINS) {
-    const firstDomain = process.env.REPLIT_DOMAINS.split(',')[0];
-    return `https://${firstDomain}/api/auth/google/callback`;
-  }
-  
-  // Local development
+  // Fallback to localhost for development
   return 'http://localhost:5000/api/auth/google/callback';
 }
 
@@ -197,9 +195,10 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: 'https://myaimediamgr.com/api/auth/google/callback', // Always use absolute URL
+    callbackURL: '/api/auth/google/callback', // Use relative URL for flexibility
     scope: ['openid', 'email', 'profile'],
     state: true, // Enable state parameter for CSRF protection
+    proxy: true, // Trust proxy headers for proper protocol/host detection
     passReqToCallback: true
   },
   async (req: Request, accessToken: string, refreshToken: string, profile: any, done: Function) => {

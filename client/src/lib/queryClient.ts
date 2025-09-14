@@ -3,8 +3,13 @@ import { QueryClient, QueryFunction } from "@tanstack/react-query";
 // Global restriction handler reference
 let globalRestrictionHandler: ((data: any) => void) | null = null;
 
-export function setGlobalRestrictionHandler(handler: (data: any) => void) {
-  globalRestrictionHandler = handler;
+export function setGlobalRestrictionHandler(handler: { showRestriction: (data: any) => void } | ((data: any) => void)) {
+  // Support both function and object with showRestriction property
+  if (typeof handler === 'function') {
+    globalRestrictionHandler = handler;
+  } else if (handler && typeof handler.showRestriction === 'function') {
+    globalRestrictionHandler = handler.showRestriction;
+  }
 }
 
 async function throwIfResNotOk(res: Response) {

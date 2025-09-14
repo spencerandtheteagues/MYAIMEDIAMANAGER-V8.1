@@ -78,19 +78,35 @@ const SidebarProvider = React.forwardRef<
     // We use openProp and setOpenProp for control from outside the component.
     const [_open, _setOpen] = React.useState(defaultOpen)
     const open = openProp ?? _open
+    
+    // Store refs to access current values without dependency issues
+    const stateRef = React.useRef({ openProp, setOpenProp, _open })
+    React.useEffect(() => {
+      stateRef.current = { openProp, setOpenProp, _open }
+    })
+    
+    // FIX for React error #310: Remove ALL circular dependencies
+    // This callback has NO dependencies to avoid infinite loop
     const setOpen = React.useCallback(
       (value: boolean | ((value: boolean) => boolean)) => {
-        const openState = typeof value === "function" ? value(open) : value
-        if (setOpenProp) {
-          setOpenProp(openState)
+        console.log('[SIDEBAR FIX v3] setOpen called with:', typeof value)  // Force output change
+        const { openProp: currentOpenProp, setOpenProp: currentSetOpenProp, _open: currentInternalOpen } = stateRef.current
+        
+        // Calculate new state
+        const currentOpen = currentOpenProp ?? currentInternalOpen
+        const newState = typeof value === "function" ? value(currentOpen) : value
+        
+        // Set the cookie
+        document.cookie = `${SIDEBAR_COOKIE_NAME}=${newState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
+        
+        // Update state
+        if (currentSetOpenProp) {
+          currentSetOpenProp(newState)
         } else {
-          _setOpen(openState)
+          _setOpen(newState)
         }
-
-        // This sets the cookie to keep the sidebar state.
-        document.cookie = `${SIDEBAR_COOKIE_NAME}=${openState}; path=/; max-age=${SIDEBAR_COOKIE_MAX_AGE}`
       },
-      [setOpenProp, open]
+      []  // Empty dependencies - uses ref to access current values
     )
 
     // Helper to toggle the sidebar.

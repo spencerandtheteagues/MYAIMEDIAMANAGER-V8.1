@@ -72,7 +72,7 @@ export function TrialCountdown() {
           </span>
           
           <Badge 
-            variant={isUrgent ? "destructive" : isWarning ? "warning" : "default"}
+            variant={isUrgent ? "destructive" : isWarning ? "secondary" : "default"}
             className="font-bold"
             data-testid="badge-days-remaining"
           >

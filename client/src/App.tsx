@@ -48,8 +48,8 @@ function Router() {
   
   // Set up global restriction handler
   useEffect(() => {
-    setGlobalRestrictionHandler(showRestriction);
-  }, [showRestriction]);
+    setGlobalRestrictionHandler({ showRestriction });
+  }, []); // Empty dependency array - only set once on mount
 
   // Check authentication status
   const { data: user, isLoading, error } = useQuery({
@@ -113,10 +113,10 @@ function Router() {
 
   // Show trial expired modal for expired trial users who haven't upgraded (only once)
   useEffect(() => {
-    if (isTrialUser && isTrialExpired && !isAccountLocked && !showTrialExpiredModal) {
+    if (isTrialUser && isTrialExpired && !isAccountLocked) {
       setShowTrialExpiredModal(true);
     }
-  }, [isTrialUser, isTrialExpired, isAccountLocked, showTrialExpiredModal]);
+  }, [isTrialUser, isTrialExpired, isAccountLocked]); // Remove showTrialExpiredModal from dependencies to prevent loop
 
   // If account is locked, redirect to trial-expired page
   if (isAccountLocked) {
