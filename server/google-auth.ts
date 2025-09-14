@@ -196,8 +196,8 @@ router.get("/google/callback",
           return res.redirect("/trial-selection");
         }
         
-        // Redirect to dashboard or validated return URL
-        let returnTo = "/dashboard";
+        // Redirect to home page or validated return URL
+        let returnTo = "/";
         if (req.session.returnTo) {
           // Re-validate return URL before using it
           if (isValidReturnUrl(req.session.returnTo)) {
