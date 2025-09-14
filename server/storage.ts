@@ -11,7 +11,8 @@ import {
   type Notification, type InsertNotification,
   type ContentLibraryItem, type InsertContentLibrary,
   type BrandProfile, type InsertBrandProfile,
-  type ContentFeedback, type InsertContentFeedback
+  type ContentFeedback, type InsertContentFeedback,
+  type Referral, type InsertReferral
 } from "@shared/schema";
 import { randomUUID } from "crypto";
 
@@ -129,6 +130,20 @@ export interface IStorage {
   updateUserActivity(userId: string): Promise<User | undefined>;
   sendMessageToUser(userId: string, title: string, message: string, requiresPopup?: boolean): Promise<Notification>;
   updateTrialPeriod(userId: string, endDate: Date): Promise<User | undefined>;
+  
+  // Referral system
+  generateReferralCode(userId: string): Promise<User | undefined>;
+  getUserByReferralCode(referralCode: string): Promise<User | undefined>;
+  createReferral(referral: InsertReferral): Promise<Referral>;
+  getReferralsByReferrer(referrerId: string): Promise<Referral[]>;
+  getReferralsByUser(userId: string): Promise<Referral[]>;
+  completeReferral(referralId: string, creditsEarned: number): Promise<Referral | undefined>;
+  getReferralStats(userId: string): Promise<{
+    totalReferrals: number;
+    completedReferrals: number;
+    creditsEarned: number;
+    pendingReferrals: number;
+  }>;
 }
 
 export class MemStorage implements IStorage {
@@ -145,6 +160,7 @@ export class MemStorage implements IStorage {
   private contentLibrary: Map<string, ContentLibraryItem>;
   private brandProfiles: Map<string, BrandProfile>;
   private contentFeedback: Map<string, ContentFeedback>;
+  private referrals: Map<string, Referral>;
 
   constructor() {
     this.users = new Map();
@@ -160,6 +176,7 @@ export class MemStorage implements IStorage {
     this.contentLibrary = new Map();
     this.brandProfiles = new Map();
     this.contentFeedback = new Map();
+    this.referrals = new Map();
     
     // Initialize with demo user and data
     this.initializeDemoData();
@@ -1120,6 +1137,90 @@ export class MemStorage implements IStorage {
       totalCampaigns: this.campaigns.size,
       totalRevenue,
       totalTransactions: allTransactions.length,
+    };
+  }
+
+  // Referral system methods
+  async generateReferralCode(userId: string): Promise<User | undefined> {
+    const user = this.users.get(userId);
+    if (!user) return undefined;
+
+    // Generate unique 8-character referral code
+    let referralCode: string;
+    let isUnique = false;
+    
+    while (!isUnique) {
+      referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      isUnique = !Array.from(this.users.values()).some(u => u.referralCode === referralCode);
+    }
+    
+    const updatedUser = { 
+      ...user, 
+      referralCode, 
+      updatedAt: new Date() 
+    };
+    this.users.set(userId, updatedUser);
+    return updatedUser;
+  }
+
+  async getUserByReferralCode(referralCode: string): Promise<User | undefined> {
+    return Array.from(this.users.values()).find(user => user.referralCode === referralCode);
+  }
+
+  async createReferral(insertReferral: InsertReferral): Promise<Referral> {
+    const id = randomUUID();
+    const referral: Referral = {
+      ...insertReferral,
+      id,
+      completedAt: null,
+      createdAt: new Date(),
+    };
+    this.referrals.set(id, referral);
+    return referral;
+  }
+
+  async getReferralsByReferrer(referrerId: string): Promise<Referral[]> {
+    return Array.from(this.referrals.values())
+      .filter(referral => referral.referrerId === referrerId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async getReferralsByUser(userId: string): Promise<Referral[]> {
+    return Array.from(this.referrals.values())
+      .filter(referral => referral.referredUserId === userId)
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async completeReferral(referralId: string, creditsEarned: number): Promise<Referral | undefined> {
+    const referral = this.referrals.get(referralId);
+    if (!referral) return undefined;
+
+    const updatedReferral = {
+      ...referral,
+      status: "completed" as const,
+      creditsEarned,
+      completedAt: new Date(),
+    };
+    this.referrals.set(referralId, updatedReferral);
+    return updatedReferral;
+  }
+
+  async getReferralStats(userId: string): Promise<{
+    totalReferrals: number;
+    completedReferrals: number;
+    creditsEarned: number;
+    pendingReferrals: number;
+  }> {
+    const referrals = await this.getReferralsByReferrer(userId);
+    const completed = referrals.filter(r => r.status === "completed");
+    const pending = referrals.filter(r => r.status === "pending");
+    const creditsEarned = completed.reduce((sum, r) => sum + (r.creditsEarned || 0), 0);
+
+    return {
+      totalReferrals: referrals.length,
+      completedReferrals: completed.length,
+      creditsEarned,
+      pendingReferrals: pending.length,
     };
   }
 }

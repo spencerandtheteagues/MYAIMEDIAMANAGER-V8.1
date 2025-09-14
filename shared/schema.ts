@@ -73,6 +73,10 @@ export const users = pgTable("users", {
   pausedAt: timestamp("paused_at"),
   pausedReason: text("paused_reason"),
   
+  // Referral system
+  referralCode: text("referral_code").unique(), // User's unique referral code
+  referredBy: text("referred_by"), // Referral code of who referred this user
+  
   // Timestamps
   createdAt: timestamp("created_at").defaultNow(),
   updatedAt: timestamp("updated_at").defaultNow(),
@@ -363,6 +367,18 @@ export const contentFeedback = pgTable("content_feedback", {
   createdAt: timestamp("created_at").defaultNow(),
 });
 
+// Referrals table for tracking referral relationships
+export const referrals = pgTable("referrals", {
+  id: varchar("id").primaryKey().default(sql`gen_random_uuid()`),
+  referrerId: varchar("referrer_id").references(() => users.id).notNull(), // User who made the referral
+  referredUserId: varchar("referred_user_id").references(() => users.id).notNull(), // User who was referred
+  referralCode: text("referral_code").notNull(), // Code that was used
+  creditsEarned: integer("credits_earned").default(0), // Credits earned by referrer
+  status: text("status").notNull().default("pending"), // pending, completed, cancelled
+  completedAt: timestamp("completed_at"), // When the referral was completed (signup confirmed)
+  createdAt: timestamp("created_at").defaultNow(),
+});
+
 // Insert schemas for new tables
 export const insertNotificationSchema = createInsertSchema(notifications).pick({
   userId: true,
@@ -387,6 +403,11 @@ export const insertBrandProfileSchema = createInsertSchema(brandProfiles).omit({
 });
 
 export const insertContentFeedbackSchema = createInsertSchema(contentFeedback).omit({
+  id: true,
+  createdAt: true,
+});
+
+export const insertReferralSchema = createInsertSchema(referrals).omit({
   id: true,
   createdAt: true,
 });
@@ -421,3 +442,5 @@ export type BrandProfile = typeof brandProfiles.$inferSelect;
 export type InsertBrandProfile = z.infer<typeof insertBrandProfileSchema>;
 export type ContentFeedback = typeof contentFeedback.$inferSelect;
 export type InsertContentFeedback = z.infer<typeof insertContentFeedbackSchema>;
+export type Referral = typeof referrals.$inferSelect;
+export type InsertReferral = z.infer<typeof insertReferralSchema>;

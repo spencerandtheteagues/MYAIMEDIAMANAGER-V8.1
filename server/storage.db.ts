@@ -1,7 +1,7 @@
 import { db } from "./db";
 import { 
   users, platforms, campaigns, posts, aiSuggestions, analytics,
-  creditTransactions, subscriptionPlans, adminActions, notifications, contentLibrary, brandProfiles, contentFeedback,
+  creditTransactions, subscriptionPlans, adminActions, notifications, contentLibrary, brandProfiles, contentFeedback, referrals,
   type User, type InsertUser, type UpsertUser,
   type Platform, type InsertPlatform,
   type Campaign, type InsertCampaign,
@@ -14,7 +14,8 @@ import {
   type Notification, type InsertNotification,
   type ContentLibraryItem, type InsertContentLibrary,
   type BrandProfile, type InsertBrandProfile,
-  type ContentFeedback, type InsertContentFeedback
+  type ContentFeedback, type InsertContentFeedback,
+  type Referral, type InsertReferral
 } from "@shared/schema";
 import { eq, and, gte, lte, sql, desc, asc, isNull, ne, or } from "drizzle-orm";
 import type { IStorage } from "./storage";
@@ -672,6 +673,81 @@ export class DbStorage implements IStorage {
       totalCampaigns: allCampaigns[0]?.count || 0,
       totalRevenue,
       totalTransactions: allTransactions.length,
+    };
+  }
+
+  // Referral system methods
+  async generateReferralCode(userId: string): Promise<User | undefined> {
+    // Generate unique 8-character referral code
+    let referralCode: string;
+    let isUnique = false;
+    
+    while (!isUnique) {
+      referralCode = Math.random().toString(36).substring(2, 10).toUpperCase();
+      const existing = await db.select().from(users).where(eq(users.referralCode, referralCode));
+      isUnique = existing.length === 0;
+    }
+    
+    const result = await db.update(users)
+      .set({ 
+        referralCode, 
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, userId))
+      .returning();
+    return result[0];
+  }
+
+  async getUserByReferralCode(referralCode: string): Promise<User | undefined> {
+    const result = await db.select().from(users).where(eq(users.referralCode, referralCode));
+    return result[0];
+  }
+
+  async createReferral(referral: InsertReferral): Promise<Referral> {
+    const result = await db.insert(referrals).values(referral).returning();
+    return result[0];
+  }
+
+  async getReferralsByReferrer(referrerId: string): Promise<Referral[]> {
+    return await db.select().from(referrals)
+      .where(eq(referrals.referrerId, referrerId))
+      .orderBy(desc(referrals.createdAt));
+  }
+
+  async getReferralsByUser(userId: string): Promise<Referral[]> {
+    return await db.select().from(referrals)
+      .where(eq(referrals.referredUserId, userId))
+      .orderBy(desc(referrals.createdAt));
+  }
+
+  async completeReferral(referralId: string, creditsEarned: number): Promise<Referral | undefined> {
+    const result = await db.update(referrals)
+      .set({
+        status: "completed",
+        creditsEarned,
+        completedAt: new Date(),
+      })
+      .where(eq(referrals.id, referralId))
+      .returning();
+    return result[0];
+  }
+
+  async getReferralStats(userId: string): Promise<{
+    totalReferrals: number;
+    completedReferrals: number;
+    creditsEarned: number;
+    pendingReferrals: number;
+  }> {
+    const allReferrals = await this.getReferralsByReferrer(userId);
+    const completed = allReferrals.filter(r => r.status === "completed");
+    const pending = allReferrals.filter(r => r.status === "pending");
+    const creditsEarned = completed.reduce((sum, r) => sum + (r.creditsEarned || 0), 0);
+
+    return {
+      totalReferrals: allReferrals.length,
+      completedReferrals: completed.length,
+      creditsEarned,
+      pendingReferrals: pending.length,
     };
   }
 }

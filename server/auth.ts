@@ -14,6 +14,7 @@ const signupSchema = z.object({
   firstName: z.string().optional(),
   lastName: z.string().optional(),
   businessName: z.string().optional(),
+  referralCode: z.string().optional(),
 });
 
 const loginSchema = z.object({
@@ -98,6 +99,59 @@ router.post("/signup", async (req: Request, res: Response) => {
     
     // Send verification email
     await sendVerificationEmail(data.email, verificationCode);
+    
+    // Process referral if provided
+    let referralCredits = 0;
+    if (data.referralCode) {
+      try {
+        // Find referrer
+        const referrer = await storage.getUserByReferralCode(data.referralCode);
+        if (referrer && referrer.id !== user.id) {
+          // Create referral record
+          const referral = await storage.createReferral({
+            referrerId: referrer.id,
+            referredUserId: user.id,
+            referralCode: data.referralCode,
+            creditsEarned: 0,
+            status: "pending",
+          });
+
+          // Award credits to referrer (100 credits)
+          const referrerCredits = 100;
+          await storage.updateUser(referrer.id, {
+            credits: (referrer.credits || 0) + referrerCredits,
+          });
+
+          // Award welcome credits to new user (25 credits)
+          referralCredits = 25;
+          await storage.updateUser(user.id, {
+            credits: (user.credits || 0) + referralCredits,
+            referredBy: data.referralCode,
+          });
+
+          // Complete the referral
+          await storage.completeReferral(referral.id, referrerCredits);
+
+          // Create credit transactions for tracking
+          await storage.createCreditTransaction({
+            userId: referrer.id,
+            amount: referrerCredits,
+            type: "referral_bonus",
+            description: "Referral bonus for successful referral",
+          });
+
+          await storage.createCreditTransaction({
+            userId: user.id,
+            amount: referralCredits,
+            type: "referral_welcome",
+            description: "Welcome credits from referral signup",
+          });
+        }
+      } catch (error) {
+        console.error("Error processing referral:", error);
+        // Don't fail signup if referral processing fails
+      }
+    }
     
     // Create session
     createUserSession(req, user);

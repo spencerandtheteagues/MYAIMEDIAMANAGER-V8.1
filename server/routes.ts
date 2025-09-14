@@ -23,6 +23,7 @@ import { createFeedbackRoutes } from "./feedbackRoutes";
 import { createMetricsRoute, trackApiMetrics } from "./metrics";
 import { trialRouter } from "./trial";
 import verificationRoutes from "./verificationRoutes";
+import referralRoutes from "./referralRoutes";
 import { enforceTrialExpiration, isUserTrialExpired } from "./middleware/trialEnforcement";
 import { checkUserAccess } from "./middleware/accessControl";
 import { trackUserActivity } from "./middleware/activityTracker";
@@ -293,6 +294,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Wire up trial routes
   app.use("/api/trial", trialRouter);
+  
+  // Wire up referral routes
+  app.use("/api/referrals", referralRoutes);
   
   // Wire up schedule routes
   const { createScheduleRoutes } = await import("./scheduleRoutes");
