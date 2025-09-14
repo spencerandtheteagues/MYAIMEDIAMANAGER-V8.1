@@ -524,16 +524,17 @@ export default function AdminPanel() {
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[600px]">
-                <Table>
+                <div className="w-full overflow-x-auto">
+                  <Table className="min-w-[1200px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>User</TableHead>
-                      <TableHead>Email</TableHead>
-                      <TableHead>Tier</TableHead>
-                      <TableHead>Credits</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead>Admin</TableHead>
-                      <TableHead>Actions</TableHead>
+                      <TableHead className="min-w-[150px]">User</TableHead>
+                      <TableHead className="min-w-[200px]">Email</TableHead>
+                      <TableHead className="min-w-[100px]">Tier</TableHead>
+                      <TableHead className="min-w-[80px]">Credits</TableHead>
+                      <TableHead className="min-w-[100px]">Status</TableHead>
+                      <TableHead className="min-w-[80px]">Admin</TableHead>
+                      <TableHead className="min-w-[250px]">Actions</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -567,7 +568,7 @@ export default function AdminPanel() {
                           />
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-2">
+                          <div className="flex gap-1 flex-nowrap">
                             {/* Edit User Dialog */}
                             <Dialog open={editModalOpen && selectedUser?.id === user.id} onOpenChange={setEditModalOpen}>
                               <DialogTrigger asChild>
@@ -910,7 +911,8 @@ export default function AdminPanel() {
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
+                  </Table>
+                </div>
               </ScrollArea>
             </CardContent>
           </Card>
@@ -927,14 +929,15 @@ export default function AdminPanel() {
             </CardHeader>
             <CardContent>
               <ScrollArea className="h-[600px]">
-                <Table>
+                <div className="w-full overflow-x-auto">
+                  <Table className="min-w-[900px]">
                   <TableHeader>
                     <TableRow>
-                      <TableHead>Date</TableHead>
-                      <TableHead>User</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>Amount</TableHead>
-                      <TableHead>Description</TableHead>
+                      <TableHead className="min-w-[150px]">Date</TableHead>
+                      <TableHead className="min-w-[180px]">User</TableHead>
+                      <TableHead className="min-w-[120px]">Type</TableHead>
+                      <TableHead className="min-w-[100px]">Amount</TableHead>
+                      <TableHead className="min-w-[250px]">Description</TableHead>
                     </TableRow>
                   </TableHeader>
                   <TableBody>
@@ -961,7 +964,8 @@ export default function AdminPanel() {
                       </TableRow>
                     ))}
                   </TableBody>
-                </Table>
+                  </Table>
+                </div>
               </ScrollArea>
             </CardContent>
           </Card>
