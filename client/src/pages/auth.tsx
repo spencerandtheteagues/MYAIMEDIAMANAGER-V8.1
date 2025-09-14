@@ -159,7 +159,7 @@ export default function Auth() {
   });
   
   const handleGoogleLogin = () => {
-    window.location.href = "/api/login";
+    window.location.href = `/api/auth/google?return=${encodeURIComponent(returnUrl)}`;
   };
   
   const onLoginSubmit = (data: LoginFormData) => {

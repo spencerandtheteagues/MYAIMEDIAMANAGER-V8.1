@@ -123,6 +123,39 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
 router.use(passport.initialize());
 router.use(passport.session());
 
+// Helper to validate return URL to prevent open redirect attacks
+function isValidReturnUrl(url: string): boolean {
+  if (!url) return false;
+  
+  // Must start with / but not with // (protocol-relative URL)
+  if (!url.startsWith('/') || url.startsWith('//')) {
+    return false;
+  }
+  
+  // Should not contain @ or : which could be used for URL manipulation
+  if (url.includes('@') || url.includes(':')) {
+    return false;
+  }
+  
+  // Valid internal paths we allow
+  const validPaths = [
+    '/dashboard',
+    '/auth',
+    '/trial-selection',
+    '/checkout',
+    '/posts',
+    '/analytics',
+    '/campaigns',
+    '/platforms',
+    '/settings',
+    '/ai-generate',
+    '/'
+  ];
+  
+  // Check if URL starts with any valid path
+  return validPaths.some(path => url === path || url.startsWith(path + '/') || url.startsWith(path + '?'));
+}
+
 // Initiate Google OAuth flow
 router.get("/google", (req: Request, res: Response, next: Function) => {
   if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
@@ -131,9 +164,15 @@ router.get("/google", (req: Request, res: Response, next: Function) => {
     });
   }
   
-  // Store return URL in session if provided
+  // Store return URL in session if provided and valid
   if (req.query.return) {
-    req.session.returnTo = req.query.return as string;
+    const returnUrl = req.query.return as string;
+    if (isValidReturnUrl(returnUrl)) {
+      req.session.returnTo = returnUrl;
+    } else {
+      console.warn('Invalid return URL attempted:', returnUrl);
+      req.session.returnTo = '/dashboard';
+    }
   }
   
   passport.authenticate('google', {
@@ -160,9 +199,15 @@ router.get("/google/callback",
           return res.redirect("/trial-selection");
         }
         
-        // Redirect to dashboard or return URL
-        const returnTo = req.session.returnTo || "/dashboard";
-        delete req.session.returnTo;
+        // Redirect to dashboard or validated return URL
+        let returnTo = "/dashboard";
+        if (req.session.returnTo) {
+          // Re-validate return URL before using it
+          if (isValidReturnUrl(req.session.returnTo)) {
+            returnTo = req.session.returnTo;
+          }
+          delete req.session.returnTo;
+        }
         res.redirect(returnTo);
       });
     } else {
