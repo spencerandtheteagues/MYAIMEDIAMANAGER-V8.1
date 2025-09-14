@@ -70,11 +70,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         // Create new user from Google profile
         const username = email.split('@')[0] + '_' + profile.id.slice(-4);
         
-        // Set up trial for new Google users
-        const now = new Date();
-        const trialDays = 7;
-        const trialEndsAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
-        
+        // Create new user without trial details - they'll select trial after login
         user = await storage.createUser({
           email: email,
           username: username,
@@ -85,14 +81,9 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           profileImageUrl: profile.photos?.[0]?.value,
           googleAvatar: profile.photos?.[0]?.value,
           role: "user",
-          tier: "free_trial",
-          credits: 50,
+          tier: null, // Will be set when they select trial
+          credits: 0, // Will be set when they select trial
           emailVerified: true, // Google accounts are pre-verified
-          trialVariant: "nocard7",
-          trialStartedAt: now,
-          trialEndsAt: trialEndsAt,
-          trialImagesRemaining: 6,
-          trialVideosRemaining: 0,
           needsTrialSelection: true, // New users need to select trial
         });
       } else {
