@@ -142,24 +142,24 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Referral Program Section - PROMINENT DISPLAY */}
       {currentUser?.referralCode && (
-        <Card className="bg-gradient-to-br from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 border-purple-200 dark:border-purple-800">
+        <Card className="bg-zinc-900 border-zinc-800">
           <CardContent className="p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+                  <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-500 rounded-lg flex items-center justify-center">
                     <Gift className="w-5 h-5 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-foreground">Refer Friends & Earn Credits</h3>
-                    <p className="text-sm text-muted-foreground">Share your link and get 100 credits for each friend who joins!</p>
+                    <h3 className="text-lg font-semibold text-white">Refer Friends & Earn Credits</h3>
+                    <p className="text-sm text-zinc-400">Share your link and get 100 credits for each friend who joins!</p>
                   </div>
                 </div>
                 
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-white dark:bg-gray-900 rounded-lg px-3 py-2 border border-gray-200 dark:border-gray-700">
-                      <p className="text-sm font-mono text-foreground break-all">{referralLink}</p>
+                    <div className="flex-1 bg-zinc-800 rounded-lg px-3 py-2 border border-zinc-700">
+                      <p className="text-sm font-mono text-zinc-300 break-all">{referralLink}</p>
                     </div>
                     <Button
                       onClick={handleCopyReferralLink}
@@ -184,14 +184,14 @@ export default function Dashboard() {
                   {referralStats && (
                     <div className="flex items-center gap-4 text-sm">
                       <div className="flex items-center gap-1">
-                        <Users className="w-4 h-4 text-purple-600 dark:text-purple-400" />
-                        <span className="font-medium">{referralStats.totalReferrals || 0}</span>
-                        <span className="text-muted-foreground">friends referred</span>
+                        <Users className="w-4 h-4 text-purple-400" />
+                        <span className="font-medium text-white">{referralStats.totalReferrals || 0}</span>
+                        <span className="text-zinc-400">friends referred</span>
                       </div>
                       <div className="flex items-center gap-1">
-                        <TrendingUp className="w-4 h-4 text-green-600 dark:text-green-400" />
-                        <span className="font-medium">{referralStats.totalCreditsEarned || 0}</span>
-                        <span className="text-muted-foreground">credits earned</span>
+                        <TrendingUp className="w-4 h-4 text-green-400" />
+                        <span className="font-medium text-white">{referralStats.totalCreditsEarned || 0}</span>
+                        <span className="text-zinc-400">credits earned</span>
                       </div>
                     </div>
                   )}
