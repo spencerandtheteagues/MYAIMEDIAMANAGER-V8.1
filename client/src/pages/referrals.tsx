@@ -164,9 +164,9 @@ export default function Referrals() {
 
       <Tabs defaultValue="rewards" className="space-y-4">
         <TabsList className="grid w-full grid-cols-3">
-          <TabsTrigger value="rewards">Rewards</TabsTrigger>
-          <TabsTrigger value="progress">Progress</TabsTrigger>
-          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="rewards" className="text-xs sm:text-sm">Rewards</TabsTrigger>
+          <TabsTrigger value="progress" className="text-xs sm:text-sm">Progress</TabsTrigger>
+          <TabsTrigger value="history" className="text-xs sm:text-sm">History</TabsTrigger>
         </TabsList>
 
         <TabsContent value="rewards" className="space-y-4">

@@ -154,13 +154,13 @@ export default function Approval() {
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
               <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger value="pending">
+                <TabsTrigger value="pending" className="text-xs sm:text-sm px-1 sm:px-3">
                   Pending ({pendingPosts?.length || 0})
                 </TabsTrigger>
-                <TabsTrigger value="approved">
+                <TabsTrigger value="approved" className="text-xs sm:text-sm px-1 sm:px-3">
                   Approved ({approvedPosts?.length || 0})
                 </TabsTrigger>
-                <TabsTrigger value="rejected">
+                <TabsTrigger value="rejected" className="text-xs sm:text-sm px-1 sm:px-3">
                   Rejected ({rejectedPosts?.length || 0})
                 </TabsTrigger>
               </TabsList>

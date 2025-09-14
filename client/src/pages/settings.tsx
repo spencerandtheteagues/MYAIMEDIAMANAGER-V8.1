@@ -404,11 +404,11 @@ export default function Settings() {
 
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4">
-                <TabsTrigger value="account">Account</TabsTrigger>
-                <TabsTrigger value="subscription">Subscription</TabsTrigger>
-                <TabsTrigger value="security">Security</TabsTrigger>
-                <TabsTrigger value="danger">Danger Zone</TabsTrigger>
+              <TabsList className="grid w-full grid-cols-2 sm:grid-cols-4 gap-1">
+                <TabsTrigger value="account" className="text-xs sm:text-sm">Account</TabsTrigger>
+                <TabsTrigger value="subscription" className="text-xs sm:text-sm">Subscription</TabsTrigger>
+                <TabsTrigger value="security" className="text-xs sm:text-sm">Security</TabsTrigger>
+                <TabsTrigger value="danger" className="text-xs sm:text-sm">Danger Zone</TabsTrigger>
               </TabsList>
 
               <div className="mt-6">
