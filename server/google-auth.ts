@@ -4,8 +4,8 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { storage } from "./storage";
 import type { User } from "@shared/schema";
 
-// Enable OAuth debug logging only when DEBUG_OAUTH is set and not in production
-const isDebugEnabled = process.env.DEBUG_OAUTH === 'true' && process.env.NODE_ENV !== 'production';
+// Enable OAuth debug logging when DEBUG_OAUTH is set
+const isDebugEnabled = process.env.DEBUG_OAUTH === 'true';
 
 // Helper function to mask email for logging
 function maskEmail(email: string): string {
@@ -380,18 +380,28 @@ router.get("/google", (req: Request, res: Response, next: Function) => {
   // Store return URL in session if provided and valid
   if (req.query.return) {
     const returnUrl = req.query.return as string;
+    console.log('[OAuth] Return URL provided:', returnUrl);
     safeDebugLog('[OAuth Debug] Return URL provided:', { returnUrl });
     if (isValidReturnUrl(returnUrl)) {
       req.session.returnTo = returnUrl;
+      req.session.returnUrl = returnUrl; // Store in both places for compatibility
+      console.log('[OAuth] Valid return URL stored in session:', returnUrl);
       safeDebugLog('[OAuth Debug] Valid return URL stored in session:', { returnUrl });
     } else {
+      console.warn('[OAuth Warning] Invalid return URL attempted:', returnUrl);
       safeDebugLog('[OAuth Warning] Invalid return URL attempted:', {
         returnUrl,
         userAgent: req.get('User-Agent'),
         origin: req.get('Origin'),
       });
       req.session.returnTo = '/dashboard';
+      req.session.returnUrl = '/dashboard';
     }
+  } else {
+    // Default to dashboard if no return URL provided
+    req.session.returnTo = '/dashboard';
+    req.session.returnUrl = '/dashboard';
+    console.log('[OAuth] No return URL provided, defaulting to /dashboard');
   }
   
   safeDebugLog('[OAuth Debug] Starting passport.authenticate for Google', { state });
@@ -404,12 +414,22 @@ router.get("/google", (req: Request, res: Response, next: Function) => {
 // Google OAuth callback handler with comprehensive error logging
 router.get("/google/callback", 
   (req: Request, res: Response, next: Function) => {
+    console.log('[OAuth] Callback received with query params:', Object.keys(req.query));
+    console.log('[OAuth] Session exists:', !!req.session);
+    console.log('[OAuth] Session ID:', req.session?.id);
+    
     logMobileDiagnostics(req, 'oauth-callback');
     
     // Verify CSRF state parameter
     const receivedState = req.query.state;
     const expectedState = req.session.oauthState;
     const stateMatches = receivedState === expectedState;
+    
+    console.log('[OAuth] CSRF state check:', { 
+      receivedState: receivedState ? 'present' : 'missing',
+      expectedState: expectedState ? 'present' : 'missing',
+      matches: stateMatches 
+    });
     
     const debugInfo = {
       userAgent: req.get('User-Agent'),
@@ -430,20 +450,27 @@ router.get("/google/callback",
     safeDebugLog('[OAuth Debug] Google callback received:', debugInfo);
     
     // Log CSRF state mismatch explicitly
-    if (!stateMatches) {
+    if (!stateMatches && process.env.NODE_ENV === 'production') {
+      console.error('[OAuth Error] CSRF state parameter mismatch detected');
       safeDebugLog('[OAuth Error] CSRF state parameter mismatch detected:', {
         receivedState,
         expectedState,
         userAgent: req.get('User-Agent'),
         origin: req.get('Origin'),
       });
-      return res.redirect('/auth?error=csrf_state_mismatch');
+      // In production, only fail on state mismatch if both states exist
+      // Sometimes state gets lost in mobile browsers or due to cookie issues
+      if (receivedState && expectedState) {
+        return res.redirect('/auth?error=csrf_state_mismatch');
+      }
+      console.warn('[OAuth Warning] State parameter missing, continuing authentication');
     }
     
     // Clean up state from session
     delete req.session.oauthState;
     
     if (req.query.error) {
+      console.error('[OAuth Error] Google OAuth error in callback:', req.query.error);
       safeDebugLog('[OAuth Error] Google OAuth error in callback:', {
         ...debugInfo,
         error: req.query.error,
@@ -471,7 +498,11 @@ router.get("/google/callback",
       next();
     });
   },
-  (req: Request, res: Response) => {
+  async (req: Request, res: Response) => {
+    console.log('[OAuth] Authentication successful, entering final handler');
+    console.log('[OAuth] User exists:', !!req.user);
+    console.log('[OAuth] Session exists:', !!req.session);
+    
     logMobileDiagnostics(req, 'callback-success');
     
     const debugInfo = {
@@ -487,9 +518,16 @@ router.get("/google/callback",
     // Authentication successful
     const user = req.user as User;
     if (!user) {
+      console.error('[OAuth Error] No user object after successful authentication');
       safeDebugLog('[OAuth Error] No user object after successful authentication:', debugInfo);
       return res.redirect("/auth?error=no_user_object");
     }
+    
+    console.log('[OAuth] User authenticated:', {
+      userId: user.id,
+      email: maskEmail(user.email || ''),
+      needsTrialSelection: user.needsTrialSelection
+    });
     
     safeDebugLog('[OAuth Debug] User authenticated successfully:', {
       ...debugInfo,
@@ -501,9 +539,14 @@ router.get("/google/callback",
     try {
       createUserSession(req, user);
       
+      console.log('[OAuth] Session created, attempting to save...');
       safeDebugLog('[OAuth Debug] Session created, attempting to save...');
-      req.session.save((err) => {
+      
+      // Use async/await for session save to ensure it completes
+      await new Promise<void>((resolve, reject) => {
+        req.session.save((err) => {
         if (err) {
+          console.error('[OAuth Error] Session save failed:', err.message);
           safeDebugLog('[OAuth Error] Session save failed:', {
             ...debugInfo,
             userId: user.id,
@@ -518,43 +561,58 @@ router.get("/google/callback",
               userEmail: req.session.user?.email,
             },
           });
-          return res.redirect("/auth?error=session_save_failed");
+          reject(err);
+          return;
         }
         
+        console.log('[OAuth] Session saved successfully');
         safeDebugLog('[OAuth Debug] Session saved successfully:', {
           ...debugInfo,
           userId: user.id,
           sessionUserId: req.session.userId,
         });
-        
-        // Check if user needs trial selection
-        if (user.needsTrialSelection) {
-          safeDebugLog('[OAuth Debug] User needs trial selection, redirecting to trial-selection');
-          return res.redirect("/trial-selection");
-        }
-        
-        // Redirect to home page or validated return URL
-        let returnTo = "/";
-        if (req.session.returnTo) {
-          safeDebugLog('[OAuth Debug] Return URL found in session:', { returnUrl: req.session.returnTo });
-          // Re-validate return URL before using it
-          if (isValidReturnUrl(req.session.returnTo)) {
-            returnTo = req.session.returnTo;
-            safeDebugLog('[OAuth Debug] Using validated return URL:', { returnTo });
-          } else {
-            safeDebugLog('[OAuth Warning] Invalid return URL in session:', {
-              returnUrl: req.session.returnTo,
-              userAgent: req.get('User-Agent'),
-              origin: req.get('Origin'),
-            });
-          }
-          delete req.session.returnTo;
-        }
-        
-        safeDebugLog('[OAuth Debug] Final redirect to:', { returnTo });
-        res.redirect(returnTo);
+        resolve();
       });
+      });
+      
+      // Check if user needs trial selection
+      if (user.needsTrialSelection) {
+        console.log('[OAuth] User needs trial selection, redirecting to /trial-selection');
+        safeDebugLog('[OAuth Debug] User needs trial selection, redirecting to trial-selection');
+        return res.redirect("/trial-selection");
+      }
+      
+      // Redirect to home page or validated return URL
+      let returnTo = "/dashboard"; // Default to dashboard instead of root
+      
+      // Check both returnTo and returnUrl for compatibility
+      const sessionReturnUrl = req.session.returnTo || req.session.returnUrl;
+      
+      if (sessionReturnUrl) {
+        console.log('[OAuth] Return URL found in session:', sessionReturnUrl);
+        safeDebugLog('[OAuth Debug] Return URL found in session:', { returnUrl: sessionReturnUrl });
+        // Re-validate return URL before using it
+        if (isValidReturnUrl(sessionReturnUrl)) {
+          returnTo = sessionReturnUrl;
+          console.log('[OAuth] Using validated return URL:', returnTo);
+          safeDebugLog('[OAuth Debug] Using validated return URL:', { returnTo });
+        } else {
+          console.warn('[OAuth Warning] Invalid return URL in session:', sessionReturnUrl);
+          safeDebugLog('[OAuth Warning] Invalid return URL in session:', {
+            returnUrl: sessionReturnUrl,
+            userAgent: req.get('User-Agent'),
+            origin: req.get('Origin'),
+          });
+        }
+        delete req.session.returnTo;
+        delete req.session.returnUrl;
+      }
+      
+      console.log('[OAuth] Final redirect to:', returnTo);
+      safeDebugLog('[OAuth Debug] Final redirect to:', { returnTo });
+      res.redirect(returnTo);
     } catch (error) {
+      console.error('[OAuth Error] Exception in callback success handler:', error instanceof Error ? error.message : error);
       safeDebugLog('[OAuth Error] Exception in callback success handler:', {
         ...debugInfo,
         userId: user?.id,

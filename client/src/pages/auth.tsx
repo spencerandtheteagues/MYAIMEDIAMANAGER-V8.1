@@ -51,14 +51,64 @@ export default function Auth() {
   const [tab, setTab] = useState<"login" | "signup">("login");
   const [referralCode, setReferralCode] = useState<string>("");
   const [referrerName, setReferrerName] = useState<string>("");
+  const [oauthError, setOauthError] = useState<string>("");
   
-  // Parse return URL and referral code from query params
+  // Parse return URL, referral code, and OAuth errors from query params
   const params = new URLSearchParams(location.split('?')[1] || '');
   const returnUrl = params.get('return') ? decodeURIComponent(params.get('return')!) : '/';
   const refCode = params.get('ref') || '';
+  const errorParam = params.get('error') || '';
+  const errorDetails = params.get('details') || '';
   
-  // Validate referral code on component mount
+  // Handle OAuth errors and validate referral code on component mount
   useEffect(() => {
+    // Handle OAuth errors
+    if (errorParam) {
+      let errorMessage = 'Authentication failed. Please try again.';
+      
+      switch(errorParam) {
+        case 'oauth_failed':
+          errorMessage = 'Google authentication failed. Please try again.';
+          break;
+        case 'no_user_object':
+          errorMessage = 'Failed to retrieve user information from Google. Please try again.';
+          break;
+        case 'session_save_failed':
+        case 'session_failed':
+          errorMessage = 'Failed to create session. Please try again or use email/password login.';
+          break;
+        case 'csrf_state_mismatch':
+          errorMessage = 'Security verification failed. Please try again.';
+          break;
+        case 'google_oauth_error':
+          errorMessage = `Google authentication error: ${errorDetails || 'Unknown error'}`;
+          break;
+        case 'google_auth_failed':
+          errorMessage = 'Google authentication was cancelled or failed. Please try again.';
+          break;
+        case 'passport_auth_failed':
+          errorMessage = `Authentication failed: ${errorDetails || 'Please try again'}`;
+          break;
+        case 'callback_exception':
+          errorMessage = 'An error occurred during authentication. Please try again.';
+          break;
+        case 'no_user':
+          errorMessage = 'Authentication successful but user not found. Please sign up first.';
+          break;
+        case 'invalid_user':
+          errorMessage = 'Invalid user data received from Google. Please try again.';
+          break;
+      }
+      
+      setOauthError(errorMessage);
+      toast({
+        title: "Authentication Error",
+        description: errorMessage,
+        variant: "destructive",
+      });
+    }
+    
+    // Handle referral code
     if (refCode) {
       setReferralCode(refCode);
       setTab('signup'); // Switch to signup tab if referral code is present
@@ -81,7 +131,7 @@ export default function Auth() {
         })
         .catch(() => {});
     }
-  }, [refCode, toast]);
+  }, [refCode, errorParam, errorDetails, toast]);
   
   // Login form
   const loginForm = useForm<LoginFormData>({
@@ -233,6 +283,12 @@ export default function Auth() {
             </CardDescription>
           </CardHeader>
           <CardContent>
+            {oauthError && (
+              <Alert variant="destructive" className="mb-4">
+                <AlertCircle className="h-4 w-4" />
+                <AlertDescription>{oauthError}</AlertDescription>
+              </Alert>
+            )}
             <Tabs value={tab} onValueChange={(v) => setTab(v as "login" | "signup")}>
               <TabsList className="grid w-full grid-cols-2 mb-6">
                 <TabsTrigger value="login">Sign In</TabsTrigger>

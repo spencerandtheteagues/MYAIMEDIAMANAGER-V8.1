@@ -13,5 +13,7 @@ declare module "express-session" {
       isAdmin: boolean;
     };
     returnTo?: string;
+    returnUrl?: string;
+    oauthState?: string;
   }
 }
