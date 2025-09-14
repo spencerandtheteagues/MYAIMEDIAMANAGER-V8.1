@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useLocation } from "wouter";
 import { useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -36,6 +36,7 @@ const signupSchema = z.object({
   firstName: z.string().min(1, "First name is required"),
   lastName: z.string().min(1, "Last name is required"),
   businessName: z.string().optional(),
+  referralCode: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
   message: "Passwords don't match",
   path: ["confirmPassword"],
@@ -48,10 +49,39 @@ export default function Auth() {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   const [tab, setTab] = useState<"login" | "signup">("login");
+  const [referralCode, setReferralCode] = useState<string>("");
+  const [referrerName, setReferrerName] = useState<string>("");
   
-  // Parse return URL from query params
+  // Parse return URL and referral code from query params
   const params = new URLSearchParams(location.split('?')[1] || '');
   const returnUrl = params.get('return') ? decodeURIComponent(params.get('return')!) : '/';
+  const refCode = params.get('ref') || '';
+  
+  // Validate referral code on component mount
+  useEffect(() => {
+    if (refCode) {
+      setReferralCode(refCode);
+      setTab('signup'); // Switch to signup tab if referral code is present
+      
+      // Validate the referral code
+      fetch(`/api/referral/validate`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ referralCode: refCode }),
+      })
+        .then(res => res.json())
+        .then(data => {
+          if (data.valid) {
+            setReferrerName(data.referrerName || "");
+            toast({
+              title: "Referral Applied!",
+              description: `You were referred by ${data.referrerName}. You'll get 25 bonus credits when you sign up!`,
+            });
+          }
+        })
+        .catch(() => {});
+    }
+  }, [refCode, toast]);
   
   // Login form
   const loginForm = useForm<LoginFormData>({
@@ -73,6 +103,7 @@ export default function Auth() {
       firstName: "",
       lastName: "",
       businessName: "",
+      referralCode: refCode || "",
     },
   });
   
@@ -127,7 +158,21 @@ export default function Auth() {
     mutationFn: async (data: SignupFormData) => {
       const { confirmPassword, ...signupData } = data;
       const response = await apiRequest("POST", "/api/auth/signup", signupData);
-      return await response.json();
+      const result = await response.json();
+      
+      // Process referral if code was provided
+      if (signupData.referralCode && result.userId) {
+        try {
+          await apiRequest("POST", "/api/referral/process", {
+            referralCode: signupData.referralCode,
+            newUserId: result.userId,
+          });
+        } catch (error) {
+          console.error("Failed to process referral:", error);
+        }
+      }
+      
+      return result;
     },
     onSuccess: (data) => {
       if (data.requiresVerification) {
@@ -356,6 +401,34 @@ export default function Auth() {
                         </FormItem>
                       )}
                     />
+                    
+                    {referralCode && (
+                      <div className="p-3 bg-green-500/10 border border-green-500/20 rounded-lg">
+                        <p className="text-sm text-green-400">
+                          {referrerName ? 
+                            `✨ Referred by ${referrerName}! You'll get 25 bonus credits when you sign up.` :
+                            `✨ Referral code applied! You'll get 25 bonus credits when you sign up.`
+                          }
+                        </p>
+                        <FormField
+                          control={signupForm.control}
+                          name="referralCode"
+                          render={({ field }) => (
+                            <FormItem className="mt-2">
+                              <FormControl>
+                                <Input 
+                                  {...field} 
+                                  value={referralCode}
+                                  readOnly
+                                  className="bg-white/5 border-white/10 text-white font-mono text-sm"
+                                  data-testid="input-signup-referral"
+                                />
+                              </FormControl>
+                            </FormItem>
+                          )}
+                        />
+                      </div>
+                    )}
                     
                     <FormField
                       control={signupForm.control}
