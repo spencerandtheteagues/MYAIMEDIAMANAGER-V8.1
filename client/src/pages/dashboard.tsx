@@ -104,7 +104,7 @@ export default function Dashboard() {
   const hasConnectedPlatforms = platforms.some(p => p.connected);
   
   const referralLink = currentUser?.referralCode 
-    ? `${window.location.origin}/auth?ref=${currentUser.referralCode}`
+    ? `https://myaimediamgr.com/auth?ref=${currentUser.referralCode}`
     : '';
     
   const handleCopyReferralLink = () => {
@@ -142,7 +142,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Referral Program Section - PROMINENT DISPLAY */}
       {currentUser?.referralCode && (
-        <Card className="bg-zinc-900 border-zinc-800">
+        <Card className="bg-black/40 border border-purple-600/50">
           <CardContent className="p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
@@ -158,7 +158,7 @@ export default function Dashboard() {
                 
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-zinc-800 rounded-lg px-3 py-2 border border-zinc-700">
+                    <div className="flex-1 bg-black/60 rounded-lg px-3 py-2 border border-zinc-800">
                       <p className="text-sm font-mono text-zinc-300 break-all">{referralLink}</p>
                     </div>
                     <Button
