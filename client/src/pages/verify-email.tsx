@@ -26,10 +26,21 @@ export default function VerifyEmail() {
     const storedEmail = localStorage.getItem("verificationEmail");
     
     if (emailParam) {
+      // Fresh verification from signup/login - update stored email
       setEmail(emailParam);
       localStorage.setItem("verificationEmail", emailParam);
-    } else if (storedEmail) {
+    } else if (storedEmail && !window.location.search) {
+      // Returning to verification page with stored email
       setEmail(storedEmail);
+    } else {
+      // No email found or navigated without params - clear and redirect
+      localStorage.removeItem("verificationEmail");
+      toast({
+        title: "Email missing",
+        description: "Please sign up or log in first",
+        variant: "destructive",
+      });
+      setTimeout(() => setLocation("/auth"), 2000);
     }
   }, []);
 
@@ -110,6 +121,11 @@ export default function VerifyEmail() {
   // Verify email mutation
   const verifyMutation = useMutation({
     mutationFn: async (verificationCode: string) => {
+      // Ensure email is set before attempting verification
+      if (!email) {
+        throw new Error("Email address is missing. Please return to the sign-up page.");
+      }
+      
       const response = await apiRequest("POST", "/api/verification/verify-email", {
         email,
         code: verificationCode,
@@ -162,8 +178,8 @@ export default function VerifyEmail() {
       const nextFocus = nextEmpty === -1 ? 5 : nextEmpty;
       setFocusedIndex(nextFocus);
       
-      // Auto-submit if all digits are filled
-      if (newCode.every((d) => d !== "")) {
+      // Auto-submit if all digits are filled and email is present
+      if (newCode.every((d) => d !== "") && email) {
         verifyMutation.mutate(newCode.join(""));
       }
     } else if (/^\d$/.test(value)) {
@@ -177,8 +193,8 @@ export default function VerifyEmail() {
         setFocusedIndex(index + 1);
       }
       
-      // Auto-submit if all digits are filled
-      if (index === 5 && newCode.every((d) => d !== "")) {
+      // Auto-submit if all digits are filled and email is present
+      if (index === 5 && newCode.every((d) => d !== "") && email) {
         verifyMutation.mutate(newCode.join(""));
       }
     }
@@ -194,7 +210,7 @@ export default function VerifyEmail() {
       setFocusedIndex(index + 1);
     } else if (e.key === "Enter") {
       const fullCode = code.join("");
-      if (fullCode.length === 6) {
+      if (fullCode.length === 6 && email) {
         verifyMutation.mutate(fullCode);
       }
     }
