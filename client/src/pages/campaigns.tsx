@@ -133,7 +133,7 @@ export default function Campaigns() {
       setGenerationProgress(0);
       setGenerationStatus("Starting campaign generation...");
       
-      // Call the generate endpoint which now handles everything sequentially
+      // Start campaign generation (returns immediately)
       const response = await apiRequest("POST", "/api/campaigns/generate", {
         prompt: `${data.campaignGoals} for ${data.businessName}`,
         start_date: new Date(data.startDate).toISOString(),
@@ -148,49 +148,55 @@ export default function Campaigns() {
       
       const result = await response.json();
       const campaignId = result.campaignId;
+      const campaign = result.campaign;
       
-      // Poll for progress updates
-      const pollInterval = setInterval(async () => {
-        try {
-          const progressResponse = await fetch(`/api/campaigns/${campaignId}/progress`);
-          const progress = await progressResponse.json();
-          
-          const percentage = (progress.current / progress.total) * 100;
-          setGenerationProgress(percentage);
-          setGenerationStatus(progress.status);
-          
-          if (progress.current >= progress.total) {
-            clearInterval(pollInterval);
+      // Start polling for progress immediately
+      return new Promise((resolve, reject) => {
+        let attempts = 0;
+        const maxAttempts = 240; // 4 minutes timeout (14 posts * 3 seconds + buffer)
+        
+        const pollInterval = setInterval(async () => {
+          try {
+            attempts++;
+            
+            const progressResponse = await fetch(`/api/campaigns/${campaignId}/progress`);
+            if (!progressResponse.ok) {
+              throw new Error('Failed to get progress');
+            }
+            
+            const progress = await progressResponse.json();
+            
+            // Update UI with progress
+            const percentage = (progress.current / progress.total) * 100;
+            setGenerationProgress(percentage);
+            setGenerationStatus(progress.status || `Creating post ${progress.current} of ${progress.total}...`);
+            
+            // Check if complete or failed
+            if (progress.status === 'Complete' || progress.current >= progress.total) {
+              clearInterval(pollInterval);
+              
+              // Get the final posts
+              const postsResponse = await fetch(`/api/campaigns/${campaignId}/posts`);
+              if (!postsResponse.ok) {
+                throw new Error('Failed to get posts');
+              }
+              const posts = await postsResponse.json();
+              
+              resolve({ campaign, posts });
+            } else if (progress.status === 'Failed' || attempts >= maxAttempts) {
+              clearInterval(pollInterval);
+              reject(new Error(progress.status === 'Failed' ? 'Campaign generation failed' : 'Generation timeout'));
+            }
+          } catch (error) {
+            console.error('Error polling progress:', error);
+            // Continue polling on transient errors
+            if (attempts >= maxAttempts) {
+              clearInterval(pollInterval);
+              reject(error);
+            }
           }
-        } catch (error) {
-          console.error('Error polling progress:', error);
-        }
-      }, 1000);
-      
-      // Wait for completion with timeout
-      let attempts = 0;
-      const maxAttempts = 120; // 2 minutes timeout
-      
-      while (attempts < maxAttempts) {
-        const progressResponse = await fetch(`/api/campaigns/${campaignId}/progress`);
-        const progress = await progressResponse.json();
-        
-        if (progress.current >= progress.total) {
-          clearInterval(pollInterval);
-          break;
-        }
-        
-        await new Promise(resolve => setTimeout(resolve, 1000));
-        attempts++;
-      }
-      
-      clearInterval(pollInterval);
-      
-      // Get the generated posts
-      const postsResponse = await fetch(`/api/campaigns/${campaignId}/posts`);
-      const posts = await postsResponse.json();
-      
-      return { campaign: result.campaign, posts };
+        }, 1000); // Poll every second
+      });
     },
     onSuccess: ({ campaign, posts }) => {
       setCampaignPosts(posts.map((post: any, index: number) => ({

@@ -40,7 +40,170 @@ const applyCampaignScheduleSchema = z.object({
 export function createCampaignRoutes(storage: IStorage) {
   const router = Router();
 
-  // POST /api/campaigns/generate - Generate a campaign with 14 posts
+  // Helper function to generate campaign posts in the background
+  async function generateCampaignPostsAsync(
+    campaignId: string,
+    userId: string,
+    params: any,
+    brandProfile: BrandProfile,
+    storage: IStorage
+  ) {
+    const progressKey = `campaign_progress_${campaignId}`;
+    const posts = [];
+    const startDate = new Date(params.start_date);
+    const morningHour = 10;
+    const afternoonHour = 16;
+    
+    const postTypeRotation: PostType[] = [
+      'promo', 'tutorial', 'testimonial', 'promo', 
+      'faq', 'announcement', 'promo',
+      'testimonial', 'tutorial', 'promo',
+      'seasonal', 'faq', 'promo', 'event'
+    ];
+    
+    const platforms: Platform[] = ['instagram', 'facebook', 'x'];
+    let postIndex = 0;
+    const priorCaptions: string[] = [];
+    const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+    
+    try {
+      for (let day = 0; day < 7; day++) {
+        for (let slot = 0; slot < 2; slot++) {
+          const scheduledDate = new Date(startDate);
+          scheduledDate.setDate(startDate.getDate() + day);
+          scheduledDate.setHours(slot === 0 ? morningHour : afternoonHour, 0, 0, 0);
+          
+          const postType = postTypeRotation[postIndex % postTypeRotation.length];
+          const platform = platforms[postIndex % platforms.length];
+          
+          // Generate content
+          let content = '';
+          let hashtags: string[] = [];
+          
+          try {
+            const result = await generateHighQualityPost({
+              platform,
+              postType,
+              brand: brandProfile,
+              campaignTheme: params.prompt,
+              product: params.productName,
+              desiredTone: brandProfile.voice,
+              callToAction: params.callToAction,
+              priorCaptions
+            });
+            
+            if (result.ok) {
+              content = result.best.caption;
+              hashtags = result.best.hashtags;
+              if (result.best.cta) {
+                content += `\n\n${result.best.cta}`;
+              }
+              priorCaptions.push(result.best.caption);
+            } else {
+              content = `${params.prompt} - Post ${postIndex + 1}`;
+              hashtags = ['#business', '#growth'];
+            }
+          } catch (err) {
+            console.error('Quality generation failed:', err);
+            content = `${params.prompt} - Post ${postIndex + 1}`;
+            hashtags = ['#business', '#growth'];
+          }
+          
+          if (hashtags.length > 0) {
+            content += '\n\n' + hashtags.join(' ');
+          }
+          
+          // Update progress
+          global.campaignProgress[progressKey].current = postIndex;
+          global.campaignProgress[progressKey].status = `Generating image ${postIndex + 1} of 14...`;
+          
+          // Add delay between images
+          if (postIndex > 0) {
+            await delay(3000);
+          }
+          
+          // Generate image
+          let imageUrl: string | undefined;
+          try {
+            const imagePrompt = `Professional social media image for ${params.businessName || 'business'}: ${content.substring(0, 80)}. Style: modern, clean, engaging.`;
+            const imageResult = await generateImage({
+              prompt: imagePrompt,
+              aspectRatio: platform === 'instagram' ? '1:1' : '16:9',
+              model: 'auto'
+            });
+            imageUrl = imageResult.url;
+            
+            if (userId && imageUrl) {
+              await saveToLibrary({
+                userId,
+                type: 'image',
+                url: imageUrl,
+                meta: {
+                  prompt: imagePrompt,
+                  caption: content,
+                  platform,
+                  campaignId,
+                  postType,
+                  aspectRatio: imageResult.aspectRatio
+                }
+              });
+            }
+          } catch (imageError) {
+            console.error('Image generation failed:', imageError);
+          }
+          
+          const post = await storage.createPost({
+            userId,
+            campaignId,
+            content,
+            platform,
+            platforms: [platform],
+            status: 'draft',
+            scheduledFor: scheduledDate,
+            aiGenerated: true,
+            imageUrl,
+            metadata: {
+              day: day + 1,
+              slot: slot + 1,
+              campaignPost: true,
+              postType,
+              qualityGenerated: true,
+              hasImage: !!imageUrl
+            },
+          });
+          
+          posts.push(post);
+          global.campaignProgress[progressKey].posts.push(post);
+          global.campaignProgress[progressKey].current = postIndex + 1;
+          global.campaignProgress[progressKey].status = `Created post ${postIndex + 1} of 14`;
+          
+          postIndex++;
+        }
+      }
+      
+      // Update campaign as complete
+      await storage.updateCampaign(campaignId, {
+        generationProgress: 100,
+        status: 'review',
+      });
+      
+      global.campaignProgress[progressKey].status = 'Complete';
+      
+      // Keep progress for 5 minutes after completion
+      setTimeout(() => {
+        delete global.campaignProgress[progressKey];
+      }, 5 * 60 * 1000);
+      
+    } catch (error) {
+      console.error('Background generation error:', error);
+      global.campaignProgress[progressKey].status = 'Failed';
+      await storage.updateCampaign(campaignId, {
+        status: 'failed',
+      });
+    }
+  }
+  
+  // POST /api/campaigns/generate - Start campaign generation
   router.post('/api/campaigns/generate', requireAuth, async (req: Request, res: Response) => {
     try {
       const userId = req.session?.userId;
@@ -120,7 +283,7 @@ export function createCampaignRoutes(storage: IStorage) {
         generationProgress: 0,
       });
 
-      // Store campaign progress in memory for real-time updates
+      // Initialize progress tracking
       const progressKey = `campaign_progress_${campaign.id}`;
       if (!global.campaignProgress) {
         global.campaignProgress = {};
@@ -128,167 +291,27 @@ export function createCampaignRoutes(storage: IStorage) {
       global.campaignProgress[progressKey] = {
         total: 14,
         current: 0,
-        status: 'Generating posts...',
-        posts: []
+        status: 'Starting generation...',
+        posts: [],
+        userId, // Store userId for ownership check
       };
       
-      // Generate 14 posts (2 per day for 7 days)
-      const posts = [];
-      const startDate = new Date(params.start_date);
-      const morningHour = 10; // 10:00 AM
-      const afternoonHour = 16; // 4:00 PM
-      
-      // Define varied post types for the campaign
-      const postTypeRotation: PostType[] = [
-        'promo', 'tutorial', 'testimonial', 'promo', 
-        'faq', 'announcement', 'promo',
-        'testimonial', 'tutorial', 'promo',
-        'seasonal', 'faq', 'promo', 'event'
-      ];
-      
-      const platforms: Platform[] = ['instagram', 'facebook', 'x'];
-      let postIndex = 0;
-      const priorCaptions: string[] = [];
-      
-      // Helper function to add delay between image generations
-      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
-      
-      for (let day = 0; day < 7; day++) {
-        for (let slot = 0; slot < 2; slot++) {
-          const scheduledDate = new Date(startDate);
-          scheduledDate.setDate(startDate.getDate() + day);
-          scheduledDate.setHours(slot === 0 ? morningHour : afternoonHour, 0, 0, 0);
-          
-          // Rotate through post types and platforms
-          const postType = postTypeRotation[postIndex % postTypeRotation.length];
-          const platform = platforms[postIndex % platforms.length];
-          
-          // Generate high-quality content using the quality engine
-          let content = '';
-          let hashtags: string[] = [];
-          
-          try {
-            const result = await generateHighQualityPost({
-              platform,
-              postType,
-              brand: brandProfile,
-              campaignTheme: params.prompt,
-              product: params.productName,
-              desiredTone: brandProfile.voice,
-              callToAction: params.callToAction,
-              priorCaptions
-            });
-            
-            if (result.ok) {
-              content = result.best.caption;
-              hashtags = result.best.hashtags;
-              if (result.best.cta) {
-                content += `\n\n${result.best.cta}`;
-              }
-              priorCaptions.push(result.best.caption);
-            } else {
-              // Fallback content
-              content = `${params.prompt} - Post ${postIndex + 1}`;
-              hashtags = ['#business', '#growth'];
-            }
-          } catch (err) {
-            console.error('Quality generation failed:', err);
-            // Simple fallback
-            content = `${params.prompt} - Post ${postIndex + 1}`;
-            hashtags = ['#business', '#growth'];
-          }
-          
-          // Add hashtags to content
-          if (hashtags.length > 0) {
-            content += '\n\n' + hashtags.join(' ');
-          }
-          
-          // Update progress before generating image
-          global.campaignProgress[progressKey].current = postIndex;
-          global.campaignProgress[progressKey].status = `Generating image ${postIndex + 1} of 14...`;
-          
-          // Add delay between image generation requests (3 seconds)
-          if (postIndex > 0) {
-            await delay(3000);
-          }
-          
-          // Generate and save image for the post
-          let imageUrl: string | undefined;
-          try {
-            const imagePrompt = `Professional social media image for ${params.businessName || 'business'}: ${content.substring(0, 80)}. Style: modern, clean, engaging.`;
-            const imageResult = await generateImage({
-              prompt: imagePrompt,
-              aspectRatio: platform === 'instagram' ? '1:1' : '16:9',
-              model: 'auto'
-            });
-            imageUrl = imageResult.url;
-            
-            // Save image to content library
-            if (userId && imageUrl) {
-              await saveToLibrary({
-                userId,
-                type: 'image',
-                url: imageUrl,
-                meta: {
-                  prompt: imagePrompt,
-                  caption: content,
-                  platform,
-                  campaignId: campaign.id,
-                  postType,
-                  aspectRatio: imageResult.aspectRatio
-                }
-              });
-            }
-          } catch (imageError) {
-            console.error('Image generation failed for campaign post:', imageError);
-            // Continue without image
-          }
-          
-          const post = await storage.createPost({
-            userId,
-            campaignId: campaign.id,
-            content,
-            platform,
-            platforms: [platform], // Add the platforms array field
-            status: 'draft',
-            scheduledFor: scheduledDate,
-            aiGenerated: true,
-            imageUrl,
-            metadata: {
-              day: day + 1,
-              slot: slot + 1,
-              campaignPost: true,
-              postType,
-              qualityGenerated: true,
-              hasImage: !!imageUrl
-            },
-          });
-          
-          posts.push(post);
-          
-          // Update progress after creating post
-          global.campaignProgress[progressKey].posts.push(post);
-          global.campaignProgress[progressKey].current = postIndex + 1;
-          global.campaignProgress[progressKey].status = `Created post ${postIndex + 1} of 14`;
-          
-          postIndex++;
-        }
-      }
-      
-      // Update campaign progress
-      await storage.updateCampaign(campaign.id, {
-        generationProgress: 100,
-        status: 'review',
+      // Start generation in the background (non-blocking)
+      setImmediate(async () => {
+        await generateCampaignPostsAsync(
+          campaign.id,
+          userId,
+          params,
+          brandProfile,
+          storage
+        );
       });
       
-      // Clean up progress tracking
-      delete global.campaignProgress[progressKey];
-      
+      // Return immediately with campaign ID for polling
       res.json({
         campaignId: campaign.id,
-        postCount: posts.length,
+        message: 'Campaign generation started. Poll /api/campaigns/:id/progress for updates.',
         campaign,
-        posts,
       });
     } catch (error) {
       console.error('Generate campaign error:', error);
@@ -417,11 +440,27 @@ export function createCampaignRoutes(storage: IStorage) {
   // GET /api/campaigns/:id/progress - Get campaign generation progress
   router.get('/api/campaigns/:id/progress', requireAuth, async (req: Request, res: Response) => {
     try {
+      const userId = req.session?.userId;
+      if (!userId) {
+        return res.status(401).json({ error: 'Unauthorized' });
+      }
+      
       const { id } = req.params;
       const progressKey = `campaign_progress_${id}`;
       
+      // Check if progress exists and verify ownership
       if (global.campaignProgress?.[progressKey]) {
-        res.json(global.campaignProgress[progressKey]);
+        const progress = global.campaignProgress[progressKey];
+        
+        // Security: Verify user owns this campaign progress
+        const user = await storage.getUser(userId);
+        if (progress.userId !== userId && user?.role !== 'admin') {
+          return res.status(403).json({ error: 'Forbidden' });
+        }
+        
+        // Don't send userId in response
+        const { userId: _, ...safeProgress } = progress;
+        res.json(safeProgress);
       } else {
         // Check if campaign exists and is complete
         const campaign = await storage.getCampaign(id);
