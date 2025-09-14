@@ -1,9 +1,38 @@
 import { QueryClient, QueryFunction } from "@tanstack/react-query";
 
+// Global restriction handler reference
+let globalRestrictionHandler: ((data: any) => void) | null = null;
+
+export function setGlobalRestrictionHandler(handler: (data: any) => void) {
+  globalRestrictionHandler = handler;
+}
+
 async function throwIfResNotOk(res: Response) {
   if (!res.ok) {
-    const text = (await res.text()) || res.statusText;
-    throw new Error(`${res.status}: ${text}`);
+    let errorData: any;
+    try {
+      const text = await res.text();
+      errorData = text ? JSON.parse(text) : { message: res.statusText };
+    } catch {
+      errorData = { message: res.statusText };
+    }
+    
+    // Handle platform access restrictions
+    if (res.status === 403 && errorData.restrictionType) {
+      if (globalRestrictionHandler) {
+        globalRestrictionHandler(errorData);
+        // Throw a special error that can be caught and handled differently
+        const error = new Error(`Access restricted: ${errorData.message}`);
+        (error as any).isRestriction = true;
+        (error as any).restrictionData = errorData;
+        throw error;
+      }
+    }
+    
+    const error = new Error(`${res.status}: ${errorData.message || res.statusText}`);
+    (error as any).status = res.status;
+    (error as any).data = errorData;
+    throw error;
   }
 }
 

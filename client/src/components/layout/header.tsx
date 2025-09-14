@@ -1,9 +1,31 @@
 import { useLocation, Link } from "wouter";
-import { Plus, ChevronDown, FileText, Image, Video, CalendarDays, Sparkles, Palette, User, CreditCard, Gift, HelpCircle, LogOut, Crown, Star } from "lucide-react";
+import { 
+  Plus, 
+  ChevronDown, 
+  FileText, 
+  Image, 
+  Video, 
+  CalendarDays, 
+  Sparkles, 
+  Palette, 
+  User, 
+  CreditCard, 
+  Gift, 
+  HelpCircle, 
+  LogOut, 
+  Crown, 
+  Star,
+  Zap,
+  AlertTriangle,
+  Coins,
+  ArrowUp
+} from "lucide-react";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { UserAvatar } from "@/components/ui/user-avatar";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Separator } from "@/components/ui/separator";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -12,6 +34,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
@@ -47,6 +74,84 @@ const pageData = {
     subtitle: "Configure your account and platform settings"
   }
 };
+
+// Credit costs for operations
+const CREDIT_COSTS = {
+  text: 1,
+  image: 5,
+  video: 20,
+  campaign: 14
+};
+
+// Credit balance component with warnings
+function CreditBalance({ user, onBuyCredits }: { user: UserType | undefined; onBuyCredits: () => void }) {
+  const credits = user?.credits || 0;
+  const isLow = credits < 10;
+  const isCritical = credits < 3;
+  
+  const getStatusColor = () => {
+    if (isCritical) return "bg-red-500 text-white";
+    if (isLow) return "bg-amber-500 text-white";
+    return "bg-green-500 text-white";
+  };
+  
+  const getStatusIcon = () => {
+    if (isCritical) return <AlertTriangle className="w-4 h-4" />;
+    if (isLow) return <Zap className="w-4 h-4" />;
+    return <Coins className="w-4 h-4" />;
+  };
+
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <Button
+          variant="ghost" 
+          className={`px-3 py-2 h-auto ${getStatusColor()} hover:opacity-90 transition-all`}
+          onClick={onBuyCredits}
+          data-testid="button-credit-balance"
+        >
+          <div className="flex items-center gap-2">
+            {getStatusIcon()}
+            <div className="text-sm font-medium">
+              {credits.toLocaleString()} Credits
+            </div>
+            {isLow && (
+              <div className="animate-pulse">
+                <ArrowUp className="w-3 h-3" />
+              </div>
+            )}
+          </div>
+        </Button>
+      </TooltipTrigger>
+      <TooltipContent side="bottom" className="max-w-xs">
+        <div className="space-y-2">
+          <div className="font-semibold">
+            {isCritical ? "🚨 Critical: Running out of credits!" : 
+             isLow ? "⚠️ Warning: Low on credits" : 
+             "✨ You're all set!"}
+          </div>
+          <div className="text-sm space-y-1">
+            <div>Current balance: <strong>{credits} credits</strong></div>
+            <Separator className="my-2" />
+            <div className="text-xs opacity-80">
+              <div>💬 Text posts: {CREDIT_COSTS.text} credit each</div>
+              <div>🖼️ Image posts: {CREDIT_COSTS.image} credits each</div>
+              <div>🎥 Video posts: {CREDIT_COSTS.video} credits each</div>
+              <div>🚀 14-day campaigns: {CREDIT_COSTS.campaign} credits</div>
+            </div>
+          </div>
+          {isLow && (
+            <div className="pt-2 border-t">
+              <div className="text-xs text-muted-foreground">
+                Click to buy more credits →
+              </div>
+            </div>
+          )}
+        </div>
+      </TooltipContent>
+    </Tooltip>
+  );
+}
 
 export default function Header() {
   const [location, setLocation] = useLocation();
@@ -101,6 +206,12 @@ export default function Header() {
           <p className="text-sm text-muted-foreground mt-1">{currentPage.subtitle}</p>
         </div>
         <div className="flex items-center space-x-4">
+          {/* Credit Balance with prominence */}
+          <CreditBalance 
+            user={user} 
+            onBuyCredits={() => setLocation('/billing')}
+          />
+
           {/* Theme Toggle */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -212,60 +323,128 @@ export default function Header() {
                 <ChevronDown className="w-3 h-3 ml-1" />
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
-              <DropdownMenuLabel>Choose Content Type</DropdownMenuLabel>
+            <DropdownMenuContent align="end" className="w-64">
+              <DropdownMenuLabel className="flex items-center gap-2">
+                <Sparkles className="w-4 h-4" />
+                Create Content with AI
+              </DropdownMenuLabel>
               <DropdownMenuSeparator />
+              
               <DropdownMenuItem 
                 onClick={() => {
                   setLocation('/create?type=text');
                   setIsQuickCreateOpen(false);
                 }}
                 className="cursor-pointer"
+                data-testid="menu-create-text"
               >
-                <FileText className="w-4 h-4 mr-2 text-blue-500" />
-                <span>Text Post</span>
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <FileText className="w-4 h-4 text-blue-500" />
+                    <span>Text Post</span>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {CREDIT_COSTS.text} credit
+                  </Badge>
+                </div>
               </DropdownMenuItem>
+              
               <DropdownMenuItem 
                 onClick={() => {
                   setLocation('/create?type=text-image');
                   setIsQuickCreateOpen(false);
                 }}
                 className="cursor-pointer"
+                data-testid="menu-create-image"
               >
-                <Image className="w-4 h-4 mr-2 text-green-500" />
-                <span>Image + Text</span>
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <Image className="w-4 h-4 text-green-500" />
+                    <span>Image + Text</span>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {CREDIT_COSTS.image} credits
+                  </Badge>
+                </div>
               </DropdownMenuItem>
+              
               <DropdownMenuItem 
                 onClick={() => {
                   setLocation('/create?type=text-video');
                   setIsQuickCreateOpen(false);
                 }}
                 className="cursor-pointer"
+                data-testid="menu-create-video"
               >
-                <Video className="w-4 h-4 mr-2 text-purple-500" />
-                <span>Video + Text</span>
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <Video className="w-4 h-4 text-purple-500" />
+                    <span>Video + Text</span>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {CREDIT_COSTS.video} credits
+                  </Badge>
+                </div>
               </DropdownMenuItem>
+              
               <DropdownMenuSeparator />
+              
               <DropdownMenuItem 
                 onClick={() => {
                   setLocation('/calendar');
                   setIsQuickCreateOpen(false);
                 }}
                 className="cursor-pointer"
+                data-testid="menu-schedule-post"
               >
-                <CalendarDays className="w-4 h-4 mr-2 text-orange-500" />
-                <span>Schedule Post</span>
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-orange-500" />
+                  <span>Schedule Post</span>
+                </div>
               </DropdownMenuItem>
+              
               <DropdownMenuItem 
                 onClick={() => {
                   setLocation('/campaigns');
                   setIsQuickCreateOpen(false);
                 }}
                 className="cursor-pointer"
+                data-testid="menu-create-campaign"
               >
-                <Sparkles className="w-4 h-4 mr-2 text-pink-500" />
-                <span>AI Campaign (7 days)</span>
+                <div className="flex items-center justify-between w-full">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="w-4 h-4 text-pink-500" />
+                    <span>AI Campaign (7 days)</span>
+                  </div>
+                  <Badge variant="secondary" className="text-xs">
+                    {CREDIT_COSTS.campaign} credits
+                  </Badge>
+                </div>
               </DropdownMenuItem>
+              
+              {((user?.credits || 0) < 10) && (
+                <>
+                  <DropdownMenuSeparator />
+                  <div className="px-2 py-1">
+                    <div className="flex items-center gap-2 text-xs text-amber-600">
+                      <AlertTriangle className="w-3 h-3" />
+                      <span>Running low on credits?</span>
+                    </div>
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="w-full mt-1"
+                      onClick={() => {
+                        setLocation('/billing');
+                        setIsQuickCreateOpen(false);
+                      }}
+                    >
+                      <Zap className="w-3 h-3 mr-1" />
+                      Buy More Credits
+                    </Button>
+                  </div>
+                </>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

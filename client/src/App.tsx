@@ -1,5 +1,5 @@
 import { Switch, Route } from "wouter";
-import { queryClient } from "./lib/queryClient";
+import { queryClient, setGlobalRestrictionHandler } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -29,10 +29,20 @@ import AIBrainstorm from "./pages/ai-brainstorm";
 import Sidebar from "./components/layout/sidebar";
 import Header from "./components/layout/header";
 import TrialWelcomePopup from "./components/trial-welcome-popup";
-import TrialExpiredGuard from "./components/TrialExpiredGuard";
+import RestrictionDialog from "./components/restriction-dialogs";
 import TrialExpired from "./pages/trial-expired";
+import { useRestrictionHandler } from "./hooks/useRestrictionHandler";
+import { useEffect } from "react";
 
 function Router() {
+  // Initialize restriction handler
+  const { restrictionState, showRestriction, hideRestriction } = useRestrictionHandler();
+  
+  // Set up global restriction handler
+  useEffect(() => {
+    setGlobalRestrictionHandler(showRestriction);
+  }, [showRestriction]);
+
   // Check authentication status
   const { data: user, isLoading, error } = useQuery({
     queryKey: ["/api/user"],
@@ -79,9 +89,9 @@ function Router() {
     );
   }
 
-  // If authenticated, show the main app with trial expired guard
+  // If authenticated, show the main app with restriction dialog system
   return (
-    <TrialExpiredGuard>
+    <>
       <div className="flex h-screen overflow-hidden bg-background">
         <TrialWelcomePopup />
         <Sidebar />
@@ -111,7 +121,16 @@ function Router() {
           </Switch>
         </main>
       </div>
-    </TrialExpiredGuard>
+      
+      {/* Restriction Dialog */}
+      {restrictionState.data && (
+        <RestrictionDialog
+          open={restrictionState.isOpen}
+          onOpenChange={hideRestriction}
+          restrictionData={restrictionState.data}
+        />
+      )}
+    </>
   );
 }
 
