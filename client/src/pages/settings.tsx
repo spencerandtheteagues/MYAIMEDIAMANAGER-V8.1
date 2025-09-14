@@ -26,13 +26,15 @@ import {
   Mail,
   Trash2,
   XCircle,
-  Loader2
+  Loader2,
+  FileText,
+  ExternalLink
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import type { User as UserType } from "@shared/schema";
 import { format } from "date-fns";
-import { useLocation } from "wouter";
+import { useLocation, Link } from "wouter";
 
 interface CreditPack {
   credits: number;
@@ -402,10 +404,11 @@ export default function Settings() {
 
           <CardContent>
             <Tabs value={activeTab} onValueChange={setActiveTab}>
-              <TabsList className="grid w-full grid-cols-4">
+              <TabsList className="grid w-full grid-cols-5">
                 <TabsTrigger value="account">Account</TabsTrigger>
                 <TabsTrigger value="subscription">Subscription</TabsTrigger>
                 <TabsTrigger value="security">Security</TabsTrigger>
+                <TabsTrigger value="legal">Legal</TabsTrigger>
                 <TabsTrigger value="danger">Danger Zone</TabsTrigger>
               </TabsList>
 
@@ -707,6 +710,133 @@ export default function Settings() {
                         <Button variant="outline" disabled>
                           Enable 2FA
                         </Button>
+                      </div>
+                    </CardContent>
+                  </Card>
+                </TabsContent>
+
+                {/* Legal Section */}
+                <TabsContent value="legal" className="space-y-6">
+                  <Card>
+                    <CardHeader>
+                      <CardTitle className="flex items-center space-x-2">
+                        <FileText className="w-5 h-5" />
+                        <span>Legal Information</span>
+                      </CardTitle>
+                      <CardDescription>
+                        Review our terms of service, privacy policy, and legal agreements
+                      </CardDescription>
+                    </CardHeader>
+                    <CardContent className="space-y-6">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <Card className="border border-muted">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-lg flex items-center space-x-2">
+                              <FileText className="w-4 h-4" />
+                              <span>Terms of Service</span>
+                            </CardTitle>
+                            <CardDescription className="text-sm">
+                              Learn about your rights and responsibilities when using MyAiMediaMgr
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="pt-0">
+                            <p className="text-sm text-muted-foreground mb-4">
+                              Our Terms of Service outline the rules and regulations for using our AI-powered social media management platform.
+                            </p>
+                            <Link href="/terms-of-service">
+                              <Button 
+                                variant="outline" 
+                                className="w-full"
+                                data-testid="link-terms-of-service"
+                              >
+                                View Terms of Service
+                                <ExternalLink className="w-4 h-4 ml-2" />
+                              </Button>
+                            </Link>
+                          </CardContent>
+                        </Card>
+
+                        <Card className="border border-muted">
+                          <CardHeader className="pb-3">
+                            <CardTitle className="text-lg flex items-center space-x-2">
+                              <Shield className="w-4 h-4" />
+                              <span>Privacy Policy</span>
+                            </CardTitle>
+                            <CardDescription className="text-sm">
+                              Understand how we collect, use, and protect your personal data
+                            </CardDescription>
+                          </CardHeader>
+                          <CardContent className="pt-0">
+                            <p className="text-sm text-muted-foreground mb-4">
+                              Our Privacy Policy explains our data practices and your privacy rights in accordance with GDPR and CCPA.
+                            </p>
+                            <Link href="/privacy-policy">
+                              <Button 
+                                variant="outline" 
+                                className="w-full"
+                                data-testid="link-privacy-policy"
+                              >
+                                View Privacy Policy
+                                <ExternalLink className="w-4 h-4 ml-2" />
+                              </Button>
+                            </Link>
+                          </CardContent>
+                        </Card>
+                      </div>
+
+                      <Separator />
+
+                      <div className="space-y-4">
+                        <h3 className="text-sm font-medium text-muted-foreground">Important Information</h3>
+                        <div className="space-y-3 text-sm text-muted-foreground">
+                          <div className="flex items-start space-x-2">
+                            <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <span>
+                              <strong>GDPR Compliant:</strong> We respect your privacy rights and provide full control over your personal data
+                            </span>
+                          </div>
+                          <div className="flex items-start space-x-2">
+                            <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <span>
+                              <strong>CCPA Compliant:</strong> California residents have additional privacy rights and data control options
+                            </span>
+                          </div>
+                          <div className="flex items-start space-x-2">
+                            <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <span>
+                              <strong>AI Transparency:</strong> We clearly disclose how AI is used in content generation and data processing
+                            </span>
+                          </div>
+                          <div className="flex items-start space-x-2">
+                            <CheckCircle className="w-4 h-4 text-green-500 mt-0.5 flex-shrink-0" />
+                            <span>
+                              <strong>Data Security:</strong> Your information is protected with industry-standard encryption and security measures
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      <Separator />
+
+                      <div className="bg-muted p-4 rounded-lg">
+                        <h4 className="font-medium mb-2 flex items-center space-x-2">
+                          <Mail className="w-4 h-4" />
+                          <span>Have Legal Questions?</span>
+                        </h4>
+                        <p className="text-sm text-muted-foreground mb-3">
+                          If you have questions about our terms, privacy practices, or legal compliance, our team is here to help.
+                        </p>
+                        <div className="space-y-2 text-sm">
+                          <div>
+                            <strong>Legal Inquiries:</strong> legal@myaimediamgr.com
+                          </div>
+                          <div>
+                            <strong>Privacy Officer:</strong> privacy@myaimediamgr.com
+                          </div>
+                          <div>
+                            <strong>Data Protection:</strong> dpo@myaimediamgr.com
+                          </div>
+                        </div>
                       </div>
                     </CardContent>
                   </Card>

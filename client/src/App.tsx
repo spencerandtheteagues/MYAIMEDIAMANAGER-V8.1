@@ -26,6 +26,8 @@ import VerifyEmail from "./pages/verify-email";
 import Checkout from "./pages/checkout";
 import CheckoutReturn from "./pages/checkout-return";
 import AIBrainstorm from "./pages/ai-brainstorm";
+import TermsOfService from "./pages/terms-of-service";
+import PrivacyPolicy from "./pages/privacy-policy";
 import Sidebar from "./components/layout/sidebar";
 import Header from "./components/layout/header";
 import TrialWelcomePopup from "./components/trial-welcome-popup";
@@ -74,6 +76,8 @@ function Router() {
         <Route path="/pricing" component={Pricing} />
         <Route path="/checkout" component={Checkout} />
         <Route path="/checkout/return" component={CheckoutReturn} />
+        <Route path="/terms-of-service" component={TermsOfService} />
+        <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route component={Landing} />
       </Switch>
     );
@@ -84,6 +88,8 @@ function Router() {
     return (
       <Switch>
         <Route path="/trial-selection" component={TrialSelection} />
+        <Route path="/terms-of-service" component={TermsOfService} />
+        <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route component={TrialSelection} />
       </Switch>
     );
@@ -116,6 +122,8 @@ function Router() {
             <Route path="/trial-expired" component={TrialExpired} />
             <Route path="/checkout" component={Checkout} />
             <Route path="/checkout/return" component={CheckoutReturn} />
+            <Route path="/terms-of-service" component={TermsOfService} />
+            <Route path="/privacy-policy" component={PrivacyPolicy} />
             <Route path="/admin" component={AdminPanel} />
             <Route component={NotFound} />
           </Switch>
