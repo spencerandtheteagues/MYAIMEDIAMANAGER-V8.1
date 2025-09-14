@@ -12,5 +12,7 @@ declare module "express-session" {
       tier: string;
       isAdmin: boolean;
     };
+    returnTo?: string;
+    oauthState?: string; // For CSRF protection in OAuth flows
   }
 }

@@ -49,9 +49,14 @@ const loginSchema = z.object({
 
 // Helper to create user session
 function createUserSession(req: Request, user: User) {
+  // Ensure user has email before creating session
+  if (!user.email) {
+    throw new Error('Cannot create session: user email is required');
+  }
+
   const sessionUser = {
     id: user.id,
-    email: user.email,
+    email: user.email, // Now guaranteed to be non-null
     username: user.username,
     businessName: user.businessName,
     role: user.role,

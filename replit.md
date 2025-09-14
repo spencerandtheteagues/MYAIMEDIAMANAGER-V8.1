@@ -56,6 +56,14 @@ The system incorporates AI capabilities for:
 - **Performance Prediction**: Engagement forecasting and optimization suggestions
 - **Hashtag Generation**: Automated relevant hashtag suggestions
 
+### Authentication System
+The platform features comprehensive authentication with enhanced mobile support:
+- **Google OAuth Integration**: Passport-based OAuth2 flow with production domain configuration
+- **Enhanced Mobile Debugging**: Comprehensive error logging with mobile browser detection and User-Agent tracking
+- **Session Management**: Express sessions with PostgreSQL storage for reliable authentication state
+- **Error Handling**: Detailed error logging for OAuth failures, session issues, and mobile-specific authentication problems
+- **Callback URL Validation**: Security measures to prevent open redirect attacks with validated return URLs
+
 ## External Dependencies
 
 ### Core Framework Dependencies

@@ -206,6 +206,8 @@ export const insertUserSchema = createInsertSchema(users).pick({
   stripeSubscriptionId: true,
   lastLoginAt: true,
   isAdmin: true,
+  referralCode: true, // Add referralCode field
+  referredBy: true, // Add referredBy field for completeness
 });
 
 export const insertPlatformSchema = createInsertSchema(platforms).pick({
