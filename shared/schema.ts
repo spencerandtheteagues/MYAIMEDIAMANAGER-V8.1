@@ -177,11 +177,15 @@ export const insertUserSchema = createInsertSchema(users).pick({
   businessName: true,
   avatar: true,
   googleAvatar: true,
+  profileImageUrl: true,
   role: true,
   tier: true,
   credits: true,
   monthlyCredits: true,
   emailVerified: true,
+  emailVerificationCode: true,
+  emailVerificationExpiry: true,
+  emailVerificationAttempts: true,
   trialVariant: true,
   trialPlan: true,
   trialStartedAt: true,
@@ -191,6 +195,8 @@ export const insertUserSchema = createInsertSchema(users).pick({
   needsTrialSelection: true,
   stripeCustomerId: true,
   stripeSubscriptionId: true,
+  lastLoginAt: true,
+  isAdmin: true,
 });
 
 export const insertPlatformSchema = createInsertSchema(platforms).pick({

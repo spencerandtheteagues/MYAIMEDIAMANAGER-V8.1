@@ -94,7 +94,6 @@ router.post("/signup", async (req: Request, res: Response) => {
       trialEndsAt: trialEndsAt,
       trialImagesRemaining: 6,
       trialVideosRemaining: 0,
-      isNewUser: true, // Flag to show welcome popup
     });
     
     // Send verification email
