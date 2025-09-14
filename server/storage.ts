@@ -109,6 +109,17 @@ export interface IStorage {
   createContentFeedback(feedback: InsertContentFeedback): Promise<ContentFeedback>;
   getContentFeedbackByUserId(userId: string): Promise<ContentFeedback[]>;
   getContentFeedbackByContent(contentId: string): Promise<ContentFeedback[]>;
+  
+  // Advanced Admin Operations
+  deleteUser(id: string): Promise<boolean>; // Permanently delete user
+  updateUserPassword(id: string, hashedPassword: string): Promise<User | undefined>;
+  suspendUser(id: string, reason?: string): Promise<User | undefined>;
+  setUserAdmin(id: string, isAdmin: boolean): Promise<User | undefined>;
+  updateUserEmail(id: string, email: string): Promise<User | undefined>;
+  resetUserCredits(id: string, amount: number): Promise<User | undefined>;
+  getUserCreditHistory(userId: string): Promise<CreditTransaction[]>;
+  getSystemStats(): Promise<any>;
+  getAllTransactions(): Promise<CreditTransaction[]>;
 }
 
 export class MemStorage implements IStorage {
@@ -860,6 +871,149 @@ export class MemStorage implements IStorage {
   async getContentFeedbackByContent(contentId: string): Promise<ContentFeedback[]> {
     return Array.from(this.contentFeedback.values())
       .filter(f => f.contentId === contentId);
+  }
+  
+  // Advanced Admin Operations
+  async deleteUser(id: string): Promise<boolean> {
+    // Delete all user data
+    const userPosts = Array.from(this.posts.values()).filter(p => p.userId === id);
+    userPosts.forEach(p => this.posts.delete(p.id));
+    
+    const userPlatforms = Array.from(this.platforms.values()).filter(p => p.userId === id);
+    userPlatforms.forEach(p => this.platforms.delete(p.id));
+    
+    const userCampaigns = Array.from(this.campaigns.values()).filter(c => c.userId === id);
+    userCampaigns.forEach(c => this.campaigns.delete(c.id));
+    
+    const userNotifications = Array.from(this.notifications.values()).filter(n => n.userId === id);
+    userNotifications.forEach(n => this.notifications.delete(n.id));
+    
+    const userLibrary = Array.from(this.contentLibrary.values()).filter(c => c.userId === id);
+    userLibrary.forEach(c => this.contentLibrary.delete(c.id));
+    
+    // Delete the user
+    return this.users.delete(id);
+  }
+  
+  async updateUserPassword(id: string, hashedPassword: string): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    user.password = hashedPassword;
+    user.updatedAt = new Date();
+    this.users.set(id, user);
+    return user;
+  }
+  
+  async suspendUser(id: string, reason?: string): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    user.accountStatus = "suspended";
+    user.updatedAt = new Date();
+    this.users.set(id, user);
+    return user;
+  }
+  
+  async setUserAdmin(id: string, isAdmin: boolean): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    user.isAdmin = isAdmin;
+    user.role = isAdmin ? "admin" : "user";
+    user.updatedAt = new Date();
+    this.users.set(id, user);
+    return user;
+  }
+  
+  async updateUserEmail(id: string, email: string): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    // Check if email already exists
+    const existingUser = Array.from(this.users.values()).find(u => u.email === email && u.id !== id);
+    if (existingUser) {
+      throw new Error("Email already in use");
+    }
+    
+    user.email = email;
+    user.emailVerified = false; // Reset verification status
+    user.updatedAt = new Date();
+    this.users.set(id, user);
+    return user;
+  }
+  
+  async resetUserCredits(id: string, amount: number): Promise<User | undefined> {
+    const user = this.users.get(id);
+    if (!user) return undefined;
+    
+    const oldCredits = user.credits || 0;
+    user.credits = amount;
+    user.updatedAt = new Date();
+    this.users.set(id, user);
+    
+    // Log the transaction
+    const transaction: CreditTransaction = {
+      id: randomUUID(),
+      userId: id,
+      amount: amount - oldCredits,
+      type: "admin_reset",
+      description: `Admin reset credits to ${amount}`,
+      stripePaymentIntentId: null,
+      createdAt: new Date()
+    };
+    this.creditTransactions.set(transaction.id, transaction);
+    
+    return user;
+  }
+  
+  async getUserCreditHistory(userId: string): Promise<CreditTransaction[]> {
+    return Array.from(this.creditTransactions.values())
+      .filter(t => t.userId === userId)
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async getAllTransactions(): Promise<CreditTransaction[]> {
+    return Array.from(this.creditTransactions.values())
+      .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime());
+  }
+  
+  async getSystemStats(): Promise<any> {
+    const allUsers = Array.from(this.users.values());
+    const activeUsers = allUsers.filter(u => u.accountStatus === "active");
+    const suspendedUsers = allUsers.filter(u => u.accountStatus === "suspended");
+    const deletedUsers = allUsers.filter(u => u.accountStatus === "deleted");
+    
+    const usersByTier = {
+      free: allUsers.filter(u => u.tier === "free").length,
+      starter: allUsers.filter(u => u.tier === "starter").length,
+      professional: allUsers.filter(u => u.tier === "professional").length,
+      business: allUsers.filter(u => u.tier === "business").length,
+      enterprise: allUsers.filter(u => u.tier === "enterprise").length,
+    };
+    
+    const totalCredits = allUsers.reduce((sum, u) => sum + (u.credits || 0), 0);
+    const totalCreditsUsed = allUsers.reduce((sum, u) => sum + (u.totalCreditsUsed || 0), 0);
+    
+    const allTransactions = Array.from(this.creditTransactions.values());
+    const totalRevenue = allTransactions
+      .filter(t => t.type === "purchase" && t.amount > 0)
+      .reduce((sum, t) => sum + (t.amount * 0.1), 0); // Assuming $0.10 per credit
+    
+    return {
+      totalUsers: allUsers.length,
+      activeUsers: activeUsers.length,
+      suspendedUsers: suspendedUsers.length,
+      deletedUsers: deletedUsers.length,
+      usersByTier,
+      totalCreditsInSystem: totalCredits,
+      totalCreditsUsed,
+      averageCreditsPerUser: allUsers.length > 0 ? Math.round(totalCredits / allUsers.length) : 0,
+      totalPosts: this.posts.size,
+      totalCampaigns: this.campaigns.size,
+      totalRevenue,
+      totalTransactions: allTransactions.length,
+    };
   }
 }
 

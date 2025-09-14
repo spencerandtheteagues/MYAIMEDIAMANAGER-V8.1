@@ -249,12 +249,13 @@ router.post("/users/:id/change-tier", async (req, res) => {
   }
 });
 
-// Delete user account
+// Delete user account (soft or permanent)
 router.delete("/users/:id", async (req, res) => {
   try {
     const adminUser = (req as any).adminUser;
     const adminId = (req as any).adminId;
     const { id } = req.params;
+    const { permanent } = req.query;
     
     // Prevent deleting admin accounts
     const user = await storage.getUser(id);
@@ -266,20 +267,38 @@ router.delete("/users/:id", async (req, res) => {
       return res.status(403).json({ message: "Cannot delete admin accounts" });
     }
     
-    // Mark as deleted instead of actually deleting
-    await storage.updateUser(id, { 
-      accountStatus: "deleted"
-    });
-    
-    // Log admin action
-    await storage.logAdminAction({
-      adminUserId: adminId || null,
-      targetUserId: id,
-      action: "delete_account",
-      details: {},
-    });
-    
-    res.json({ message: "User account deleted" });
+    if (permanent === "true") {
+      // Permanently delete user and all data
+      const deleted = await storage.deleteUser(id);
+      if (!deleted) {
+        return res.status(500).json({ message: "Failed to delete user" });
+      }
+      
+      // Log admin action
+      await storage.logAdminAction({
+        adminUserId: adminId || null,
+        targetUserId: id,
+        action: "permanent_delete",
+        details: { permanent: true },
+      });
+      
+      res.json({ message: "User permanently deleted" });
+    } else {
+      // Mark as deleted instead of actually deleting
+      await storage.updateUser(id, { 
+        accountStatus: "deleted"
+      });
+      
+      // Log admin action
+      await storage.logAdminAction({
+        adminUserId: adminId || null,
+        targetUserId: id,
+        action: "delete_account",
+        details: {},
+      });
+      
+      res.json({ message: "User account deleted" });
+    }
   } catch (error: any) {
     res.status(500).json({ message: "Error deleting user: " + error.message });
   }
@@ -338,59 +357,202 @@ router.post("/refund", async (req, res) => {
   }
 });
 
-// Get all credit transactions
+// Get all credit transactions (enhanced)
 router.get("/transactions", async (req, res) => {
   try {
-    const users = await storage.getAllUsers();
-    const allTransactions = [];
+    const transactions = await storage.getAllTransactions();
     
-    for (const user of users) {
-      const userTransactions = await storage.getCreditTransactionsByUserId(user.id);
-      allTransactions.push(...userTransactions.map(t => ({
-        ...t,
-        userName: user.fullName || user.username,
-        userEmail: user.email,
-      })));
-    }
-    
-    // Sort by date, most recent first
-    allTransactions.sort((a, b) => 
-      new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime()
+    // Enhance transactions with user info
+    const enhancedTransactions = await Promise.all(
+      transactions.map(async (t) => {
+        const user = await storage.getUser(t.userId);
+        return {
+          ...t,
+          userName: user?.fullName || user?.username,
+          userEmail: user?.email,
+        };
+      })
     );
     
-    res.json(allTransactions);
+    res.json(enhancedTransactions);
   } catch (error: any) {
     res.status(500).json({ message: "Error fetching transactions: " + error.message });
   }
 });
 
-// Get system stats
+// Get system stats (enhanced version)
 router.get("/stats", async (req, res) => {
   try {
-    const users = await storage.getAllUsers();
-    const plans = await storage.getSubscriptionPlans();
-    
-    // Calculate stats
-    const stats = {
-      totalUsers: users.length,
-      activeUsers: users.filter(u => u.accountStatus === "active").length,
-      frozenUsers: users.filter(u => u.accountStatus === "frozen").length,
-      usersByTier: {
-        free: users.filter(u => u.tier === "free").length,
-        basic: users.filter(u => u.tier === "basic").length,
-        pro: users.filter(u => u.tier === "pro").length,
-        enterprise: users.filter(u => u.tier === "enterprise").length,
-      },
-      totalCreditsInSystem: users.reduce((sum, u) => sum + (u.credits || 0), 0),
-      averageCreditsPerUser: Math.round(
-        users.reduce((sum, u) => sum + (u.credits || 0), 0) / users.length
-      ),
-      subscriptionPlans: plans,
-    };
-    
+    const stats = await storage.getSystemStats();
     res.json(stats);
   } catch (error: any) {
     res.status(500).json({ message: "Error fetching stats: " + error.message });
+  }
+});
+
+// Update user email
+router.post("/users/:id/update-email", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const { id } = req.params;
+    const { email } = req.body;
+    
+    if (!email || !email.includes("@")) {
+      return res.status(400).json({ message: "Invalid email address" });
+    }
+    
+    const updatedUser = await storage.updateUserEmail(id, email);
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: id,
+      action: "update_email",
+      details: { email },
+    });
+    
+    res.json(updatedUser);
+  } catch (error: any) {
+    res.status(500).json({ message: "Error updating email: " + error.message });
+  }
+});
+
+// Update user password
+router.post("/users/:id/update-password", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const { id } = req.params;
+    const { password } = req.body;
+    
+    if (!password || password.length < 6) {
+      return res.status(400).json({ message: "Password must be at least 6 characters" });
+    }
+    
+    // Hash the password
+    const bcrypt = require("bcryptjs");
+    const hashedPassword = await bcrypt.hash(password, 10);
+    
+    const updatedUser = await storage.updateUserPassword(id, hashedPassword);
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: id,
+      action: "update_password",
+      details: { passwordChanged: true },
+    });
+    
+    res.json({ message: "Password updated successfully" });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error updating password: " + error.message });
+  }
+});
+
+// Toggle admin privileges
+router.post("/users/:id/toggle-admin", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const { id } = req.params;
+    const { isAdmin } = req.body;
+    
+    // Prevent removing last admin
+    if (!isAdmin) {
+      const allUsers = await storage.getAllUsers();
+      const adminCount = allUsers.filter(u => u.isAdmin).length;
+      if (adminCount <= 1) {
+        return res.status(400).json({ message: "Cannot remove last admin" });
+      }
+    }
+    
+    const updatedUser = await storage.setUserAdmin(id, isAdmin);
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: id,
+      action: isAdmin ? "grant_admin" : "revoke_admin",
+      details: { isAdmin },
+    });
+    
+    res.json(updatedUser);
+  } catch (error: any) {
+    res.status(500).json({ message: "Error toggling admin status: " + error.message });
+  }
+});
+
+// Reset user credits to specific amount
+router.post("/users/:id/reset-credits", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const { id } = req.params;
+    const { amount } = req.body;
+    
+    if (amount === undefined || amount < 0) {
+      return res.status(400).json({ message: "Invalid credit amount" });
+    }
+    
+    const updatedUser = await storage.resetUserCredits(id, amount);
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: id,
+      action: "reset_credits",
+      details: { amount },
+    });
+    
+    res.json(updatedUser);
+  } catch (error: any) {
+    res.status(500).json({ message: "Error resetting credits: " + error.message });
+  }
+});
+
+// Suspend user account
+router.post("/users/:id/suspend", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const { id } = req.params;
+    const { reason } = req.body;
+    
+    const updatedUser = await storage.suspendUser(id, reason);
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: id,
+      action: "suspend_account",
+      details: { reason },
+    });
+    
+    res.json(updatedUser);
+  } catch (error: any) {
+    res.status(500).json({ message: "Error suspending account: " + error.message });
+  }
+});
+
+// Get user credit history
+router.get("/users/:id/credit-history", async (req, res) => {
+  try {
+    const { id } = req.params;
+    const history = await storage.getUserCreditHistory(id);
+    res.json(history);
+  } catch (error: any) {
+    res.status(500).json({ message: "Error fetching credit history: " + error.message });
   }
 });
 

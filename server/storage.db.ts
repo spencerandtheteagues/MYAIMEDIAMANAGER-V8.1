@@ -442,4 +442,150 @@ export class DbStorage implements IStorage {
     return await db.select().from(contentFeedback)
       .where(eq(contentFeedback.contentId, contentId));
   }
+  
+  // Advanced Admin Operations
+  async deleteUser(id: string): Promise<boolean> {
+    try {
+      // Delete all user data in transaction
+      await db.delete(posts).where(eq(posts.userId, id));
+      await db.delete(platforms).where(eq(platforms.userId, id));
+      await db.delete(campaigns).where(eq(campaigns.userId, id));
+      await db.delete(notifications).where(eq(notifications.userId, id));
+      await db.delete(contentLibrary).where(eq(contentLibrary.userId, id));
+      await db.delete(brandProfiles).where(eq(brandProfiles.userId, id));
+      await db.delete(creditTransactions).where(eq(creditTransactions.userId, id));
+      
+      // Delete the user
+      const result = await db.delete(users).where(eq(users.id, id)).returning();
+      return result.length > 0;
+    } catch (error) {
+      console.error('Error deleting user:', error);
+      return false;
+    }
+  }
+  
+  async updateUserPassword(id: string, hashedPassword: string): Promise<User | undefined> {
+    const result = await db.update(users)
+      .set({ password: hashedPassword, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async suspendUser(id: string, reason?: string): Promise<User | undefined> {
+    const result = await db.update(users)
+      .set({ accountStatus: "suspended", updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async setUserAdmin(id: string, isAdmin: boolean): Promise<User | undefined> {
+    const result = await db.update(users)
+      .set({ 
+        isAdmin, 
+        role: isAdmin ? "admin" : "user",
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async updateUserEmail(id: string, email: string): Promise<User | undefined> {
+    // Check if email already exists
+    const existing = await db.select().from(users)
+      .where(and(eq(users.email, email), ne(users.id, id)));
+    
+    if (existing.length > 0) {
+      throw new Error("Email already in use");
+    }
+    
+    const result = await db.update(users)
+      .set({ 
+        email,
+        emailVerified: false,
+        updatedAt: new Date() 
+      })
+      .where(eq(users.id, id))
+      .returning();
+    return result[0];
+  }
+  
+  async resetUserCredits(id: string, amount: number): Promise<User | undefined> {
+    // Get current user
+    const currentUser = await this.getUser(id);
+    if (!currentUser) return undefined;
+    
+    const oldCredits = currentUser.credits || 0;
+    
+    // Update user credits
+    const result = await db.update(users)
+      .set({ credits: amount, updatedAt: new Date() })
+      .where(eq(users.id, id))
+      .returning();
+    
+    // Log the transaction
+    await db.insert(creditTransactions).values({
+      userId: id,
+      amount: amount - oldCredits,
+      type: "admin_reset",
+      description: `Admin reset credits to ${amount}`,
+      stripePaymentIntentId: null,
+    });
+    
+    return result[0];
+  }
+  
+  async getUserCreditHistory(userId: string): Promise<CreditTransaction[]> {
+    return await db.select().from(creditTransactions)
+      .where(eq(creditTransactions.userId, userId))
+      .orderBy(desc(creditTransactions.createdAt));
+  }
+  
+  async getAllTransactions(): Promise<CreditTransaction[]> {
+    return await db.select().from(creditTransactions)
+      .orderBy(desc(creditTransactions.createdAt));
+  }
+  
+  async getSystemStats(): Promise<any> {
+    const allUsers = await db.select().from(users);
+    const activeUsers = allUsers.filter(u => u.accountStatus === "active");
+    const suspendedUsers = allUsers.filter(u => u.accountStatus === "suspended");
+    const deletedUsers = allUsers.filter(u => u.accountStatus === "deleted");
+    
+    const usersByTier = {
+      free: allUsers.filter(u => u.tier === "free").length,
+      starter: allUsers.filter(u => u.tier === "starter").length,
+      professional: allUsers.filter(u => u.tier === "professional").length,
+      business: allUsers.filter(u => u.tier === "business").length,
+      enterprise: allUsers.filter(u => u.tier === "enterprise").length,
+    };
+    
+    const totalCredits = allUsers.reduce((sum, u) => sum + (u.credits || 0), 0);
+    const totalCreditsUsed = allUsers.reduce((sum, u) => sum + (u.totalCreditsUsed || 0), 0);
+    
+    const allPosts = await db.select({ count: sql<number>`count(*)::int` }).from(posts);
+    const allCampaigns = await db.select({ count: sql<number>`count(*)::int` }).from(campaigns);
+    const allTransactions = await db.select().from(creditTransactions);
+    
+    const totalRevenue = allTransactions
+      .filter(t => t.type === "purchase" && t.amount > 0)
+      .reduce((sum, t) => sum + (t.amount * 0.1), 0); // Assuming $0.10 per credit
+    
+    return {
+      totalUsers: allUsers.length,
+      activeUsers: activeUsers.length,
+      suspendedUsers: suspendedUsers.length,
+      deletedUsers: deletedUsers.length,
+      usersByTier,
+      totalCreditsInSystem: totalCredits,
+      totalCreditsUsed,
+      averageCreditsPerUser: allUsers.length > 0 ? Math.round(totalCredits / allUsers.length) : 0,
+      totalPosts: allPosts[0]?.count || 0,
+      totalCampaigns: allCampaigns[0]?.count || 0,
+      totalRevenue,
+      totalTransactions: allTransactions.length,
+    };
+  }
 }
