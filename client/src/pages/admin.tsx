@@ -534,7 +534,7 @@ export default function AdminPanel() {
                         <TableHead className="min-w-[80px]">Credits</TableHead>
                         <TableHead className="min-w-[100px]">Status</TableHead>
                         <TableHead className="min-w-[80px]">Admin</TableHead>
-                        <TableHead className="min-w-[350px]">Actions</TableHead>
+                        <TableHead className="min-w-[500px]">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                   <TableBody>
@@ -581,7 +581,8 @@ export default function AdminPanel() {
                                   }}
                                   data-testid={`button-edit-user-${user.id}`}
                                 >
-                                  <Edit className="h-4 w-4" />
+                                  <Edit className="h-4 w-4 mr-1" />
+                                  Edit
                                 </Button>
                               </DialogTrigger>
                               <DialogContent className="max-w-2xl">
@@ -682,7 +683,8 @@ export default function AdminPanel() {
                                   }}
                                   data-testid={`button-email-${user.id}`}
                                 >
-                                  <Mail className="h-4 w-4" />
+                                  <Mail className="h-4 w-4 mr-1" />
+                                  Email
                                 </Button>
                               </DialogTrigger>
                               <DialogContent>
@@ -732,7 +734,8 @@ export default function AdminPanel() {
                                   }}
                                   data-testid={`button-password-${user.id}`}
                                 >
-                                  <Key className="h-4 w-4" />
+                                  <Key className="h-4 w-4 mr-1" />
+                                  Password
                                 </Button>
                               </DialogTrigger>
                               <DialogContent>
@@ -800,7 +803,8 @@ export default function AdminPanel() {
                                   }}
                                   data-testid={`button-credits-${user.id}`}
                                 >
-                                  <CreditCard className="h-4 w-4" />
+                                  <CreditCard className="h-4 w-4 mr-1" />
+                                  Credits
                                 </Button>
                               </DialogTrigger>
                               <DialogContent>
@@ -873,7 +877,8 @@ export default function AdminPanel() {
                                   disabled={user.isAdmin}
                                   data-testid={`button-delete-${user.id}`}
                                 >
-                                  <Trash2 className="h-4 w-4" />
+                                  <Trash2 className="h-4 w-4 mr-1" />
+                                  Delete
                                 </Button>
                               </AlertDialogTrigger>
                               <AlertDialogContent>
