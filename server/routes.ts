@@ -129,9 +129,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         userId,
         title: "Account Locked",
         message: "Your account has been locked. You can unlock it anytime by purchasing a subscription.",
-        type: "warning",
-        priority: "high",
-        requiresPopup: false
+        type: "warning"
       });
       
       res.json({ 
@@ -380,7 +378,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get the authenticated user
-      const user = await storage.getUser(userId);
+      const user = await storage.getUser(userId!);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
@@ -465,7 +463,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
         }
       };
       
-      await storage.createPlatform(platformData);
+      await storage.createPlatform({
+        ...platformData,
+        icon: platform === "Instagram" ? "instagram" : platform === "Facebook" ? "facebook" : platform === "LinkedIn" ? "linkedin" : platform === "TikTok" ? "tiktok" : "twitter",
+        color: platform === "Instagram" ? "#E4405F" : platform === "Facebook" ? "#1877F2" : platform === "LinkedIn" ? "#0A66C2" : platform === "TikTok" ? "#000000" : "#1DA1F2"
+      });
       res.json({ success: true, message: `Successfully connected to ${platform}` });
     } catch (error) {
       console.error("Error connecting platform:", error);
@@ -489,7 +491,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Platform not found" });
       }
       
-      await storage.deletePlatform(platform.id);
+      // Remove platform by updating its connection status
+      await storage.updatePlatform(platform.id, { isConnected: false });
       res.json({ success: true, message: `Disconnected from ${platformName}` });
     } catch (error) {
       console.error("Error disconnecting platform:", error);
@@ -694,7 +697,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       // Generate campaign posts asynchronously
       (async () => {
         try {
-          const startDate = new Date(campaign.startDate);
+          const startDate = campaign.startDate ? new Date(campaign.startDate) : new Date();
           // ALWAYS create exactly 14 posts (7 days × 2 posts/day)
           const totalPosts = 14;
           
@@ -968,7 +971,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       let content = null;
       let imageUrl = null;
       let videoUrl = null;
-      let hashtags = [];
+      let hashtags: string[] = [];
 
       // Determine character limit based on selected platforms
       const selectedPlatforms = platforms || [platform] || ["Instagram"];
@@ -993,8 +996,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
           platform: platform || selectedPlatforms[0] || "Instagram",
           includeHashtags,
           includeEmojis,
-          length,
-          characterLimit: charLimit, // Pass character limit to AI
+          length
+          // characterLimit: charLimit, // Not available in current AI service
         });
         content = suggestions[0]; // Use the first suggestion
         
@@ -1003,9 +1006,10 @@ export async function registerRoutes(app: Express): Promise<Server> {
           content = content.substring(0, charLimit - 3) + "...";
         }
         
-        // Generate hashtags separately if needed
+        // Extract hashtags from content if they exist
         if (includeHashtags && content) {
-          hashtags = await aiService.generateHashtags(content, platform || "Instagram");
+          const hashtagMatches = content.match(/#\w+/g);
+          hashtags = hashtagMatches || [];
         }
       }
 
@@ -1038,10 +1042,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (imageUrl) {
         await storage.createContentLibraryItem({
           userId,
-          name: `AI Generated Image - ${new Date().toLocaleDateString()}`,
+          caption: `AI Generated Image - ${new Date().toLocaleDateString()}`,
           type: "image",
           url: imageUrl,
-          size: 0, // Size can be calculated if needed
           metadata: {
             prompt: topic || "beautiful landscape",
             style: imageStyle,
@@ -1055,10 +1058,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       if (videoUrl) {
         await storage.createContentLibraryItem({
           userId,
-          name: `AI Generated Video - ${new Date().toLocaleDateString()}`,
+          caption: `AI Generated Video - ${new Date().toLocaleDateString()}`,
           type: "video",
           url: videoUrl,
-          size: 0, // Size can be calculated if needed
           metadata: {
             prompt: topic || "engaging social media video",
             style: videoStyle,
@@ -1073,7 +1075,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         content, 
         imageUrl, 
         videoUrl,
-        hashtags,
+        hashtags: hashtags as string[],
         suggestions: content ? [content] : [], 
       });
     } catch (error) {
@@ -1320,11 +1322,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         mediaUrls: url ? [url] : [],
         aiGenerated: true,
         metadata: {
-          type,
-          businessName,
-          sentToApprovalQueue: true,
           originalRequest: req.body
-        }
+        } as any
       });
       
       res.json({ success: true, post, message: "Content sent to approval queue" });
@@ -1733,7 +1732,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     const userId = getUserId(req);
     
     // Check if user is admin
-    if (user?.role !== 'admin' && !user?.isAdmin) {
+    const user = userId ? await storage.getUser(userId) : null;
+    if (!user || (user.role !== 'admin' && !user.isAdmin)) {
       return res.status(401).json({ message: "Unauthorized" });
     }
     

@@ -123,9 +123,7 @@ router.post("/webhook",
                   userId,
                   title: "Welcome to Your Subscription!",
                   message: `Your account has been activated with the ${PLAN_PRICES[planId as keyof typeof PLAN_PRICES].name}. You now have ${credits} credits available.`,
-                  type: 'success',
-                  priority: 'high',
-                  requiresPopup: true
+                  type: 'success'
                 });
                 
                 console.log(`✅ Activated subscription and unlocked account for user ${userId}: ${planId} plan`);
@@ -140,8 +138,8 @@ router.post("/webhook",
           console.log(`✅ Invoice paid: ${invoice.id}`);
           
           // Handle successful recurring payment - refresh monthly credits
-          const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
-          const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
+          const subscriptionId = typeof (invoice as any).subscription === 'string' ? (invoice as any).subscription : undefined;
+          const customerId = typeof invoice.customer === 'string' ? invoice.customer : undefined;
           
           if (subscriptionId) {
             // Find user by customer ID

@@ -83,9 +83,7 @@ export function TrialExpiredModal({ open, trialEndDate }: TrialExpiredModalProps
   const lockAccountMutation = useMutation({
     mutationFn: async () => {
       setIsLocking(true);
-      return apiRequest("/api/user/lock-account", {
-        method: "POST"
-      });
+      return apiRequest("POST", "/api/user/lock-account");
     },
     onSuccess: () => {
       toast({

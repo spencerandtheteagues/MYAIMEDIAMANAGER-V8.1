@@ -510,7 +510,7 @@ export default function AdminPanel() {
   // Load credit history for a user
   const loadCreditHistory = async (userId: string) => {
     try {
-      const history = await apiRequest("GET", `/api/admin/users/${userId}/credit-history`);
+      const history = await apiRequest("GET", `/api/admin/users/${userId}/credit-history`) as any as CreditTransaction[];
       setUserCreditHistory(history);
       setCreditHistoryModalOpen(true);
     } catch (error: any) {
@@ -907,7 +907,7 @@ export default function AdminPanel() {
                             getStatusColor(user.accountStatus)
                           }>
                             {user.isLocked ? '🔒 Locked' : user.accountStatus}
-                            {user.isPaused && !user.isLocked && " (Paused)"}
+                            {user.pausedAt && !user.isLocked && " (Paused)"}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -925,7 +925,7 @@ export default function AdminPanel() {
                                 </Badge>
                               ) : user.trialStatus === 'active' ? (
                                 <Badge 
-                                  variant={user.trialDaysRemaining <= 3 ? 'secondary' : 'default'}
+                                  variant={user.trialDaysRemaining !== null && user.trialDaysRemaining !== undefined && user.trialDaysRemaining <= 3 ? 'secondary' : 'default'}
                                   className="text-xs"
                                 >
                                   {user.trialDaysRemaining} days left
@@ -1255,7 +1255,7 @@ export default function AdminPanel() {
                             </Dialog>
 
                             {/* Pause/Unpause User */}
-                            {user.isPaused ? (
+                            {user.pausedAt ? (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1575,7 +1575,7 @@ export default function AdminPanel() {
                     {transactions.map((transaction) => (
                       <TableRow key={transaction.id}>
                         <TableCell>
-                          {new Date(transaction.createdAt).toLocaleString()}
+                          {transaction.createdAt ? new Date(transaction.createdAt).toLocaleString() : 'N/A'}
                         </TableCell>
                         <TableCell>
                           <div>
@@ -1720,7 +1720,7 @@ export default function AdminPanel() {
                 {userCreditHistory.map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell>
-                      {new Date(transaction.createdAt).toLocaleString()}
+                      {transaction.createdAt ? new Date(transaction.createdAt).toLocaleString() : 'N/A'}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{transaction.type}</Badge>
