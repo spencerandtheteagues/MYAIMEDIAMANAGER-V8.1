@@ -32,7 +32,7 @@ import {
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
-import type { User as UserType } from "@shared/schema";
+import type { User as UserType, CreditTransaction } from "@shared/schema";
 import { format } from "date-fns";
 import { useLocation, Link } from "wouter";
 
@@ -88,7 +88,7 @@ export default function Settings() {
     queryKey: ["/api/user"],
   });
   
-  const { data: billingHistory } = useQuery({
+  const { data: billingHistory } = useQuery<CreditTransaction[]>({
     queryKey: ["/api/user/billing-history"],
   });
 
@@ -551,25 +551,25 @@ export default function Settings() {
                   </Card>
 
                   {/* Billing History */}
-                  {billingHistory && billingHistory.length > 0 && (
+                  {billingHistory && Array.isArray(billingHistory) && billingHistory.length > 0 && (
                     <Card>
                       <CardHeader>
                         <CardTitle>Billing History</CardTitle>
                       </CardHeader>
                       <CardContent>
                         <div className="space-y-3">
-                          {billingHistory.map((transaction: any) => (
+                          {billingHistory.map((transaction) => (
                             <div key={transaction.id} className="flex justify-between items-center p-3 bg-muted rounded-lg">
                               <div>
-                                <p className="font-medium text-sm">{transaction.description}</p>
+                                <p className="font-medium text-sm">{transaction.description || transaction.type}</p>
                                 <p className="text-xs text-muted-foreground">
-                                  {format(new Date(transaction.createdAt), 'MMM d, yyyy')}
+                                  {transaction.createdAt ? format(new Date(transaction.createdAt), 'MMM d, yyyy') : 'Unknown date'}
                                 </p>
                               </div>
                               <div className="text-right">
-                                <p className="font-medium">${transaction.amount}</p>
+                                <p className="font-medium">${Math.abs(transaction.amount)}</p>
                                 <Badge variant="outline" className="text-xs">
-                                  {transaction.status}
+                                  {transaction.type}
                                 </Badge>
                               </div>
                             </div>
