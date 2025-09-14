@@ -62,6 +62,17 @@ const PLAN_PRICES = {
   }
 };
 
+// Helper function to get tier priority for comparison
+function getTierPriority(tier?: string) {
+  switch (tier) {
+    case "business": return 4;
+    case "professional": return 3;
+    case "starter": return 2;
+    case "free": return 1;
+    default: return 0;
+  }
+}
+
 // Create a Stripe-hosted checkout session for subscription
 router.post("/create-checkout-session", requireAuth, async (req, res) => {
   try {
@@ -77,6 +88,22 @@ router.post("/create-checkout-session", requireAuth, async (req, res) => {
     
     if (!user) {
       return res.status(404).json({ message: "User not found" });
+    }
+    
+    // Check if this is a downgrade
+    const currentPriority = getTierPriority(user.tier);
+    const selectedPriority = getTierPriority(planId);
+    
+    if (selectedPriority < currentPriority) {
+      return res.status(400).json({ 
+        message: "Downgrades are not allowed through self-service. Please contact support." 
+      });
+    }
+    
+    if (selectedPriority === currentPriority) {
+      return res.status(400).json({ 
+        message: "You are already on this plan." 
+      });
     }
 
     // Create or retrieve Stripe customer

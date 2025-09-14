@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Label } from "@/components/ui/label";
-import { Check, Sparkles, Zap, Building2, CreditCard, Shield, ArrowLeft } from "lucide-react";
+import { Check, Sparkles, Zap, Building2, CreditCard, Shield, ArrowLeft, AlertCircle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
 import { useLocation } from "wouter";
@@ -91,15 +91,11 @@ export default function CheckoutPage() {
   const [location, setLocation] = useLocation();
   const { toast } = useToast();
   
-  // Parse query params from location
-  const params = new URLSearchParams(location.split('?')[1] || '');
-  const planId = params.get("plan") || "starter";
-  const mode = params.get("mode") || "subscription";
-  const trial = params.get("trial") === "true";
-  
   const [billingCycle, setBillingCycle] = useState<"monthly" | "yearly">("monthly");
   const [isProcessing, setIsProcessing] = useState(false);
   const [selectedPlan, setSelectedPlan] = useState<PricingPlan | null>(null);
+  const [isDowngrade, setIsDowngrade] = useState(false);
+  const [trial, setTrial] = useState(false);
   // Using Stripe-hosted checkout instead of embedded form
 
   const { data: user, isLoading: userLoading, error: userError } = useQuery<User>({
@@ -107,12 +103,41 @@ export default function CheckoutPage() {
     retry: false,
   });
 
+  // Helper function to get tier priority for comparison
+  const getTierPriority = (tier?: string) => {
+    switch (tier) {
+      case "business": return 4;
+      case "professional": return 3;
+      case "starter": return 2;
+      case "free": return 1;
+      default: return 0;
+    }
+  };
+
+  // Parse query params whenever location changes
   useEffect(() => {
+    const params = new URLSearchParams(location.split('?')[1] || '');
+    const planId = params.get("plan") || "starter";
+    const trialParam = params.get("trial") === "true";
+    
     const plan = PRICING_PLANS.find(p => p.id === planId);
+    
     if (plan) {
       setSelectedPlan(plan);
+      setTrial(trialParam);
+      
+      // Check if this is a downgrade
+      if (user) {
+        const currentPriority = getTierPriority(user.tier);
+        const selectedPriority = getTierPriority(plan.id);
+        setIsDowngrade(selectedPriority < currentPriority);
+      }
+    } else {
+      // Fallback to starter if plan not found
+      const starterPlan = PRICING_PLANS.find(p => p.id === "starter");
+      if (starterPlan) setSelectedPlan(starterPlan);
     }
-  }, [planId]);
+  }, [location, user]);
 
   // Don't redirect immediately - allow viewing the checkout page
 
@@ -127,19 +152,31 @@ export default function CheckoutPage() {
       return;
     }
     
+    // Prevent downgrade
+    if (isDowngrade) {
+      toast({
+        title: "Downgrade Not Allowed",
+        description: "Please contact support to downgrade your subscription.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
     setIsProcessing(true);
     
     try {
       // Create Stripe checkout session and redirect to Stripe-hosted page
-      const response = await apiRequest({
-        url: "/api/billing/create-checkout-session",
-        method: "POST",
-        body: JSON.stringify({ planId: selectedPlan.id }),
-      });
+      const response = await apiRequest(
+        "POST",
+        "/api/billing/create-checkout-session",
+        { planId: selectedPlan.id }
+      );
       
-      if (response.url) {
+      const data = await response.json();
+      
+      if (data.url) {
         // Redirect to Stripe-hosted checkout page
-        window.location.href = response.url;
+        window.location.href = data.url;
       } else {
         throw new Error("No checkout URL received from server");
       }
@@ -219,12 +256,35 @@ export default function CheckoutPage() {
           </Card>
 
           {/* Checkout Form */}
-          <Card className="bg-gray-900/80 border-gray-700">
+          <Card className={`bg-gray-900/80 ${isDowngrade ? 'border-red-500/50' : 'border-gray-700'}`}>
             <CardHeader>
               <CardTitle className="text-white">Payment Details</CardTitle>
               <CardDescription className="text-gray-400">
-                {trial ? "Card verification for Pro trial" : "Select your billing cycle"}
+                {isDowngrade ? "Downgrade not available" : trial ? "Card verification for Pro trial" : "Select your billing cycle"}
               </CardDescription>
+              {isDowngrade && (
+                <div className="mt-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-red-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-red-400 font-medium">Downgrade Not Available</p>
+                    <p className="text-xs text-red-300 mt-1">
+                      You're currently on the {user?.tier === 'professional' ? 'Professional' : 'Business'} plan. 
+                      To downgrade, please contact our support team.
+                    </p>
+                  </div>
+                </div>
+              )}
+              {user?.tier && !isDowngrade && selectedPlan && getTierPriority(selectedPlan.id) === getTierPriority(user.tier) && (
+                <div className="mt-3 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg flex items-start gap-2">
+                  <AlertCircle className="w-5 h-5 text-yellow-400 mt-0.5 flex-shrink-0" />
+                  <div>
+                    <p className="text-sm text-yellow-400 font-medium">You're already on this plan</p>
+                    <p className="text-xs text-yellow-300 mt-1">
+                      You're currently subscribed to the {selectedPlan.name}.
+                    </p>
+                  </div>
+                </div>
+              )}
             </CardHeader>
             <CardContent className="space-y-6">
               {/* Billing Cycle Selection */}
@@ -289,10 +349,10 @@ export default function CheckoutPage() {
 
               {/* Checkout Button - Redirects to Stripe-hosted page */}
               <Button
-                className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-white"
+                className={`w-full ${isDowngrade ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'} text-white`}
                 size="lg"
                 onClick={handleCheckout}
-                disabled={isProcessing}
+                disabled={isProcessing || isDowngrade || (user?.tier && getTierPriority(selectedPlan?.id) === getTierPriority(user.tier))}
                 data-testid="button-proceed-checkout"
               >
                 {isProcessing ? (
