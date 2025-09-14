@@ -361,7 +361,7 @@ export default function CheckoutPage() {
                 className={`w-full ${isDowngrade ? 'bg-gray-600 cursor-not-allowed' : 'bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700'} text-white`}
                 size="lg"
                 onClick={handleCheckout}
-                disabled={isProcessing || isDowngrade || (user?.tier && getTierPriority(selectedPlan?.id) === getTierPriority(user.tier))}
+                disabled={isProcessing || isDowngrade || !!(user?.tier && getTierPriority(selectedPlan?.id) === getTierPriority(user.tier))}
                 data-testid="button-proceed-checkout"
               >
                 {isProcessing ? (
