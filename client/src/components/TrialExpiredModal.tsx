@@ -73,9 +73,10 @@ const SUBSCRIPTION_PLANS = [
 interface TrialExpiredModalProps {
   open: boolean;
   trialEndDate?: string;
+  onOpenChange?: (open: boolean) => void;
 }
 
-export function TrialExpiredModal({ open, trialEndDate }: TrialExpiredModalProps) {
+export function TrialExpiredModal({ open, trialEndDate, onOpenChange }: TrialExpiredModalProps) {
   const [, setLocation] = useLocation();
   const { toast } = useToast();
   const [isLocking, setIsLocking] = useState(false);
@@ -123,7 +124,7 @@ export function TrialExpiredModal({ open, trialEndDate }: TrialExpiredModalProps
   };
 
   return (
-    <Dialog open={open} onOpenChange={() => {}}>
+    <Dialog open={open} onOpenChange={onOpenChange || (() => {})}>
       <DialogContent className="max-w-5xl p-0 overflow-hidden bg-gradient-to-br from-gray-950 via-purple-950/50 to-pink-950/50 border-purple-800/50">
         {/* Header Section */}
         <div className="relative p-8 pb-6 bg-gradient-to-r from-purple-900/20 to-pink-900/20 border-b border-purple-800/30">

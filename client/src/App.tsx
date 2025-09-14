@@ -38,7 +38,7 @@ import { NotificationPopup } from "./components/NotificationPopup";
 import { TrialCountdown } from "./components/TrialCountdown";
 import { TrialExpiredModal } from "./components/TrialExpiredModal";
 import { useRestrictionHandler } from "./hooks/useRestrictionHandler";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo, useCallback } from "react";
 
 function Router() {
   // Initialize restriction handler
@@ -101,17 +101,22 @@ function Router() {
     );
   }
 
-  // Check if account is locked or trial has expired
-  const isTrialExpired = (user as any)?.trialEndsAt && new Date((user as any).trialEndsAt) < new Date();
-  const isTrialUser = (user as any)?.tier === 'free' && (user as any)?.subscriptionStatus === 'trial';
-  const isAccountLocked = (user as any)?.isLocked;
+  // Check if account is locked or trial has expired (memoized to prevent re-computation)
+  const { isTrialExpired, isTrialUser, isAccountLocked } = useMemo(() => {
+    const userData = user as any;
+    return {
+      isTrialExpired: userData?.trialEndsAt && new Date(userData.trialEndsAt) < new Date(),
+      isTrialUser: userData?.tier === 'free' && userData?.subscriptionStatus === 'trial',
+      isAccountLocked: userData?.isLocked
+    };
+  }, [user]);
 
-  // Show trial expired modal for expired trial users who haven't upgraded
+  // Show trial expired modal for expired trial users who haven't upgraded (only once)
   useEffect(() => {
-    if (isTrialUser && isTrialExpired && !isAccountLocked) {
+    if (isTrialUser && isTrialExpired && !isAccountLocked && !showTrialExpiredModal) {
       setShowTrialExpiredModal(true);
     }
-  }, [isTrialUser, isTrialExpired, isAccountLocked]);
+  }, [isTrialUser, isTrialExpired, isAccountLocked, showTrialExpiredModal]);
 
   // If account is locked, redirect to trial-expired page
   if (isAccountLocked) {
@@ -192,6 +197,7 @@ function Router() {
       <TrialExpiredModal 
         open={showTrialExpiredModal} 
         trialEndDate={(user as any)?.trialEndsAt}
+        onOpenChange={setShowTrialExpiredModal}
       />
     </>
   );
