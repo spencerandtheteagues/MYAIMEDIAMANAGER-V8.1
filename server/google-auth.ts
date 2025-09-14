@@ -4,6 +4,31 @@ import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { storage } from "./storage";
 import type { User } from "@shared/schema";
 
+// Helper function to generate unique referral code
+function generateReferralCode(): string {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+  let code = '';
+  for (let i = 0; i < 8; i++) {
+    code += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return code;
+}
+
+async function generateUniqueReferralCode(): Promise<string> {
+  let code = '';
+  let isUnique = false;
+  
+  while (!isUnique) {
+    code = generateReferralCode();
+    const existing = await storage.getUserByReferralCode(code);
+    if (!existing) {
+      isUnique = true;
+    }
+  }
+  
+  return code;
+}
+
 const router = Router();
 
 // Validate Google OAuth is configured
@@ -70,6 +95,9 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
         // Create new user from Google profile
         const username = email.split('@')[0] + '_' + profile.id.slice(-4);
         
+        // Generate unique referral code for the new user
+        const userReferralCode = await generateUniqueReferralCode();
+        
         // Create new user without trial details - they'll select trial after login
         user = await storage.createUser({
           email: email,
@@ -85,6 +113,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           credits: 0, // Will be set when they select trial
           emailVerified: true, // Google accounts are pre-verified
           needsTrialSelection: true, // New users need to select trial
+          referralCode: userReferralCode, // Add referral code for new user
         });
       } else {
         // Update existing user's Google info

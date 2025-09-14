@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { 
   Bell, Send, Users, UserCheck, CreditCard, Activity, DollarSign, TrendingUp, Shield, 
@@ -64,22 +64,27 @@ export default function AdminPanel() {
     queryKey: ["/api/user"],
   });
 
-  // Get all users with enhanced info
+  // Get all users with enhanced info - auto-refresh every 5 seconds
   const { data: users = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery<EnhancedUser[]>({
     queryKey: ["/api/admin/users"],
     enabled: currentUser?.isAdmin === true,
+    refetchInterval: 5000, // Auto-refresh every 5 seconds
+    refetchIntervalInBackground: true, // Continue refreshing even when tab is not focused
   });
 
-  // Get admin stats
+  // Get admin stats - auto-refresh every 5 seconds
   const { data: stats, refetch: refetchStats } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
     enabled: currentUser?.isAdmin === true,
+    refetchInterval: 5000, // Auto-refresh every 5 seconds
+    refetchIntervalInBackground: true,
   });
 
   // Get all transactions
   const { data: transactions = [], refetch: refetchTransactions } = useQuery<Transaction[]>({
     queryKey: ["/api/admin/transactions"],
     enabled: currentUser?.isAdmin === true,
+    refetchInterval: 10000, // Auto-refresh every 10 seconds for transactions
   });
 
   // State for modals and forms
