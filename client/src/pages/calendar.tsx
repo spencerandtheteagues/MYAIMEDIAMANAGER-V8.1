@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation } from "@tanstack/react-query";
 import { useLocation } from "wouter";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -10,30 +10,56 @@ import {
   DialogDescription,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
-import { ChevronLeft, ChevronRight, Plus, Edit, Trash2, Clock, Archive } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { ChevronLeft, ChevronRight, Plus, Edit, Trash2, Clock, Calendar as CalendarIcon } from "lucide-react";
+import { format } from "date-fns";
 import type { Post } from "@shared/schema";
+import { apiRequest, queryClient } from "@/lib/queryClient";
+import { useToast } from "@/hooks/use-toast";
 
 export default function Calendar() {
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [showDayDialog, setShowDayDialog] = useState(false);
   const [location, setLocation] = useLocation();
-  const [showScheduleDialog, setShowScheduleDialog] = useState(false);
+  const { toast } = useToast();
   
-  const { data: scheduledPosts } = useQuery<Post[]>({
-    queryKey: ["/api/posts", "scheduled"],
+  // Fetch all posts (scheduled, published, draft)
+  const { data: allPosts = [] } = useQuery<Post[]>({
+    queryKey: ["/api/posts"],
   });
 
-  const { data: publishedPosts } = useQuery<Post[]>({
-    queryKey: ["/api/posts", "published"],
-  });
-
-  // Combine and filter posts for current month
-  const allPosts = [...(scheduledPosts || []), ...(publishedPosts || [])];
+  // Filter posts for current month
   const postsThisMonth = allPosts.filter(post => {
-    const postDate = new Date(post.scheduledFor || post.publishedAt!);
+    const postDate = post.scheduledFor ? new Date(post.scheduledFor) : 
+                     post.publishedAt ? new Date(post.publishedAt) : null;
+    if (!postDate) return false;
     return postDate.getMonth() === currentDate.getMonth() && 
            postDate.getFullYear() === currentDate.getFullYear();
+  });
+
+  // Delete post mutation
+  const deletePostMutation = useMutation({
+    mutationFn: async (postId: string) => {
+      return apiRequest(`/api/posts/${postId}`, {
+        method: 'DELETE',
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/posts'] });
+      toast({
+        title: "Post deleted",
+        description: "The post has been removed from the calendar",
+      });
+    },
+    onError: () => {
+      toast({
+        title: "Error",
+        description: "Failed to delete the post",
+        variant: "destructive",
+      });
+    },
   });
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -71,242 +97,334 @@ export default function Calendar() {
 
   const getPostsForDay = (day: number) => {
     return postsThisMonth.filter(post => {
-      const postDate = new Date(post.scheduledFor || post.publishedAt!);
+      const postDate = post.scheduledFor ? new Date(post.scheduledFor) : 
+                       post.publishedAt ? new Date(post.publishedAt) : null;
+      if (!postDate) return false;
       return postDate.getDate() === day;
+    }).sort((a, b) => {
+      const aDate = new Date(a.scheduledFor || a.publishedAt || 0);
+      const bDate = new Date(b.scheduledFor || b.publishedAt || 0);
+      return aDate.getTime() - bDate.getTime();
     });
   };
 
-  const getPlatformColor = (platform: string) => {
-    const colorMap: { [key: string]: string } = {
-      "Instagram": "bg-pink-500",
-      "Facebook": "bg-blue-600",
-      "X (Twitter)": "bg-blue-400",
-      "TikTok": "bg-gray-800",
-      "LinkedIn": "bg-blue-700",
-    };
-    return colorMap[platform] || "bg-gray-500";
+  const handleDayClick = (day: number) => {
+    setSelectedDay(day);
+    setShowDayDialog(true);
   };
 
-  const monthNames = [
+  const selectedDayPosts = selectedDay ? getPostsForDay(selectedDay) : [];
+  const selectedDate = selectedDay 
+    ? new Date(currentDate.getFullYear(), currentDate.getMonth(), selectedDay)
+    : null;
+
+  const getPlatformColor = (platform: string) => {
+    const normalizedPlatform = platform.toLowerCase().replace(/[^a-z]/g, '');
+    const colors: Record<string, string> = {
+      instagram: "bg-pink-500",
+      facebook: "bg-blue-500",
+      x: "bg-gray-700",
+      xtwitter: "bg-gray-700",
+      twitter: "bg-sky-500",
+      tiktok: "bg-purple-600",
+      linkedin: "bg-blue-700",
+    };
+    return colors[normalizedPlatform] || "bg-gray-500";
+  };
+
+  const getStatusBadge = (status: string) => {
+    const statusConfig: Record<string, { variant: any; label: string }> = {
+      draft: { variant: "secondary", label: "Draft" },
+      scheduled: { variant: "default", label: "Scheduled" },
+      published: { variant: "success", label: "Published" },
+      approved: { variant: "success", label: "Approved" },
+      rejected: { variant: "destructive", label: "Rejected" },
+      pending: { variant: "warning", label: "Pending" },
+    };
+    return statusConfig[status] || { variant: "secondary", label: status };
+  };
+
+  const months = [
     "January", "February", "March", "April", "May", "June",
     "July", "August", "September", "October", "November", "December"
   ];
 
-  const days = getDaysInMonth(currentDate);
-  const today = new Date();
-  const isToday = (day: number) => {
-    return today.getDate() === day && 
-           today.getMonth() === currentDate.getMonth() && 
-           today.getFullYear() === currentDate.getFullYear();
-  };
-
-  const upcomingPosts = allPosts
-    .filter(post => post.scheduledFor && new Date(post.scheduledFor) > new Date())
-    .sort((a, b) => new Date(a.scheduledFor!).getTime() - new Date(b.scheduledFor!).getTime())
-    .slice(0, 3);
+  const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
-    <div className="p-6 space-y-8">
-      <Card>
-        <CardHeader>
+    <div className="p-6">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold text-white">Content Calendar</h1>
+        <p className="text-gray-400 mt-2">View and manage all your scheduled content - click any day to see details</p>
+      </div>
+
+      <Card className="bg-card border-border">
+        <CardHeader className="pb-4">
           <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Content Calendar</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                View and manage your scheduled posts
-              </p>
-            </div>
-            <div className="flex items-center space-x-4">
-              <div className="flex items-center space-x-2">
-                <Button variant="ghost" size="icon" onClick={() => navigateMonth('prev')}>
-                  <ChevronLeft className="w-4 h-4" />
-                </Button>
-                <span className="font-medium text-foreground min-w-[120px] text-center">
-                  {monthNames[currentDate.getMonth()]} {currentDate.getFullYear()}
-                </span>
-                <Button variant="ghost" size="icon" onClick={() => navigateMonth('next')}>
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
-              </div>
-              <Dialog open={showScheduleDialog} onOpenChange={setShowScheduleDialog}>
-                <DialogTrigger asChild>
-                  <Button>
-                    <Plus className="w-4 h-4 mr-2" />
-                    Schedule Post
-                  </Button>
-                </DialogTrigger>
-                <DialogContent>
-                  <DialogHeader>
-                    <DialogTitle>Schedule Content</DialogTitle>
-                    <DialogDescription>
-                      Choose where to select content from
-                    </DialogDescription>
-                  </DialogHeader>
-                  <div className="space-y-3 mt-4">
-                    <Button
-                      className="w-full justify-start"
-                      variant="outline"
-                      onClick={() => {
-                        setShowScheduleDialog(false);
-                        setLocation('/approval');
-                      }}
-                    >
-                      <Clock className="w-4 h-4 mr-2" />
-                      From Approval Queue
-                      <span className="ml-auto text-xs text-muted-foreground">Pending posts</span>
-                    </Button>
-                    <Button
-                      className="w-full justify-start"
-                      variant="outline"
-                      onClick={() => {
-                        setShowScheduleDialog(false);
-                        setLocation('/library');
-                      }}
-                    >
-                      <Archive className="w-4 h-4 mr-2" />
-                      From Content Library
-                      <span className="ml-auto text-xs text-muted-foreground">Saved drafts</span>
-                    </Button>
-                    <Button
-                      className="w-full justify-start"
-                      variant="outline"
-                      onClick={() => {
-                        setShowScheduleDialog(false);
-                        setLocation('/create');
-                      }}
-                    >
-                      <Plus className="w-4 h-4 mr-2" />
-                      Create New Post
-                      <span className="ml-auto text-xs text-muted-foreground">Start fresh</span>
-                    </Button>
-                  </div>
-                </DialogContent>
-              </Dialog>
+            <CardTitle className="text-2xl font-semibold">
+              {months[currentDate.getMonth()]} {currentDate.getFullYear()}
+            </CardTitle>
+            <div className="flex items-center space-x-2">
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => navigateMonth('prev')}
+                data-testid="button-prev-month"
+              >
+                <ChevronLeft className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="outline"
+                onClick={() => setCurrentDate(new Date())}
+                data-testid="button-today"
+              >
+                Today
+              </Button>
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => navigateMonth('next')}
+                data-testid="button-next-month"
+              >
+                <ChevronRight className="h-4 w-4" />
+              </Button>
+              <Button
+                variant="default"
+                onClick={() => setLocation('/create')}
+                className="ml-4"
+                data-testid="button-create-post"
+              >
+                <Plus className="h-4 w-4 mr-2" />
+                Create Post
+              </Button>
             </div>
           </div>
         </CardHeader>
-
         <CardContent>
-          {/* Calendar Grid */}
-          <div className="grid grid-cols-7 gap-px bg-border rounded-lg overflow-hidden">
-            {/* Calendar header */}
-            {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
-              <div key={day} className="bg-muted p-3 text-center text-sm font-medium text-muted-foreground">
+          <div className="grid grid-cols-7 gap-0 border border-border rounded-lg overflow-hidden">
+            {/* Week day headers */}
+            {weekDays.map(day => (
+              <div
+                key={day}
+                className="p-3 text-center text-sm font-medium bg-muted text-muted-foreground border-b border-r border-border last:border-r-0"
+              >
                 {day}
               </div>
             ))}
             
             {/* Calendar days */}
-            {days.map((day, index) => (
-              <div
-                key={index}
-                className={`bg-card p-3 h-24 text-sm relative ${
-                  day && isToday(day) ? "bg-blue-50 dark:bg-blue-950" : ""
-                }`}
-              >
-                {day && (
-                  <>
-                    <span className={`font-medium ${
-                      isToday(day) ? "text-blue-600 dark:text-blue-400" : "text-foreground"
-                    }`}>
-                      {day}
-                    </span>
-                    {isToday(day) && (
-                      <div className="text-xs text-blue-600 dark:text-blue-400 mt-1">Today</div>
-                    )}
-                    <div className="mt-1 space-y-1">
-                      {getPostsForDay(day).slice(0, 3).map((post) => (
-                        <div key={post.id} className="flex space-x-1">
-                          {post.platforms.map((platform) => (
+            {getDaysInMonth(currentDate).map((day, index) => {
+              const posts = day ? getPostsForDay(day) : [];
+              const isToday = day === new Date().getDate() && 
+                            currentDate.getMonth() === new Date().getMonth() &&
+                            currentDate.getFullYear() === new Date().getFullYear();
+              
+              return (
+                <div
+                  key={index}
+                  className={`
+                    min-h-[100px] p-2 border-b border-r border-border last:border-r-0
+                    ${day ? 'cursor-pointer hover:bg-muted/50 transition-colors' : 'bg-muted/20'}
+                    ${isToday ? 'bg-primary/10' : ''}
+                  `}
+                  onClick={() => day && handleDayClick(day)}
+                  data-testid={day ? `day-${day}` : `empty-${index}`}
+                >
+                  {day && (
+                    <>
+                      <div className="flex items-center justify-between mb-1">
+                        <span className={`text-sm font-medium ${isToday ? 'text-primary' : ''}`}>
+                          {day}
+                        </span>
+                        {posts.length > 0 && (
+                          <Badge variant="secondary" className="text-xs px-1.5 py-0">
+                            {posts.length}
+                          </Badge>
+                        )}
+                      </div>
+                      
+                      {/* Show up to 3 post indicators */}
+                      <div className="space-y-1">
+                        {posts.slice(0, 3).map((post, i) => {
+                          const platforms = Array.isArray(post.platforms) ? post.platforms : [post.platform];
+                          return (
                             <div
-                              key={platform}
-                              className={`w-2 h-2 rounded-full ${getPlatformColor(platform)}`}
-                            />
-                          ))}
-                        </div>
-                      ))}
-                      {getPostsForDay(day).length > 3 && (
-                        <div className="text-xs text-muted-foreground">
-                          +{getPostsForDay(day).length - 3} more
-                        </div>
-                      )}
-                    </div>
-                  </>
-                )}
-              </div>
-            ))}
-          </div>
-
-          {/* Legend */}
-          <div className="mt-6 flex items-center space-x-6 text-sm">
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-blue-600 rounded-full" />
-              <span className="text-muted-foreground">Facebook</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-pink-500 rounded-full" />
-              <span className="text-muted-foreground">Instagram</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-blue-400 rounded-full" />
-              <span className="text-muted-foreground">X (Twitter)</span>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-3 h-3 bg-blue-700 rounded-full" />
-              <span className="text-muted-foreground">LinkedIn</span>
-            </div>
+                              key={post.id}
+                              className="flex items-center space-x-1"
+                              data-testid={`post-indicator-${post.id}`}
+                            >
+                              {platforms.map((platform, idx) => (
+                                <div 
+                                  key={idx} 
+                                  className={`w-2 h-2 rounded-full ${getPlatformColor(platform)}`} 
+                                />
+                              ))}
+                              <span className="text-xs text-muted-foreground truncate">
+                                {post.scheduledFor && format(new Date(post.scheduledFor), 'HH:mm')}
+                              </span>
+                            </div>
+                          );
+                        })}
+                        {posts.length > 3 && (
+                          <span className="text-xs text-muted-foreground">
+                            +{posts.length - 3} more
+                          </span>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </CardContent>
       </Card>
 
-      {/* Upcoming Posts */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Upcoming Posts</CardTitle>
-        </CardHeader>
-        <CardContent className="space-y-4">
-          {upcomingPosts.length === 0 ? (
-            <div className="text-center py-8 text-muted-foreground">
-              No upcoming scheduled posts
-            </div>
-          ) : (
-            upcomingPosts.map((post) => (
-              <div key={post.id} className="flex items-center space-x-4 p-4 bg-muted rounded-lg">
-                <div className="flex-shrink-0">
-                  <i className={`fab fa-${post.platforms[0].toLowerCase().replace(' (twitter)', '').replace('x (twitter)', 'twitter')} text-xl ${
-                    post.platforms[0] === "Instagram" ? "text-pink-500" :
-                    post.platforms[0] === "Facebook" ? "text-blue-600" :
-                    post.platforms[0].includes("Twitter") ? "text-blue-400" :
-                    post.platforms[0] === "LinkedIn" ? "text-blue-700" : "text-gray-500"
-                  }`} />
-                </div>
-                <div className="flex-1">
-                  <p className="font-medium text-foreground">
-                    {post.scheduledFor && new Date(post.scheduledFor).toLocaleDateString('en-US', {
-                      weekday: 'long',
-                      month: 'short',
-                      day: 'numeric',
-                      hour: 'numeric',
-                      minute: '2-digit',
-                    })}
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    {post.content.slice(0, 80)}...
-                  </p>
-                </div>
-                <div className="flex items-center space-x-2">
-                  <Button variant="ghost" size="icon">
-                    <Edit className="w-4 h-4" />
-                  </Button>
-                  <Button variant="ghost" size="icon">
-                    <Trash2 className="w-4 h-4" />
-                  </Button>
-                </div>
+      {/* Day Detail Dialog */}
+      <Dialog open={showDayDialog} onOpenChange={setShowDayDialog}>
+        <DialogContent className="max-w-3xl max-h-[80vh]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-2">
+              <CalendarIcon className="w-5 h-5" />
+              <span>
+                {selectedDate && format(selectedDate, 'MMMM d, yyyy')}
+              </span>
+              {selectedDayPosts.length > 0 && (
+                <Badge variant="secondary">
+                  {selectedDayPosts.length} {selectedDayPosts.length === 1 ? 'post' : 'posts'}
+                </Badge>
+              )}
+            </DialogTitle>
+            <DialogDescription>
+              View and manage posts scheduled for this day
+            </DialogDescription>
+          </DialogHeader>
+          
+          <ScrollArea className="h-[500px] pr-4">
+            {selectedDayPosts.length === 0 ? (
+              <div className="text-center py-12">
+                <p className="text-muted-foreground mb-4">No posts scheduled for this day</p>
+                <Button 
+                  onClick={() => {
+                    setShowDayDialog(false);
+                    setLocation('/create');
+                  }}
+                  data-testid="button-schedule-post"
+                >
+                  <Plus className="w-4 h-4 mr-2" />
+                  Schedule a Post
+                </Button>
               </div>
-            ))
-          )}
-        </CardContent>
-      </Card>
+            ) : (
+              <div className="space-y-4">
+                {selectedDayPosts.map((post) => {
+                  const statusConfig = getStatusBadge(post.status);
+                  const postTime = post.scheduledFor 
+                    ? format(new Date(post.scheduledFor), 'h:mm a')
+                    : post.publishedAt 
+                    ? format(new Date(post.publishedAt), 'h:mm a')
+                    : '';
+                  const platforms = Array.isArray(post.platforms) ? post.platforms : [post.platform];
+                  
+                  return (
+                    <Card key={post.id} className="overflow-hidden" data-testid={`post-card-${post.id}`}>
+                      <CardContent className="p-4">
+                        <div className="flex items-start space-x-4">
+                          {/* Media Preview */}
+                          {post.mediaUrls && post.mediaUrls.length > 0 && (
+                            <div className="w-24 h-24 rounded-lg overflow-hidden bg-muted flex-shrink-0">
+                              {post.mediaUrls[0].includes('.mp4') || post.mediaUrls[0].includes('.webm') ? (
+                                <video 
+                                  src={post.mediaUrls[0]} 
+                                  className="w-full h-full object-cover"
+                                  muted
+                                />
+                              ) : (
+                                <img 
+                                  src={post.mediaUrls[0]} 
+                                  alt="Post media"
+                                  className="w-full h-full object-cover"
+                                />
+                              )}
+                            </div>
+                          )}
+                          
+                          {/* Post Details */}
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-start justify-between mb-2">
+                              <div className="flex items-center space-x-2">
+                                {platforms.map((platform, idx) => (
+                                  <div key={idx} className="flex items-center space-x-1">
+                                    <div className={`w-3 h-3 rounded-full ${getPlatformColor(platform)}`} />
+                                    <span className="text-sm font-medium capitalize">
+                                      {platform}
+                                    </span>
+                                  </div>
+                                ))}
+                                <Badge variant={statusConfig.variant as any}>
+                                  {statusConfig.label}
+                                </Badge>
+                                {postTime && (
+                                  <div className="flex items-center text-sm text-muted-foreground">
+                                    <Clock className="w-3 h-3 mr-1" />
+                                    {postTime}
+                                  </div>
+                                )}
+                              </div>
+                              
+                              <div className="flex items-center space-x-1">
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => setLocation(`/create?edit=${post.id}`)}
+                                  data-testid={`button-edit-${post.id}`}
+                                >
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  onClick={() => deletePostMutation.mutate(post.id)}
+                                  data-testid={`button-delete-${post.id}`}
+                                >
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </div>
+                            </div>
+                            
+                            {/* Content Preview */}
+                            {post.content && (
+                              <p className="text-sm text-muted-foreground line-clamp-3 mb-2">
+                                {post.content}
+                              </p>
+                            )}
+                            
+                            {/* Tags */}
+                            {post.hashtags && post.hashtags.length > 0 && (
+                              <div className="flex flex-wrap gap-1 mt-2">
+                                {post.hashtags.slice(0, 5).map((tag, i) => (
+                                  <Badge key={i} variant="outline" className="text-xs">
+                                    #{tag}
+                                  </Badge>
+                                ))}
+                                {post.hashtags.length > 5 && (
+                                  <Badge variant="outline" className="text-xs">
+                                    +{post.hashtags.length - 5}
+                                  </Badge>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+            )}
+          </ScrollArea>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
