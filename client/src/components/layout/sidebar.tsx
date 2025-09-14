@@ -44,8 +44,8 @@ export default function Sidebar() {
   });
 
   return (
-    <aside className="w-64 shadow-lg flex flex-col bg-sidebar">
-      <div className="p-6 border-b border-sidebar-border">
+    <aside className="w-64 shadow-lg flex flex-col" style={{ backgroundColor: 'hsl(280, 50%, 12%)' }}>
+      <div className="p-6 border-b border-purple-800/30 bg-gradient-to-r from-transparent via-purple-900/20 to-transparent">
         <Logo size="md" animated={true} />
       </div>
       
@@ -58,8 +58,8 @@ export default function Sidebar() {
                 className={cn(
                   "flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer",
                   isActive
-                    ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                    : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                    ? "bg-purple-600/30 text-white border border-purple-500/50"
+                    : "text-gray-300 hover:bg-purple-700/20 hover:text-white"
                 )}
               >
                 <item.icon className="w-5 h-5" />
@@ -81,8 +81,8 @@ export default function Sidebar() {
               className={cn(
                 "flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer mt-2",
                 location === "/admin"
-                  ? "bg-sidebar-accent text-sidebar-accent-foreground"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/50 hover:text-sidebar-accent-foreground"
+                  ? "bg-purple-600/30 text-white border border-purple-500/50"
+                  : "text-gray-300 hover:bg-purple-700/20 hover:text-white"
               )}
             >
               <Shield className="w-5 h-5" />
@@ -95,11 +95,11 @@ export default function Sidebar() {
         )}
       </nav>
       
-      <div className="p-4 border-t border-sidebar-border">
+      <div className="p-4 border-t border-purple-800/30">
         <div className="flex items-center space-x-3">
           <UserAvatar user={user} />
           <div className="flex-1">
-            <p className="text-sm font-medium text-sidebar-foreground">
+            <p className="text-sm font-medium text-white">
               {user?.fullName || "Loading..."}
             </p>
             <div className="flex items-center space-x-2">
