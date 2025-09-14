@@ -252,31 +252,3 @@ export async function hasUserSufficientCredits(userId: string, operation: string
     return false;
   }
 }
-export async function isUserTrialExpired(userId: string): Promise<boolean> {
-  try {
-    const user = await storage.getUser(userId);
-    
-    if (!user) {
-      return false;
-    }
-
-    const trialTiers = ['free_trial', 'nocard7', 'card7'];
-    const isOnTrial = trialTiers.includes(user.tier);
-    
-    if (!isOnTrial) {
-      return false;
-    }
-
-    const now = new Date();
-    const trialEndsAt = user.trialEndsAt;
-    
-    if (!trialEndsAt) {
-      return false;
-    }
-
-    return now > new Date(trialEndsAt);
-  } catch (error) {
-    console.error("Error checking trial expiration:", error);
-    return false;
-  }
-}
