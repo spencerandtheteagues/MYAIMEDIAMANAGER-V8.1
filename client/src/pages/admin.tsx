@@ -522,21 +522,21 @@ export default function AdminPanel() {
                 Manage all user accounts with full control
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[600px]">
-                <div className="w-full overflow-x-auto">
-                  <Table className="min-w-[1200px]">
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead className="min-w-[150px]">User</TableHead>
-                      <TableHead className="min-w-[200px]">Email</TableHead>
-                      <TableHead className="min-w-[100px]">Tier</TableHead>
-                      <TableHead className="min-w-[80px]">Credits</TableHead>
-                      <TableHead className="min-w-[100px]">Status</TableHead>
-                      <TableHead className="min-w-[80px]">Admin</TableHead>
-                      <TableHead className="min-w-[250px]">Actions</TableHead>
-                    </TableRow>
-                  </TableHeader>
+            <CardContent className="p-0">
+              <div className="w-full overflow-x-auto">
+                <div className="h-[600px] overflow-y-auto">
+                  <Table className="min-w-[1400px]">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[150px]">User</TableHead>
+                        <TableHead className="min-w-[200px]">Email</TableHead>
+                        <TableHead className="min-w-[100px]">Tier</TableHead>
+                        <TableHead className="min-w-[80px]">Credits</TableHead>
+                        <TableHead className="min-w-[100px]">Status</TableHead>
+                        <TableHead className="min-w-[80px]">Admin</TableHead>
+                        <TableHead className="min-w-[350px]">Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
                   <TableBody>
                     {users.map((user) => (
                       <TableRow key={user.id}>
@@ -913,7 +913,7 @@ export default function AdminPanel() {
                   </TableBody>
                   </Table>
                 </div>
-              </ScrollArea>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -927,11 +927,11 @@ export default function AdminPanel() {
                 View all credit transactions across the platform
               </CardDescription>
             </CardHeader>
-            <CardContent>
-              <ScrollArea className="h-[600px]">
-                <div className="w-full overflow-x-auto">
+            <CardContent className="p-0">
+              <div className="w-full overflow-x-auto">
+                <div className="h-[600px] overflow-y-auto">
                   <Table className="min-w-[900px]">
-                  <TableHeader>
+                    <TableHeader>
                     <TableRow>
                       <TableHead className="min-w-[150px]">Date</TableHead>
                       <TableHead className="min-w-[180px]">User</TableHead>
@@ -966,7 +966,7 @@ export default function AdminPanel() {
                   </TableBody>
                   </Table>
                 </div>
-              </ScrollArea>
+              </div>
             </CardContent>
           </Card>
         </TabsContent>
