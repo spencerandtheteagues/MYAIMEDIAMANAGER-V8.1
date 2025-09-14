@@ -33,7 +33,11 @@ const navigation = [
   { name: "Settings", href: "/settings", icon: Settings },
 ];
 
-export default function Sidebar() {
+interface SidebarProps {
+  onNavigate?: () => void;
+}
+
+export default function Sidebar({ onNavigate }: SidebarProps = {}) {
   const [location] = useLocation();
   
   const { data: user } = useQuery<User>({
@@ -62,6 +66,7 @@ export default function Sidebar() {
                     ? "bg-primary text-white shadow-lg shadow-primary/50 border border-primary"
                     : "text-gray-300 hover:bg-muted hover:text-white"
                 )}
+                onClick={onNavigate}
               >
                 <item.icon className="w-5 h-5" />
                 <span>{item.name}</span>
@@ -85,6 +90,7 @@ export default function Sidebar() {
                   ? "bg-primary text-white shadow-lg shadow-primary/50 border border-primary"
                   : "text-gray-300 hover:bg-muted hover:text-white"
               )}
+              onClick={onNavigate}
             >
               <Shield className="w-5 h-5" />
               <span>Admin Panel</span>

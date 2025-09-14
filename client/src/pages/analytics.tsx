@@ -42,14 +42,14 @@ export default function Analytics() {
 
   if (isLoading) {
     return (
-      <div className="p-6">
-        <div className="animate-pulse space-y-8">
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div>
+        <div className="animate-pulse space-y-4 sm:space-y-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="h-32 bg-muted rounded-xl" />
             ))}
           </div>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
             {[...Array(2)].map((_, i) => (
               <div key={i} className="h-64 bg-muted rounded-xl" />
             ))}
@@ -63,19 +63,19 @@ export default function Analytics() {
   const maxValue = Math.max(...chartData.map(d => d.value));
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="space-y-4 sm:space-y-8">
       {/* Analytics Overview */}
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
-            <div>
-              <CardTitle>Performance Analytics</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <CardTitle className="text-lg sm:text-xl">Performance Analytics</CardTitle>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                 Track your social media performance across all platforms
               </p>
             </div>
             <Select defaultValue="30">
-              <SelectTrigger className="w-[180px]">
+              <SelectTrigger className="w-full sm:w-[180px]">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -89,7 +89,7 @@ export default function Analytics() {
 
         <CardContent>
           {/* Key Performance Metrics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mb-6 sm:mb-8">
             <div className="text-center">
               <div className="w-16 h-16 bg-blue-100 dark:bg-blue-900 rounded-full flex items-center justify-center mx-auto mb-3">
                 <Eye className="text-blue-600 dark:text-blue-400 w-8 h-8" />

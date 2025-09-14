@@ -152,19 +152,19 @@ export default function Calendar() {
   const weekDays = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
   return (
-    <div className="p-6">
-      <div className="mb-6">
-        <h1 className="text-3xl font-bold text-white">Content Calendar</h1>
-        <p className="text-gray-400 mt-2">View and manage all your scheduled content - click any day to see details</p>
+    <div>
+      <div className="mb-4 sm:mb-6">
+        <h1 className="text-xl sm:text-3xl font-bold text-white">Content Calendar</h1>
+        <p className="text-gray-400 mt-1 sm:mt-2 text-sm sm:text-base">View and manage all your scheduled content - click any day to see details</p>
       </div>
 
       <Card className="bg-card border-border">
-        <CardHeader className="pb-4">
+        <CardHeader className="pb-3 sm:pb-4">
           <div className="flex items-center justify-between">
-            <CardTitle className="text-2xl font-semibold">
+            <CardTitle className="text-lg sm:text-2xl font-semibold">
               {months[currentDate.getMonth()]} {currentDate.getFullYear()}
             </CardTitle>
-            <div className="flex items-center space-x-2">
+            <div className="flex items-center space-x-1 sm:space-x-2">
               <Button
                 variant="outline"
                 size="icon"

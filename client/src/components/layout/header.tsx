@@ -18,7 +18,8 @@ import {
   Zap,
   AlertTriangle,
   Coins,
-  ArrowUp
+  ArrowUp,
+  Menu
 } from "lucide-react";
 import { NotificationsBell } from "@/components/notifications-bell";
 import { UserAvatar } from "@/components/ui/user-avatar";
@@ -153,7 +154,11 @@ function CreditBalance({ user, onBuyCredits }: { user: UserType | undefined; onB
   );
 }
 
-export default function Header() {
+interface HeaderProps {
+  onMobileMenuClick?: () => void;
+}
+
+export default function Header({ onMobileMenuClick }: HeaderProps) {
   const [location, setLocation] = useLocation();
   const currentPage = pageData[location as keyof typeof pageData] || pageData["/"];
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
@@ -199,23 +204,60 @@ export default function Header() {
   }, [theme]);
 
   return (
-    <header className="bg-card shadow-sm border-b border-border px-6 py-4">
+    <header className="bg-card shadow-sm border-b border-border px-4 sm:px-6 py-4">
       <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-bold text-foreground">{currentPage.title}</h2>
-          <p className="text-sm text-muted-foreground mt-1">{currentPage.subtitle}</p>
+        <div className="flex items-center gap-2 sm:gap-4">
+          {/* Mobile menu button - only visible on mobile */}
+          {onMobileMenuClick && (
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onMobileMenuClick}
+              className="md:hidden"
+              data-testid="button-mobile-menu"
+            >
+              <Menu className="h-5 w-5" />
+              <span className="sr-only">Open menu</span>
+            </Button>
+          )}
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg sm:text-2xl font-bold text-foreground truncate">{currentPage.title}</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground mt-1 hidden sm:block">{currentPage.subtitle}</p>
+          </div>
         </div>
-        <div className="flex items-center space-x-4">
-          {/* Credit Balance with prominence */}
-          <CreditBalance 
-            user={user} 
-            onBuyCredits={() => setLocation('/billing')}
-          />
+        <div className="flex items-center gap-2 sm:space-x-4">
+          {/* Credit Balance - responsive */}
+          <div className="hidden sm:block">
+            <CreditBalance 
+              user={user} 
+              onBuyCredits={() => setLocation('/billing')}
+            />
+          </div>
+          {/* Mobile Credit Display */}
+          <div className="block sm:hidden">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button 
+                  variant="ghost" 
+                  size="sm"
+                  onClick={() => setLocation('/billing')}
+                  className="px-2"
+                  data-testid="button-mobile-credits"
+                >
+                  <Coins className="h-4 w-4" />
+                  <span className="ml-1 text-sm font-bold">{user?.credits || 0}</span>
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent>
+                <p>{user?.credits || 0} Credits - Tap to buy more</p>
+              </TooltipContent>
+            </Tooltip>
+          </div>
 
-          {/* Theme Toggle */}
+          {/* Theme Toggle - Hidden on mobile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon">
+              <Button variant="ghost" size="icon" className="hidden sm:inline-flex">
                 <Palette className="h-5 w-5" />
               </Button>
             </DropdownMenuTrigger>

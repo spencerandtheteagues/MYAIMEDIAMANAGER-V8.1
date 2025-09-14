@@ -3,6 +3,7 @@ import { queryClient, setGlobalRestrictionHandler } from "./lib/queryClient";
 import { QueryClientProvider, useQuery } from "@tanstack/react-query";
 import { Toaster } from "@/components/ui/toaster";
 import { TooltipProvider } from "@/components/ui/tooltip";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 import NotFound from "./pages/not-found";
 import Dashboard from "./pages/dashboard";
 import CreateContent from "./pages/create-content";
@@ -34,11 +35,12 @@ import TrialWelcomePopup from "./components/trial-welcome-popup";
 import RestrictionDialog from "./components/restriction-dialogs";
 import TrialExpired from "./pages/trial-expired";
 import { useRestrictionHandler } from "./hooks/useRestrictionHandler";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
 function Router() {
   // Initialize restriction handler
   const { restrictionState, showRestriction, hideRestriction } = useRestrictionHandler();
+  const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   
   // Set up global restriction handler
   useEffect(() => {
@@ -98,12 +100,25 @@ function Router() {
   // If authenticated, show the main app with restriction dialog system
   return (
     <>
-      <div className="flex h-screen overflow-hidden bg-background">
+      <div className="flex min-h-screen overflow-hidden bg-background">
         <TrialWelcomePopup />
-        <Sidebar />
-        <main className="flex-1 overflow-y-auto">
-          <Header />
-          <Switch>
+        
+        {/* Desktop Sidebar - hidden on mobile */}
+        <div className="hidden md:block">
+          <Sidebar />
+        </div>
+        
+        {/* Mobile Sidebar Sheet */}
+        <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
+          <SheetContent side="left" className="w-64 p-0">
+            <Sidebar onNavigate={() => setIsMobileSidebarOpen(false)} />
+          </SheetContent>
+        </Sheet>
+        
+        <main className="flex-1 min-w-0 overflow-y-auto">
+          <Header onMobileMenuClick={() => setIsMobileSidebarOpen(true)} />
+          <div className="p-4 sm:p-6">
+            <Switch>
             <Route path="/" component={Dashboard} />
             <Route path="/create" component={CreateContent} />
             <Route path="/ai-brainstorm" component={AIBrainstorm} />
@@ -125,8 +140,9 @@ function Router() {
             <Route path="/terms-of-service" component={TermsOfService} />
             <Route path="/privacy-policy" component={PrivacyPolicy} />
             <Route path="/admin" component={AdminPanel} />
-            <Route component={NotFound} />
-          </Switch>
+              <Route component={NotFound} />
+            </Switch>
+          </div>
         </main>
       </div>
       

@@ -91,12 +91,12 @@ export default function Dashboard() {
     return (
       <div className="p-6">
         <div className="animate-pulse space-y-6">
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
             {[...Array(5)].map((_, i) => (
               <div key={i} className="h-24 bg-muted rounded-xl" />
             ))}
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
             {[...Array(4)].map((_, i) => (
               <div key={i} className="h-32 bg-muted rounded-xl" />
             ))}
@@ -107,10 +107,10 @@ export default function Dashboard() {
   }
 
   return (
-    <div className="p-6 space-y-8">
+    <div className="space-y-6">
       {/* Connected Platforms Status - REAL STATUS */}
       <section>
-        <h3 className="text-lg font-semibold text-foreground mb-4">Platform Connections</h3>
+        <h3 className="text-base sm:text-lg font-semibold text-foreground mb-3 sm:mb-4">Platform Connections</h3>
         {!hasConnectedPlatforms ? (
           <Card className="border-dashed border-2">
             <CardContent className="p-8 text-center">
@@ -129,7 +129,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-3 sm:gap-4">
             {platforms.map((platform) => (
               <Card key={platform.name} className={`text-center overflow-hidden transition-all ${platform.connected ? 'hover:shadow-lg' : 'opacity-60'}`}>
                 <CardContent className="p-4">
@@ -167,7 +167,7 @@ export default function Dashboard() {
             </CardContent>
           </Card>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
           <Card>
             <CardContent className="p-6">
               <div className="flex items-center justify-between">
@@ -252,7 +252,7 @@ export default function Dashboard() {
       </section>
 
       {/* Quick Actions & Recent Activity */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-8">
         {/* Quick Actions */}
         <Card>
           <CardHeader>
@@ -260,14 +260,14 @@ export default function Dashboard() {
           </CardHeader>
           <CardContent className="space-y-3">
             <Link href="/create">
-              <Button variant="ghost" className="w-full justify-between h-auto p-4">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 bg-primary/10 rounded-lg flex items-center justify-center">
-                    <Edit className="text-primary w-5 h-5" />
+              <Button variant="ghost" className="w-full justify-between h-auto p-3 sm:p-4">
+                <div className="flex items-center space-x-2 sm:space-x-3">
+                  <div className="w-8 h-8 sm:w-10 sm:h-10 bg-primary/10 rounded-lg flex items-center justify-center">
+                    <Edit className="text-primary w-4 h-4 sm:w-5 sm:h-5" />
                   </div>
                   <div className="text-left">
-                    <div className="font-medium text-foreground">Create New Post</div>
-                    <div className="text-sm text-muted-foreground">Use AI to generate content</div>
+                    <div className="text-sm sm:text-base font-medium text-foreground">Create New Post</div>
+                    <div className="text-xs sm:text-sm text-muted-foreground">Use AI to generate content</div>
                   </div>
                 </div>
                 <div className="w-5 h-5 text-muted-foreground" />

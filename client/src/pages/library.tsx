@@ -199,13 +199,13 @@ export default function Library() {
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       <Card>
         <CardHeader>
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
             <div>
-              <CardTitle>Content Library</CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
+              <CardTitle className="text-lg sm:text-xl">Content Library</CardTitle>
+              <p className="text-xs sm:text-sm text-muted-foreground mt-1">
                 Manage all your content and media assets
               </p>
             </div>
@@ -214,22 +214,22 @@ export default function Library() {
 
         <CardContent>
           <Tabs defaultValue="posts" className="space-y-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="posts" className="flex items-center gap-2">
-                <FileText className="w-4 h-4" />
-                Posts ({filteredPosts.length})
+            <TabsList className="grid w-full grid-cols-2 h-auto">
+              <TabsTrigger value="posts" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3">
+                <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Posts</span> ({filteredPosts.length})
               </TabsTrigger>
-              <TabsTrigger value="media" className="flex items-center gap-2">
-                <Image className="w-4 h-4" />
-                Media ({filteredMedia.length})
+              <TabsTrigger value="media" className="flex items-center gap-1 sm:gap-2 text-xs sm:text-sm px-2 sm:px-4 py-2 sm:py-3">
+                <Image className="w-3 h-3 sm:w-4 sm:h-4" />
+                <span className="hidden sm:inline">Media</span> ({filteredMedia.length})
               </TabsTrigger>
             </TabsList>
 
             {/* Posts Tab */}
             <TabsContent value="posts" className="space-y-4">
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2">
                 <Select value={filterStatus} onValueChange={setFilterStatus}>
-                  <SelectTrigger className="w-[180px]" data-testid="select-filter-status">
+                  <SelectTrigger className="w-full sm:w-[180px]" data-testid="select-filter-status">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -239,7 +239,7 @@ export default function Library() {
                     <SelectItem value="scheduled" data-testid="option-scheduled">Scheduled</SelectItem>
                   </SelectContent>
                 </Select>
-                <Button data-testid="button-new-draft">
+                <Button data-testid="button-new-draft" className="min-h-[44px] w-full sm:w-auto">
                   <Plus className="w-4 h-4 mr-2" />
                   New Draft
                 </Button>
@@ -255,7 +255,7 @@ export default function Library() {
                   </p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                   {filteredPosts.map((post) => {
                     const imageUrl = post.metadata?.imageUrl || post.mediaUrls?.find(url => url.includes('image'));
                     const videoUrl = post.metadata?.videoUrl || post.mediaUrls?.find(url => url.includes('video'));
@@ -279,7 +279,7 @@ export default function Library() {
                             </div>
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
-                                <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-more-${post.id}`}>
+                                <Button variant="ghost" size="icon" className="h-10 w-10 sm:h-8 sm:w-8" data-testid={`button-more-${post.id}`}>
                                   <MoreVertical className="w-4 h-4" />
                                 </Button>
                               </DropdownMenuTrigger>
