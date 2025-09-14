@@ -30,15 +30,19 @@ function createUserSession(req: Request, user: User) {
 
 // Get the base URL for callbacks
 function getCallbackUrl(req: Request): string {
-  // In production, use the actual domain
+  // In production, always use the apex domain for OAuth consistency
+  if (process.env.NODE_ENV === 'production') {
+    return 'https://myaimediamgr.com/api/auth/google/callback';
+  }
+  
+  // In development, check for Replit domains first
   if (process.env.REPLIT_DOMAINS) {
     const firstDomain = process.env.REPLIT_DOMAINS.split(',')[0];
     return `https://${firstDomain}/api/auth/google/callback`;
   }
-  // In development
-  const protocol = req.secure ? 'https' : 'http';
-  const host = req.get('host') || 'localhost:5000';
-  return `${protocol}://${host}/api/auth/google/callback`;
+  
+  // Local development
+  return 'http://localhost:5000/api/auth/google/callback';
 }
 
 // Configure Google OAuth Strategy
@@ -46,7 +50,9 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: "/api/auth/google/callback",
+    callbackURL: process.env.NODE_ENV === 'production' 
+      ? 'https://myaimediamgr.com/api/auth/google/callback'
+      : '/api/auth/google/callback',
     scope: ['profile', 'email'],
     passReqToCallback: true
   },

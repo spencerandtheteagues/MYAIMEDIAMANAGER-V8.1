@@ -11,6 +11,14 @@ const app = express();
 // Trust proxy for rate limiting to work correctly behind proxies
 app.set("trust proxy", 1);
 
+// Redirect www to apex domain to maintain OAuth consistency
+app.use((req, res, next) => {
+  if (req.headers.host === 'www.myaimediamgr.com') {
+    return res.redirect(301, `https://myaimediamgr.com${req.originalUrl}`);
+  }
+  next();
+});
+
 // Security middleware
 app.use(helmet({
   contentSecurityPolicy: {
