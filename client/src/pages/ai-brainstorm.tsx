@@ -624,18 +624,18 @@ export default function AIBrainstorm() {
                     <Button
                       key={index}
                       variant="outline"
-                      className="w-full justify-start text-left h-auto py-3"
+                      className="w-full justify-start text-left h-auto py-3 overflow-hidden"
                       onClick={() => handleQuickPrompt(prompt.prompt)}
                     >
-                      <div className="flex items-center gap-3 w-full">
-                        <div className="flex-shrink-0">{prompt.icon}</div>
-                        <div className="flex-1">
+                      <div className="flex items-start gap-3 w-full overflow-hidden">
+                        <div className="flex-shrink-0 mt-1">{prompt.icon}</div>
+                        <div className="flex-1 min-w-0">
                           <div className="font-medium">{prompt.label}</div>
-                          <div className="text-xs text-muted-foreground line-clamp-1">
+                          <div className="text-xs text-muted-foreground break-words whitespace-normal">
                             {prompt.prompt}
                           </div>
                         </div>
-                        <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                        <ChevronRight className="w-4 h-4 flex-shrink-0 mt-1" />
                       </div>
                     </Button>
                   ))}
@@ -648,15 +648,18 @@ export default function AIBrainstorm() {
                       <Button
                         key={index}
                         variant="outline"
-                        className="w-full justify-start text-left h-auto py-3"
+                        className="w-full justify-start text-left h-auto py-3 overflow-hidden"
                         onClick={() => handleQuickPrompt(prompt.prompt)}
                       >
-                        <div className="flex items-center gap-3 w-full">
-                          <div className="flex-shrink-0">{prompt.icon}</div>
-                          <div className="flex-1">
+                        <div className="flex items-start gap-3 w-full overflow-hidden">
+                          <div className="flex-shrink-0 mt-1">{prompt.icon}</div>
+                          <div className="flex-1 min-w-0">
                             <div className="font-medium">{prompt.label}</div>
+                            <div className="text-xs text-muted-foreground break-words whitespace-normal">
+                              {prompt.prompt}
+                            </div>
                           </div>
-                          <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                          <ChevronRight className="w-4 h-4 flex-shrink-0 mt-1" />
                         </div>
                       </Button>
                     ))}
@@ -669,15 +672,18 @@ export default function AIBrainstorm() {
                       <Button
                         key={index}
                         variant="outline"
-                        className="w-full justify-start text-left h-auto py-3"
+                        className="w-full justify-start text-left h-auto py-3 overflow-hidden"
                         onClick={() => handleQuickPrompt(prompt.prompt)}
                       >
-                        <div className="flex items-center gap-3 w-full">
-                          <div className="flex-shrink-0">{prompt.icon}</div>
-                          <div className="flex-1">
+                        <div className="flex items-start gap-3 w-full overflow-hidden">
+                          <div className="flex-shrink-0 mt-1">{prompt.icon}</div>
+                          <div className="flex-1 min-w-0">
                             <div className="font-medium">{prompt.label}</div>
+                            <div className="text-xs text-muted-foreground break-words whitespace-normal">
+                              {prompt.prompt}
+                            </div>
                           </div>
-                          <ChevronRight className="w-4 h-4 flex-shrink-0" />
+                          <ChevronRight className="w-4 h-4 flex-shrink-0 mt-1" />
                         </div>
                       </Button>
                     ))}
