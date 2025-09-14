@@ -48,7 +48,7 @@ import type { User as UserType } from "@shared/schema";
 const pageData = {
   "/": {
     title: "Dashboard",
-    subtitle: "Welcome back! Here's your social media overview."
+    subtitle: "Your social media command center"
   },
   "/create": {
     title: "Create Content",
@@ -204,7 +204,7 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
   }, [theme]);
 
   return (
-    <header className="bg-card shadow-sm border-b border-border px-4 sm:px-6 py-4">
+    <header className="bg-card shadow-sm border-b border-border px-4 sm:px-6 py-3">
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2 sm:gap-4">
           {/* Mobile menu button - only visible on mobile */}
@@ -221,11 +221,11 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
             </Button>
           )}
           <div className="min-w-0 flex-1">
-            <h2 className="text-lg sm:text-2xl font-bold text-foreground truncate">{currentPage.title}</h2>
-            <p className="text-xs sm:text-sm text-muted-foreground mt-1 hidden sm:block">{currentPage.subtitle}</p>
+            <h2 className="text-xl sm:text-2xl font-bold text-foreground truncate">{currentPage.title}</h2>
+            <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">{currentPage.subtitle}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 sm:space-x-4">
+        <div className="flex items-center gap-2 sm:gap-3">
           {/* Credit Balance - responsive */}
           <div className="hidden sm:block">
             <CreditBalance 
@@ -257,9 +257,17 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
           {/* Theme Toggle - Hidden on mobile */}
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
-              <Button variant="ghost" size="icon" className="hidden sm:inline-flex">
-                <Palette className="h-5 w-5" />
-              </Button>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button variant="ghost" className="hidden sm:inline-flex items-center gap-2 px-3">
+                    <Palette className="h-5 w-5" />
+                    <span className="text-sm">Theme</span>
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>Change the app appearance</p>
+                </TooltipContent>
+              </Tooltip>
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel>Choose Theme</DropdownMenuLabel>
