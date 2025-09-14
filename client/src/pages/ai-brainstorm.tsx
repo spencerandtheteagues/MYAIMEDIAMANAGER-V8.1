@@ -221,9 +221,15 @@ export default function AIBrainstorm() {
               } else {
                 try {
                   const parsed = JSON.parse(data);
-                  const content = parsed.choices?.[0]?.delta?.content || parsed.text || "";
-                  fullContent += content;
-                  setStreamedContent(fullContent);
+                  // Check for done signal from backend
+                  if (parsed.done === true) {
+                    setIsStreaming(false);
+                  } else {
+                    // Extract content from the backend SSE format
+                    const content = parsed.content || "";
+                    fullContent += content;
+                    setStreamedContent(fullContent);
+                  }
                 } catch (e) {
                   // Handle non-JSON chunks or parsing errors
                   console.error('Parse error:', e);
