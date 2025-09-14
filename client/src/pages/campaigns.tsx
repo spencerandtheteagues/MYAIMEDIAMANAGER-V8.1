@@ -14,6 +14,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Progress } from "@/components/ui/progress";
 import { useToast } from "@/hooks/use-toast";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -82,6 +83,8 @@ export default function Campaigns() {
   const [selectedCampaign, setSelectedCampaign] = useState<Campaign | null>(null);
   const [campaignPosts, setCampaignPosts] = useState<CampaignPost[]>([]);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [generationProgress, setGenerationProgress] = useState(0);
+  const [generationStatus, setGenerationStatus] = useState("");
   const [uploadedImages, setUploadedImages] = useState<{ [key: string]: string }>({});
   const [manualContent, setManualContent] = useState<{ [key: string]: string }>({});
   
@@ -127,74 +130,95 @@ export default function Campaigns() {
       }
 
       setIsGenerating(true);
+      setGenerationProgress(0);
+      setGenerationStatus("Starting campaign generation...");
       
-      // Generate all 14 posts at once
-      const posts: CampaignPost[] = [];
-      const startDate = new Date(data.startDate);
-      
-      for (let day = 0; day < 7; day++) {
-        for (let slot = 0; slot < 2; slot++) {
-          const postDate = addDays(startDate, day);
-          let scheduledTime: Date;
-          
-          if (data.postingSchedule === "auto") {
-            const time = BEST_POSTING_TIMES[slot];
-            scheduledTime = setMinutes(setHours(postDate, time.hour), time.minute);
-          } else {
-            const time = data.manualTimes?.[slot] || BEST_POSTING_TIMES[slot];
-            scheduledTime = setMinutes(setHours(postDate, parseInt(time.hour)), parseInt(time.minute));
-          }
-          
-          posts.push({
-            id: `post-${day}-${slot}`,
-            day: day + 1,
-            slot: slot + 1,
-            content: "",
-            scheduledTime,
-            status: "pending",
-            platforms: data.platforms,
-          });
-        }
-      }
-      
-      // Create campaign
-      const response = await apiRequest("POST", "/api/campaigns", {
-        ...data,
-        postsPerDay: 2,
-        totalPosts: 14,
-        status: "generating",
-      });
-      
-      const campaign = await response.json();
-      
-      // Generate content for all posts
-      const generatedPosts = await apiRequest("POST", `/api/campaigns/${campaign.id}/generate-all`, {
-        posts,
-        contentType: data.contentType,
+      // Call the generate endpoint which now handles everything sequentially
+      const response = await apiRequest("POST", "/api/campaigns/generate", {
+        prompt: `${data.campaignGoals} for ${data.businessName}`,
+        start_date: new Date(data.startDate).toISOString(),
+        cadence: "2_per_day_7_days",
         businessName: data.businessName,
         productName: data.productName,
         targetAudience: data.targetAudience,
         brandTone: data.brandTone,
-        keyMessages: data.keyMessages,
+        keyMessages: data.keyMessages?.split('\n').filter(m => m.trim()),
         callToAction: data.callToAction,
       });
       
-      return { campaign, posts: await generatedPosts.json() };
+      const result = await response.json();
+      const campaignId = result.campaignId;
+      
+      // Poll for progress updates
+      const pollInterval = setInterval(async () => {
+        try {
+          const progressResponse = await fetch(`/api/campaigns/${campaignId}/progress`);
+          const progress = await progressResponse.json();
+          
+          const percentage = (progress.current / progress.total) * 100;
+          setGenerationProgress(percentage);
+          setGenerationStatus(progress.status);
+          
+          if (progress.current >= progress.total) {
+            clearInterval(pollInterval);
+          }
+        } catch (error) {
+          console.error('Error polling progress:', error);
+        }
+      }, 1000);
+      
+      // Wait for completion with timeout
+      let attempts = 0;
+      const maxAttempts = 120; // 2 minutes timeout
+      
+      while (attempts < maxAttempts) {
+        const progressResponse = await fetch(`/api/campaigns/${campaignId}/progress`);
+        const progress = await progressResponse.json();
+        
+        if (progress.current >= progress.total) {
+          clearInterval(pollInterval);
+          break;
+        }
+        
+        await new Promise(resolve => setTimeout(resolve, 1000));
+        attempts++;
+      }
+      
+      clearInterval(pollInterval);
+      
+      // Get the generated posts
+      const postsResponse = await fetch(`/api/campaigns/${campaignId}/posts`);
+      const posts = await postsResponse.json();
+      
+      return { campaign: result.campaign, posts };
     },
     onSuccess: ({ campaign, posts }) => {
-      setCampaignPosts(posts);
+      setCampaignPosts(posts.map((post: any, index: number) => ({
+        id: post.id,
+        day: Math.floor(index / 2) + 1,
+        slot: (index % 2) + 1,
+        content: post.content,
+        imageUrl: post.imageUrl,
+        scheduledTime: new Date(post.scheduledFor),
+        status: "pending",
+        platforms: Array.isArray(post.platforms) ? post.platforms : [post.platform],
+      })));
       setSelectedCampaign(campaign);
       setIsGenerating(false);
+      setGenerationProgress(0);
+      setGenerationStatus("");
       queryClient.invalidateQueries({ queryKey: ["/api/campaigns"] });
       setIsCreateDialogOpen(false);
       form.reset();
       toast({
-        title: "Campaign created",
-        description: "All 14 posts have been generated. Please review and approve them.",
+        title: "Campaign created successfully!",
+        description: "All 14 posts have been generated with images. Please review and approve them.",
       });
     },
     onError: (error: any) => {
       setIsGenerating(false);
+      setGenerationProgress(0);
+      setGenerationStatus("");
       toast({
         title: "Error",
         description: error.message || "Failed to create campaign. Please try again.",
@@ -548,14 +572,28 @@ export default function Campaigns() {
           </DialogHeader>
 
           {isGenerating && (
-            <Alert>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              <AlertDescription>
-                <strong>Generating your campaign...</strong><br />
-                This may take a few minutes as we're creating 14 unique posts with AI.
-                {form.watch("contentType") === "image" && " Images are being generated for each post."}
-              </AlertDescription>
-            </Alert>
+            <div className="space-y-4 p-4 bg-muted rounded-lg">
+              <div className="flex items-center space-x-2">
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium">Generating your campaign...</p>
+                  <p className="text-xs text-muted-foreground mt-1">{generationStatus}</p>
+                </div>
+              </div>
+              <Progress value={generationProgress} className="h-2" />
+              <div className="flex justify-between text-xs text-muted-foreground">
+                <span>Progress: {Math.round(generationProgress)}%</span>
+                <span>{Math.floor(generationProgress / 100 * 14)} of 14 posts created</span>
+              </div>
+              <Alert className="bg-blue-50 dark:bg-blue-950 border-blue-200 dark:border-blue-800">
+                <AlertCircle className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <AlertDescription className="text-blue-800 dark:text-blue-200">
+                  <strong>Why does this take time?</strong><br />
+                  We're generating unique, high-quality images for each post using AI. Each image is created 
+                  individually to ensure the best quality and avoid rate limits. This typically takes 2-3 minutes total.
+                </AlertDescription>
+              </Alert>
+            </div>
           )}
 
           <Form {...form}>
@@ -865,11 +903,17 @@ export default function Campaigns() {
                   type="submit" 
                   disabled={createCampaignMutation.isPending || isGenerating || !user?.isPaid}
                 >
-                  {(createCampaignMutation.isPending || isGenerating) && (
-                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  {(createCampaignMutation.isPending || isGenerating) ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                      {isGenerating ? `Creating ${Math.floor(generationProgress / 100 * 14)}/14 Posts...` : 'Starting...'}
+                    </>
+                  ) : (
+                    <>
+                      <Sparkles className="w-4 h-4 mr-2" />
+                      Generate Campaign (14 Credits)
+                    </>
                   )}
-                  <Sparkles className="w-4 h-4 mr-2" />
-                  Generate Campaign (14 Credits)
                 </Button>
               </DialogFooter>
             </form>

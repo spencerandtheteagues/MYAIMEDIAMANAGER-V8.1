@@ -9,6 +9,16 @@ import { Platform } from './content/config';
 import { BrandProfile } from '@shared/schema';
 import { generateImage } from './ai/image';
 
+// Declare global campaign progress tracking
+declare global {
+  var campaignProgress: Record<string, {
+    total: number;
+    current: number;
+    status: string;
+    posts: any[];
+  }>;
+}
+
 const generateCampaignSchema = z.object({
   prompt: z.string().min(1, "Campaign prompt/theme is required"),
   start_date: z.string().datetime(),
@@ -110,6 +120,18 @@ export function createCampaignRoutes(storage: IStorage) {
         generationProgress: 0,
       });
 
+      // Store campaign progress in memory for real-time updates
+      const progressKey = `campaign_progress_${campaign.id}`;
+      if (!global.campaignProgress) {
+        global.campaignProgress = {};
+      }
+      global.campaignProgress[progressKey] = {
+        total: 14,
+        current: 0,
+        status: 'Generating posts...',
+        posts: []
+      };
+      
       // Generate 14 posts (2 per day for 7 days)
       const posts = [];
       const startDate = new Date(params.start_date);
@@ -127,6 +149,9 @@ export function createCampaignRoutes(storage: IStorage) {
       const platforms: Platform[] = ['instagram', 'facebook', 'x'];
       let postIndex = 0;
       const priorCaptions: string[] = [];
+      
+      // Helper function to add delay between image generations
+      const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
       
       for (let day = 0; day < 7; day++) {
         for (let slot = 0; slot < 2; slot++) {
@@ -176,6 +201,15 @@ export function createCampaignRoutes(storage: IStorage) {
           // Add hashtags to content
           if (hashtags.length > 0) {
             content += '\n\n' + hashtags.join(' ');
+          }
+          
+          // Update progress before generating image
+          global.campaignProgress[progressKey].current = postIndex;
+          global.campaignProgress[progressKey].status = `Generating image ${postIndex + 1} of 14...`;
+          
+          // Add delay between image generation requests (3 seconds)
+          if (postIndex > 0) {
+            await delay(3000);
           }
           
           // Generate and save image for the post
@@ -231,6 +265,12 @@ export function createCampaignRoutes(storage: IStorage) {
           });
           
           posts.push(post);
+          
+          // Update progress after creating post
+          global.campaignProgress[progressKey].posts.push(post);
+          global.campaignProgress[progressKey].current = postIndex + 1;
+          global.campaignProgress[progressKey].status = `Created post ${postIndex + 1} of 14`;
+          
           postIndex++;
         }
       }
@@ -240,6 +280,9 @@ export function createCampaignRoutes(storage: IStorage) {
         generationProgress: 100,
         status: 'review',
       });
+      
+      // Clean up progress tracking
+      delete global.campaignProgress[progressKey];
       
       res.json({
         campaignId: campaign.id,
@@ -371,5 +414,38 @@ export function createCampaignRoutes(storage: IStorage) {
     }
   });
 
+  // GET /api/campaigns/:id/progress - Get campaign generation progress
+  router.get('/api/campaigns/:id/progress', requireAuth, async (req: Request, res: Response) => {
+    try {
+      const { id } = req.params;
+      const progressKey = `campaign_progress_${id}`;
+      
+      if (global.campaignProgress?.[progressKey]) {
+        res.json(global.campaignProgress[progressKey]);
+      } else {
+        // Check if campaign exists and is complete
+        const campaign = await storage.getCampaign(id);
+        if (campaign && campaign.generationProgress === 100) {
+          res.json({
+            total: 14,
+            current: 14,
+            status: 'Complete',
+            posts: []
+          });
+        } else {
+          res.json({
+            total: 14,
+            current: 0,
+            status: 'Not started',
+            posts: []
+          });
+        }
+      }
+    } catch (error) {
+      console.error('Get progress error:', error);
+      res.status(500).json({ error: 'Failed to get progress' });
+    }
+  });
+  
   return router;
 }
