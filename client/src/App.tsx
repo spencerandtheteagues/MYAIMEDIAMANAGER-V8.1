@@ -36,7 +36,6 @@ import RestrictionDialog from "./components/restriction-dialogs";
 import TrialExpired from "./pages/trial-expired";
 import { NotificationPopup } from "./components/NotificationPopup";
 import { TrialCountdown } from "./components/TrialCountdown";
-import { TrialExpiredModal } from "./components/TrialExpiredModal";
 import { useRestrictionHandler } from "./hooks/useRestrictionHandler";
 import { useEffect, useState } from "react";
 
@@ -44,7 +43,6 @@ function Router() {
   // Initialize restriction handler
   const { restrictionState, showRestriction, hideRestriction } = useRestrictionHandler();
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
-  const [showTrialExpiredModal, setShowTrialExpiredModal] = useState(false);
   
   // Set up global restriction handler
   useEffect(() => {
@@ -97,33 +95,6 @@ function Router() {
         <Route path="/terms-of-service" component={TermsOfService} />
         <Route path="/privacy-policy" component={PrivacyPolicy} />
         <Route component={TrialSelection} />
-      </Switch>
-    );
-  }
-
-  // Check if account is locked or trial has expired
-  const isTrialExpired = (user as any)?.trialEndsAt && new Date((user as any).trialEndsAt) < new Date();
-  const isTrialUser = (user as any)?.tier === 'free' && (user as any)?.subscriptionStatus === 'trial';
-  const isAccountLocked = (user as any)?.isLocked;
-
-  // Show trial expired modal for expired trial users who haven't upgraded
-  useEffect(() => {
-    if (isTrialUser && isTrialExpired && !isAccountLocked) {
-      setShowTrialExpiredModal(true);
-    }
-  }, [isTrialUser, isTrialExpired, isAccountLocked]);
-
-  // If account is locked, redirect to trial-expired page
-  if (isAccountLocked) {
-    return (
-      <Switch>
-        <Route path="/trial-expired" component={TrialExpired} />
-        <Route path="/checkout" component={Checkout} />
-        <Route path="/checkout/return" component={CheckoutReturn} />
-        <Route path="/pricing" component={Pricing} />
-        <Route path="/terms-of-service" component={TermsOfService} />
-        <Route path="/privacy-policy" component={PrivacyPolicy} />
-        <Route component={TrialExpired} />
       </Switch>
     );
   }
@@ -187,12 +158,6 @@ function Router() {
           restrictionData={restrictionState.data}
         />
       )}
-      
-      {/* Trial Expired Modal */}
-      <TrialExpiredModal 
-        open={showTrialExpiredModal} 
-        trialEndDate={(user as any)?.trialEndsAt}
-      />
     </>
   );
 }

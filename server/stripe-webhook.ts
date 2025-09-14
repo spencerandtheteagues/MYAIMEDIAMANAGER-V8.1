@@ -95,18 +95,11 @@ router.post("/webhook",
                 // Subscription purchase
                 const subscriptionId = session.subscription as string;
                 
-                // Unlock account if it was locked due to trial expiration
                 await storage.updateUser(userId, {
                   tier: planId as any,
                   stripeSubscriptionId: subscriptionId,
                   credits: (user.credits || 0) + credits,
-                  monthlyCredits: credits,
-                  subscriptionStatus: 'active',
-                  isLocked: false, // Unlock the account
-                  accountStatus: 'active', // Reactivate the account
-                  pausedAt: null,
-                  pausedReason: null,
-                  isPaid: true
+                  monthlyCredits: credits
                 });
                 
                 // Log the transaction
@@ -118,15 +111,7 @@ router.post("/webhook",
                   stripeSessionId: session.id
                 });
                 
-                // Send notification about account unlock
-                await storage.createNotification({
-                  userId,
-                  title: "Welcome to Your Subscription!",
-                  message: `Your account has been activated with the ${PLAN_PRICES[planId as keyof typeof PLAN_PRICES].name}. You now have ${credits} credits available.`,
-                  type: 'success'
-                });
-                
-                console.log(`✅ Activated subscription and unlocked account for user ${userId}: ${planId} plan`);
+                console.log(`✅ Activated subscription for user ${userId}: ${planId} plan`);
               }
             }
           }
@@ -138,8 +123,8 @@ router.post("/webhook",
           console.log(`✅ Invoice paid: ${invoice.id}`);
           
           // Handle successful recurring payment - refresh monthly credits
-          const subscriptionId = typeof (invoice as any).subscription === 'string' ? (invoice as any).subscription : undefined;
-          const customerId = typeof invoice.customer === 'string' ? invoice.customer : undefined;
+          const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
+          const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
           
           if (subscriptionId) {
             // Find user by customer ID

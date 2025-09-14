@@ -510,7 +510,7 @@ export default function AdminPanel() {
   // Load credit history for a user
   const loadCreditHistory = async (userId: string) => {
     try {
-      const history = await apiRequest("GET", `/api/admin/users/${userId}/credit-history`) as any as CreditTransaction[];
+      const history = await apiRequest("GET", `/api/admin/users/${userId}/credit-history`);
       setUserCreditHistory(history);
       setCreditHistoryModalOpen(true);
     } catch (error: any) {
@@ -902,12 +902,9 @@ export default function AdminPanel() {
                         </TableCell>
                         <TableCell>{user.credits}</TableCell>
                         <TableCell>
-                          <Badge className={
-                            user.isLocked ? 'bg-red-600 text-white' :
-                            getStatusColor(user.accountStatus)
-                          }>
-                            {user.isLocked ? '🔒 Locked' : user.accountStatus}
-                            {user.pausedAt && !user.isLocked && " (Paused)"}
+                          <Badge className={getStatusColor(user.accountStatus)}>
+                            {user.accountStatus}
+                            {user.isPaused && " (Paused)"}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -919,27 +916,14 @@ export default function AdminPanel() {
                         <TableCell>
                           {user.tier === 'free' && user.trialDaysRemaining !== null ? (
                             <div className="text-sm">
-                              {user.isLocked ? (
-                                <Badge variant="destructive" className="text-xs">
-                                  Locked (Expired)
-                                </Badge>
-                              ) : user.trialStatus === 'active' ? (
-                                <Badge 
-                                  variant={user.trialDaysRemaining !== null && user.trialDaysRemaining !== undefined && user.trialDaysRemaining <= 3 ? 'secondary' : 'default'}
-                                  className="text-xs"
-                                >
+                              {user.trialStatus === 'active' ? (
+                                <span className={user.trialDaysRemaining <= 3 ? 'text-red-600 font-medium' : ''}>
                                   {user.trialDaysRemaining} days left
-                                </Badge>
+                                </span>
                               ) : (
-                                <Badge variant="destructive" className="text-xs">
-                                  Expired
-                                </Badge>
+                                <span className="text-red-600 font-medium">Expired</span>
                               )}
                             </div>
-                          ) : user.isPaid ? (
-                            <Badge variant="default" className="text-xs">
-                              Paid
-                            </Badge>
                           ) : (
                             <span className="text-muted-foreground">-</span>
                           )}
@@ -1255,7 +1239,7 @@ export default function AdminPanel() {
                             </Dialog>
 
                             {/* Pause/Unpause User */}
-                            {user.pausedAt ? (
+                            {user.isPaused ? (
                               <Button
                                 variant="outline"
                                 size="sm"
@@ -1575,7 +1559,7 @@ export default function AdminPanel() {
                     {transactions.map((transaction) => (
                       <TableRow key={transaction.id}>
                         <TableCell>
-                          {transaction.createdAt ? new Date(transaction.createdAt).toLocaleString() : 'N/A'}
+                          {new Date(transaction.createdAt).toLocaleString()}
                         </TableCell>
                         <TableCell>
                           <div>
@@ -1720,7 +1704,7 @@ export default function AdminPanel() {
                 {userCreditHistory.map((transaction) => (
                   <TableRow key={transaction.id}>
                     <TableCell>
-                      {transaction.createdAt ? new Date(transaction.createdAt).toLocaleString() : 'N/A'}
+                      {new Date(transaction.createdAt).toLocaleString()}
                     </TableCell>
                     <TableCell>
                       <Badge variant="outline">{transaction.type}</Badge>
