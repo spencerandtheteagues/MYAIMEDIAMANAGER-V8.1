@@ -95,11 +95,18 @@ router.post("/webhook",
                 // Subscription purchase
                 const subscriptionId = session.subscription as string;
                 
+                // Unlock account if it was locked due to trial expiration
                 await storage.updateUser(userId, {
                   tier: planId as any,
                   stripeSubscriptionId: subscriptionId,
                   credits: (user.credits || 0) + credits,
-                  monthlyCredits: credits
+                  monthlyCredits: credits,
+                  subscriptionStatus: 'active',
+                  isLocked: false, // Unlock the account
+                  accountStatus: 'active', // Reactivate the account
+                  pausedAt: null,
+                  pausedReason: null,
+                  isPaid: true
                 });
                 
                 // Log the transaction
@@ -111,7 +118,17 @@ router.post("/webhook",
                   stripeSessionId: session.id
                 });
                 
-                console.log(`✅ Activated subscription for user ${userId}: ${planId} plan`);
+                // Send notification about account unlock
+                await storage.createNotification({
+                  userId,
+                  title: "Welcome to Your Subscription!",
+                  message: `Your account has been activated with the ${PLAN_PRICES[planId as keyof typeof PLAN_PRICES].name}. You now have ${credits} credits available.`,
+                  type: 'success',
+                  priority: 'high',
+                  requiresPopup: true
+                });
+                
+                console.log(`✅ Activated subscription and unlocked account for user ${userId}: ${planId} plan`);
               }
             }
           }

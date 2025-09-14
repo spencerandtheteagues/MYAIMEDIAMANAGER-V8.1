@@ -33,7 +33,8 @@ export const users = pgTable("users", {
   // Roles and status
   role: text("role").notNull().default("user"), // admin, user
   isAdmin: boolean("is_admin").notNull().default(false),
-  accountStatus: text("account_status").notNull().default("active"), // active, frozen, deleted
+  accountStatus: text("account_status").notNull().default("active"), // active, frozen, deleted, locked
+  isLocked: boolean("is_locked").notNull().default(false), // Account locked after trial expiration
   
   // Subscription and billing
   tier: text("tier").notNull().default("free"), // free, starter, professional, business, pay_as_you_go

@@ -902,9 +902,12 @@ export default function AdminPanel() {
                         </TableCell>
                         <TableCell>{user.credits}</TableCell>
                         <TableCell>
-                          <Badge className={getStatusColor(user.accountStatus)}>
-                            {user.accountStatus}
-                            {user.isPaused && " (Paused)"}
+                          <Badge className={
+                            user.isLocked ? 'bg-red-600 text-white' :
+                            getStatusColor(user.accountStatus)
+                          }>
+                            {user.isLocked ? '🔒 Locked' : user.accountStatus}
+                            {user.isPaused && !user.isLocked && " (Paused)"}
                           </Badge>
                         </TableCell>
                         <TableCell>
@@ -916,14 +919,27 @@ export default function AdminPanel() {
                         <TableCell>
                           {user.tier === 'free' && user.trialDaysRemaining !== null ? (
                             <div className="text-sm">
-                              {user.trialStatus === 'active' ? (
-                                <span className={user.trialDaysRemaining <= 3 ? 'text-red-600 font-medium' : ''}>
+                              {user.isLocked ? (
+                                <Badge variant="destructive" className="text-xs">
+                                  Locked (Expired)
+                                </Badge>
+                              ) : user.trialStatus === 'active' ? (
+                                <Badge 
+                                  variant={user.trialDaysRemaining <= 3 ? 'secondary' : 'default'}
+                                  className="text-xs"
+                                >
                                   {user.trialDaysRemaining} days left
-                                </span>
+                                </Badge>
                               ) : (
-                                <span className="text-red-600 font-medium">Expired</span>
+                                <Badge variant="destructive" className="text-xs">
+                                  Expired
+                                </Badge>
                               )}
                             </div>
+                          ) : user.isPaid ? (
+                            <Badge variant="default" className="text-xs">
+                              Paid
+                            </Badge>
                           ) : (
                             <span className="text-muted-foreground">-</span>
                           )}

@@ -104,6 +104,46 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Wire up email verification routes (no auth required)
   app.use("/api/verification", verificationRoutes);
   
+  // Add account locking endpoint (requires authentication but not trial check)
+  app.post("/api/user/lock-account", async (req: any, res) => {
+    const userId = getUserId(req);
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+    
+    try {
+      // Lock the user's account
+      const updatedUser = await storage.updateUser(userId, {
+        isLocked: true,
+        accountStatus: 'locked',
+        pausedAt: new Date(),
+        pausedReason: 'Trial expired - declined subscription'
+      });
+      
+      if (!updatedUser) {
+        return res.status(404).json({ message: "User not found" });
+      }
+      
+      // Log this action
+      await storage.createNotification({
+        userId,
+        title: "Account Locked",
+        message: "Your account has been locked. You can unlock it anytime by purchasing a subscription.",
+        type: "warning",
+        priority: "high",
+        requiresPopup: false
+      });
+      
+      res.json({ 
+        success: true,
+        message: "Account locked successfully"
+      });
+    } catch (error) {
+      console.error("Error locking account:", error);
+      res.status(500).json({ message: "Failed to lock account" });
+    }
+  });
+  
   // Add trial selection check middleware
   app.use(checkTrialSelection);
   
