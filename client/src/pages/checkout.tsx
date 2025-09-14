@@ -191,7 +191,8 @@ export default function CheckoutPage() {
     }
   };
 
-  if (!selectedPlan) {
+  // Handle loading state for user data
+  if (userLoading || !selectedPlan) {
     return (
       <div className="min-h-screen bg-gradient-to-br from-gray-950 via-purple-950 to-pink-950 flex items-center justify-center">
         <Card className="max-w-md">
@@ -201,6 +202,13 @@ export default function CheckoutPage() {
         </Card>
       </div>
     );
+  }
+
+  // If user query failed (not authenticated), redirect to auth
+  if (userError || !user) {
+    const returnUrl = encodeURIComponent(location);
+    setLocation(`/auth?return=${returnUrl}`);
+    return null;
   }
 
   const Icon = selectedPlan.icon;
