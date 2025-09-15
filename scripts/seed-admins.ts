@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { storage } from '../server/storage';
 
 async function main() {
+  // Admin seeding with correct password field
   const admins = [
     { email: process.env.ADMIN1_EMAIL, password: process.env.ADMIN1_PASSWORD },
     { email: process.env.ADMIN2_EMAIL, password: process.env.ADMIN2_PASSWORD },
