@@ -66,52 +66,84 @@ router.post("/webhook",
         case 'checkout.session.completed': {
           const session = event.data.object as Stripe.Checkout.Session;
           
-          // Fulfill the purchase
-          const userId = session.metadata?.userId;
-          const type = session.metadata?.type;
-          const credits = parseInt(session.metadata?.credits || '0');
-          const planId = session.metadata?.planId;
-          
-          if (userId) {
-            const user = await storage.getUser(userId);
-            if (user) {
-              if (type === 'credits') {
-                // One-time credit purchase
-                await storage.updateUser(userId, {
-                  credits: (user.credits || 0) + credits
+          if (session?.metadata?.purpose === 'pro_trial_1usd') {
+            try {
+              const userId = session.metadata.userId as string | undefined;
+              let user: any = null;
+              if (userId) user = await storage.getUser(userId);
+              else if (session.customer_email) user = await storage.getUserByEmail(session.customer_email);
+
+              if (user) {
+                const now = new Date();
+                const end = new Date(now.getTime() + 14 * 24 * 3600 * 1000);
+                await storage.updateUser(user.id, {
+                  subscriptionStatus: 'trial',
+                  trialVariant: 'pro14_1usd',
+                  trialStartedAt: now,
+                  trialEndsAt: end,
+                  needsTrialSelection: false
                 });
-                
-                // Log the transaction
-                await storage.createCreditTransaction({
-                  userId,
-                  amount: credits,
-                  type: 'purchase',
-                  description: `Purchased ${credits} credits`,
-                  stripeSessionId: session.id
-                });
-                
-                console.log(`✅ Fulfilled credit purchase for user ${userId}: ${credits} credits`);
-              } else if (planId) {
-                // Subscription purchase
-                const subscriptionId = session.subscription as string;
-                
-                await storage.updateUser(userId, {
-                  tier: planId as any,
-                  stripeSubscriptionId: subscriptionId,
-                  credits: (user.credits || 0) + credits,
-                  monthlyCredits: credits
-                });
-                
-                // Log the transaction
-                await storage.createCreditTransaction({
-                  userId,
-                  amount: credits,
-                  type: 'purchase',
-                  description: `${PLAN_PRICES[planId as keyof typeof PLAN_PRICES].name} subscription`,
-                  stripeSessionId: session.id
-                });
-                
-                console.log(`✅ Activated subscription for user ${userId}: ${planId} plan`);
+                if ((storage as any).addCreditTransaction) {
+                  await (storage as any).addCreditTransaction({
+                    userId: user.id,
+                    amount: 210, // e.g., 30 images*5 + 3 videos*20
+                    type: 'trial_grant',
+                    description: 'Pro Trial credits (14d, $1)',
+                    stripeSessionId: session.id
+                  });
+                }
+              }
+            } catch (e) {
+              console.error('Error applying $1 pro trial:', e);
+            }
+          } else {
+            // Fulfill the purchase
+            const userId = session.metadata?.userId;
+            const type = session.metadata?.type;
+            const credits = parseInt(session.metadata?.credits || '0');
+            const planId = session.metadata?.planId;
+            
+            if (userId) {
+              const user = await storage.getUser(userId);
+              if (user) {
+                if (type === 'credits') {
+                  // One-time credit purchase
+                  await storage.updateUser(userId, {
+                    credits: (user.credits || 0) + credits
+                  });
+                  
+                  // Log the transaction
+                  await storage.createCreditTransaction({
+                    userId,
+                    amount: credits,
+                    type: 'purchase',
+                    description: `Purchased ${credits} credits`,
+                    stripeSessionId: session.id
+                  });
+                  
+                  console.log(`✅ Fulfilled credit purchase for user ${userId}: ${credits} credits`);
+                } else if (planId) {
+                  // Subscription purchase
+                  const subscriptionId = session.subscription as string;
+                  
+                  await storage.updateUser(userId, {
+                    tier: planId as any,
+                    stripeSubscriptionId: subscriptionId,
+                    credits: (user.credits || 0) + credits,
+                    monthlyCredits: credits
+                  });
+                  
+                  // Log the transaction
+                  await storage.createCreditTransaction({
+                    userId,
+                    amount: credits,
+                    type: 'purchase',
+                    description: `${PLAN_PRICES[planId as keyof typeof PLAN_PRICES].name} subscription`,
+                    stripeSessionId: session.id
+                  });
+                  
+                  console.log(`✅ Activated subscription for user ${userId}: ${planId} plan`);
+                }
               }
             }
           }
