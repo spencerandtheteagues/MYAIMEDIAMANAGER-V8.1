@@ -656,17 +656,17 @@ router.get("/google/callback",
         return res.redirect("/trial-selection");
       }
       
-      // Redirect to home page or validated return URL
-      let returnTo = "/"; // Default to home page for better UX
-      
+      // Redirect to dashboard for authenticated users
+      let returnTo = "/dashboard"; // Default to dashboard for authenticated users
+
       // Check both returnTo and returnUrl for compatibility
       const sessionReturnUrl = req.session.returnTo || req.session.returnUrl;
-      
+
       if (sessionReturnUrl && isValidReturnUrl(sessionReturnUrl)) {
         returnTo = sessionReturnUrl;
         console.log('[OAuth] Using session return URL:', returnTo);
       } else {
-        console.log('[OAuth] Using default redirect to home page');
+        console.log('[OAuth] Using default redirect to dashboard');
       }
       
       // Clean up return URLs from session
