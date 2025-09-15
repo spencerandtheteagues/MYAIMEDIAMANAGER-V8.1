@@ -371,7 +371,7 @@ router.get("/subscription-status", requireAuth, async (req, res) => {
       subscriptionId: subscription.id,
       status: subscription.status,
       cancelAtPeriodEnd: subscription.cancel_at_period_end,
-      currentPeriodEnd: subscription.current_period_end ? new Date(subscription.current_period_end * 1000).toISOString() : null,
+      currentPeriodEnd: (subscription as any).current_period_end ? new Date((subscription as any).current_period_end * 1000).toISOString() : null,
       plan: plan ? {
         id: planId,
         name: plan.name,

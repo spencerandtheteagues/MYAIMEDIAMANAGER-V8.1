@@ -78,7 +78,7 @@ router.post("/webhook",
                 const end = new Date(now.getTime() + 14 * 24 * 3600 * 1000);
                 await storage.updateUser(user.id, {
                   subscriptionStatus: 'trial',
-                  trialVariant: 'pro14_1usd',
+                  trialVariant: 'card14',
                   trialStartedAt: now,
                   trialEndsAt: end,
                   needsTrialSelection: false
@@ -155,7 +155,7 @@ router.post("/webhook",
           console.log(`✅ Invoice paid: ${invoice.id}`);
           
           // Handle successful recurring payment - refresh monthly credits
-          const subscriptionId = typeof invoice.subscription === 'string' ? invoice.subscription : invoice.subscription?.id;
+          const subscriptionId = (invoice as any).subscription as string | undefined;
           const customerId = typeof invoice.customer === 'string' ? invoice.customer : invoice.customer?.id;
           
           if (subscriptionId) {
