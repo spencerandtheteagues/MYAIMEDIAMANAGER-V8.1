@@ -195,15 +195,17 @@ function createUserSession(req: Request, user: User) {
 
 // Get the base URL for callbacks
 function getCallbackUrl(req: Request): string {
-  // In production, always use the apex domain for OAuth consistency
-  if (process.env.NODE_ENV === 'production') {
-    return 'https://myaimediamgr.com/api/auth/google/callback';
-  }
-  
+  // Use APP_URL if available for consistent callback URL
   if (process.env.APP_URL) {
     return `${process.env.APP_URL}/api/auth/google/callback`;
   }
-  
+
+  // In production, use the actual domain from request
+  if (process.env.NODE_ENV === 'production') {
+    const host = req.get('Host') || 'myaimediamgr.onrender.com';
+    return `https://${host}/api/auth/google/callback`;
+  }
+
   // Local development
   return 'http://localhost:5000/api/auth/google/callback';
 }
