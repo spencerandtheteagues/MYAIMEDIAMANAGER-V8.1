@@ -2,6 +2,7 @@ import express, { type Request, Response, NextFunction } from "express";
 import helmet from "helmet";
 import cors from "cors";
 import rateLimit from "express-rate-limit";
+import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import stripeWebhook from "./stripe-webhook";
@@ -72,6 +73,9 @@ app.use('/api/stripe', stripeWebhook);
 // Body parser middleware - MUST come AFTER webhook routes
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: false, limit: '10mb' }));
+
+// Cookie parser for JWT authentication
+app.use(cookieParser());
 
 // Serve attached assets (generated images, videos, etc.)
 app.use('/attached_assets', express.static('attached_assets'));

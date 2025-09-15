@@ -7,9 +7,10 @@ import { aiService } from "./ai-service";
 import aiRoutes from "./aiRoutes";
 import aiChatRoutes from "./aiChatRoutes";
 import { generateXAuthUrl, handleXOAuthCallback, postToXWithOAuth } from "./x-oauth";
-import { getSession } from "./replitAuth";
 import authRoutes, { requireAuth, requireAdmin } from "./auth";
 import { registerGoogleAuth } from "./google-auth";
+import { authOptional, authRequired } from "./auth/jwt";
+import cookieParser from "cookie-parser";
 import stripeRoutes from "./stripeRoutes";
 import userRoutes from "./userRoutes";
 import adminRoutes from "./adminRoutes";
@@ -29,7 +30,11 @@ import { trackUserActivity } from "./middleware/activityTracker";
 
 // Helper function to get user ID from request regardless of auth method
 function getUserId(req: any): string | null {
-  // Check session-based auth first
+  // Check JWT auth (new stateless system)
+  if (req.user?.sub) {
+    return req.user.sub;
+  }
+  // Check legacy session-based auth (for backward compatibility)
   if (req.session?.userId) {
     return req.session.userId;
   }
@@ -79,18 +84,21 @@ export async function registerRoutes(app: Express): Promise<Server> {
   
   // Health routes (no auth required)
   app.use("/", healthRoutes);
-  
+
   // Metrics endpoint (no auth for monitoring)
   app.get("/metrics", createMetricsRoute());
-  
-  // Session middleware (always needed)
-  app.use(getSession());
-  
+
+  // Cookie parser middleware (for JWT cookies)
+  app.use(cookieParser());
+
+  // JWT auth middleware (optional - adds user to req if token exists)
+  app.use(authOptional);
+
   // Use app auth routes (Replit auth disabled for Render deployment)
   app.use("/api/auth", authRoutes);
-  
+
   // Google OAuth routes (available regardless of Replit auth)
-  app.use("/api/auth", googleAuthRoutes);
+  registerGoogleAuth(app);
   
   // Wire up email verification routes (no auth required)
   app.use("/api/verification", verificationRoutes);
