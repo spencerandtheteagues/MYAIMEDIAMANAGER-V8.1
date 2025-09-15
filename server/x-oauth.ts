@@ -7,7 +7,7 @@ import crypto from 'crypto';
 import { storage } from './storage';
 
 // OAuth 2.0 configuration
-const domain = process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
+const domain = process.env.APP_URL?.replace('https://', '').replace('http://', '') || 'localhost:5000';
 const protocol = domain.includes('localhost') ? 'http' : 'https';
 
 const X_OAUTH_CONFIG = {
@@ -46,7 +46,7 @@ export function generateXAuthUrl(userId: string): { url: string; state: string; 
   });
   
   // Clean up old states (older than 10 minutes)
-  for (const [key, value] of oauthStates.entries()) {
+  for (const [key, value] of Array.from(oauthStates.entries())) {
     if (Date.now() - value.timestamp > 600000) {
       oauthStates.delete(key);
     }
@@ -210,12 +210,11 @@ export async function handleXOAuthCallback(
     await storage.createPlatform({
       userId: stateData.userId,
       name: 'X (Twitter)',
-      username: `@${userInfo.username}`,
+      icon: 'twitter',
+      color: '#1DA1F2',
       isConnected: true,
       accountId: userInfo.id,
       accessToken: tokens.accessToken,
-      refreshToken: tokens.refreshToken,
-      expiresAt: new Date(Date.now() + tokens.expiresIn * 1000),
     });
     
     return { success: true, userId: stateData.userId };

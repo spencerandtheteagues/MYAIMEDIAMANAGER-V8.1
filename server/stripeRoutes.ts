@@ -33,9 +33,8 @@ const requireAuth = async (req: any, res: any, next: any) => {
 
 // Get the base URL for redirects
 function getBaseUrl(req: any): string {
-  if (process.env.REPLIT_DOMAINS) {
-    const firstDomain = process.env.REPLIT_DOMAINS.split(',')[0];
-    return `https://${firstDomain}`;
+  if (process.env.APP_URL) {
+    return process.env.APP_URL;
   }
   return `http://localhost:${process.env.PORT || 5000}`;
 }

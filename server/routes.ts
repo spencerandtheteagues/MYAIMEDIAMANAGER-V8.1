@@ -7,7 +7,6 @@ import { aiService } from "./ai-service";
 import aiRoutes from "./aiRoutes";
 import aiChatRoutes from "./aiChatRoutes";
 import { generateXAuthUrl, handleXOAuthCallback, postToXWithOAuth } from "./x-oauth";
-import { setupAuth as setupReplitAuth, isAuthenticated as isReplitAuthenticated } from "./replitAuth";
 import { getSession } from "./replitAuth";
 import authRoutes, { requireAuth, requireAdmin } from "./auth";
 import googleAuthRoutes from "./google-auth";
@@ -87,16 +86,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Session middleware (always needed)
   app.use(getSession());
   
-  // Conditionally setup auth based on environment
-  const useReplitAuth = process.env.ENABLE_REPLIT_AUTH === 'true';
-  
-  if (useReplitAuth) {
-    // Use Replit OIDC auth
-    await setupReplitAuth(app);
-  } else {
-    // Use app auth routes
-    app.use("/api/auth", authRoutes);
-  }
+  // Use app auth routes (Replit auth disabled for Render deployment)
+  app.use("/api/auth", authRoutes);
   
   // Google OAuth routes (available regardless of Replit auth)
   app.use("/api/auth", googleAuthRoutes);
@@ -117,8 +108,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // This must come after authentication but before route handlers
   app.use(enforceTrialExpiration);
   
-  // Use appropriate auth middleware based on configuration
-  const isAuthenticated = useReplitAuth ? isReplitAuthenticated : requireAuth;
+  // Use app auth middleware (Replit auth disabled for Render deployment)
+  const isAuthenticated = requireAuth;
   
   // Wire up the new AI routes with proper authentication
   app.use("/api/ai", async (req: any, res, next) => {

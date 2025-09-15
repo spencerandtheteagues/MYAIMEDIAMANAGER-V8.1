@@ -199,10 +199,8 @@ function getCallbackUrl(req: Request): string {
     return 'https://myaimediamgr.com/api/auth/google/callback';
   }
   
-  // In development, check for Replit domains first
-  if (process.env.REPLIT_DOMAINS) {
-    const firstDomain = process.env.REPLIT_DOMAINS.split(',')[0];
-    return `https://${firstDomain}/api/auth/google/callback`;
+  if (process.env.APP_URL) {
+    return `${process.env.APP_URL}/api/auth/google/callback`;
   }
   
   // Local development
