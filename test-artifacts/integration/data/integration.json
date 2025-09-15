@@ -1,0 +1,45 @@
+{
+  "timestamp": "2025-09-10T05:33:05.007Z",
+  "tests": [
+    {
+      "name": "auth",
+      "status": "PASS",
+      "user": "test-enterprise@myaimediamgr.com"
+    },
+    {
+      "name": "user-state-before",
+      "status": "PASS",
+      "credits": 50,
+      "trialImages": 6
+    },
+    {
+      "name": "text-generation",
+      "status": "PASS",
+      "length": 178
+    },
+    {
+      "name": "image-generation",
+      "status": "SKIP",
+      "reason": "No AI service configured"
+    },
+    {
+      "name": "content-library",
+      "status": "WARN",
+      "itemCount": 0
+    },
+    {
+      "name": "campaign-creation",
+      "status": "FAIL",
+      "error": "Campaign creation failed: {\"message\":\"Failed to create campaign\"}"
+    },
+    {
+      "name": "user-state-after",
+      "status": "PASS",
+      "credits": 50,
+      "trialImages": 6,
+      "creditsUsed": 0,
+      "trialImagesUsed": 0
+    }
+  ],
+  "status": "FAIL"
+}

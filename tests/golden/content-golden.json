@@ -1,0 +1,17 @@
+{
+  "brands": [
+    {
+      "id": "bakehouse",
+      "brandName": "Redbird Bakehouse",
+      "voice": "friendly",
+      "targetAudience": "local foodies and families",
+      "valueProps": ["fresh daily", "local ingredients", "custom cakes"],
+      "preferredCTAs": ["Pre-order today", "Visit us", "DM to order"]
+    }
+  ],
+  "scenarios": [
+    { "platform": "x", "postType": "promo", "theme": "grand opening", "product": "sourdough loaf" },
+    { "platform": "instagram", "postType": "tutorial", "theme": "how to reheat pastries", "product": "croissants" },
+    { "platform": "linkedin", "postType": "announcement", "theme": "B2B catering launch", "product": "office catering" }
+  ]
+}

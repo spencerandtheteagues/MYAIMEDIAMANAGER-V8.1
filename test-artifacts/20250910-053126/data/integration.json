@@ -1,0 +1,45 @@
+{
+  "timestamp": "2025-09-10T05:31:27.351Z",
+  "tests": [
+    {
+      "name": "auth",
+      "status": "PASS",
+      "user": "test-enterprise@myaimediamgr.com"
+    },
+    {
+      "name": "user-state-before",
+      "status": "PASS",
+      "credits": 50,
+      "trialImages": 6
+    },
+    {
+      "name": "text-generation",
+      "status": "PASS",
+      "length": 162
+    },
+    {
+      "name": "image-generation",
+      "status": "SKIP",
+      "reason": "No AI service configured"
+    },
+    {
+      "name": "content-library",
+      "status": "WARN",
+      "itemCount": 0
+    },
+    {
+      "name": "campaign-creation",
+      "status": "FAIL",
+      "error": "Campaign creation failed: {\"message\":\"Invalid campaign data\",\"errors\":[{\"code\":\"invalid_type\",\"expected\":\"string\",\"received\":\"undefined\",\"path\":[\"platform\"],\"message\":\"Required\"},{\"code\":\"invalid_type\",\"expected\":\"string\",\"received\":\"undefined\",\"path\":[\"businessName\"],\"message\":\"Required\"},{\"code\":\"invalid_type\",\"expected\":\"string\",\"received\":\"undefined\",\"path\":[\"targetAudience\"],\"message\":\"Required\"},{\"code\":\"invalid_type\",\"expected\":\"string\",\"received\":\"undefined\",\"path\":[\"campaignGoals\"],\"message\":\"Required\"},{\"code\":\"invalid_type\",\"expected\":\"string\",\"received\":\"undefined\",\"path\":[\"brandTone\"],\"message\":\"Required\"},{\"code\":\"invalid_type\",\"expected\":\"string\",\"received\":\"undefined\",\"path\":[\"visualStyle\"],\"message\":\"Required\"},{\"code\":\"invalid_type\",\"expected\":\"string\",\"received\":\"undefined\",\"path\":[\"callToAction\"],\"message\":\"Required\"}]}"
+    },
+    {
+      "name": "user-state-after",
+      "status": "PASS",
+      "credits": 50,
+      "trialImages": 6,
+      "creditsUsed": 0,
+      "trialImagesUsed": 0
+    }
+  ],
+  "status": "FAIL"
+}

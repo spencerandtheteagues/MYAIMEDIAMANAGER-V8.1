@@ -1,0 +1,9 @@
+{
+  "minOverallQuality": 7,
+  "maxReadabilityGrade": { 
+    "x": 8, 
+    "instagram": 8, 
+    "linkedin": 10 
+  },
+  "hashtagsRange": [3, 5]
+}

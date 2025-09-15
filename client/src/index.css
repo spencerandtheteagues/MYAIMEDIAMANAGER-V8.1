@@ -1,0 +1,389 @@
+@import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root, [data-theme="neon-pink"] {
+  /* Futuristic Dark Theme - Jet Black Base with Neon Pink */
+  --background: hsl(0, 0%, 0%);
+  --foreground: hsl(0, 0%, 90%);
+  --card: hsl(0, 0%, 3%);
+  --card-foreground: hsl(0, 0%, 90%);
+  --popover: hsl(0, 0%, 5%);
+  --popover-foreground: hsl(0, 0%, 90%);
+  --primary: hsl(280, 100%, 60%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(200, 100%, 30%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(0, 0%, 8%);
+  --muted-foreground: hsl(0, 0%, 60%);
+  --accent: hsl(300, 100%, 50%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 100%, 50%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(280, 50%, 20%);
+  --input: hsl(0, 0%, 10%);
+  --ring: hsl(280, 100%, 60%);
+  --chart-1: hsl(280, 100%, 60%);
+  --chart-2: hsl(180, 100%, 40%);
+  --chart-3: hsl(60, 100%, 50%);
+  --chart-4: hsl(320, 100%, 50%);
+  --chart-5: hsl(200, 100%, 50%);
+  --sidebar: hsl(0, 0%, 2%);
+  --sidebar-foreground: hsl(0, 0%, 90%);
+  --sidebar-primary: hsl(280, 100%, 60%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(280, 100%, 10%);
+  --sidebar-accent-foreground: hsl(280, 100%, 70%);
+  --sidebar-border: hsl(280, 50%, 15%);
+  --sidebar-ring: hsl(280, 100%, 60%);
+  --font-sans: 'Space Grotesk', system-ui, sans-serif;
+  --font-display: 'Orbitron', system-ui, sans-serif;
+  --font-serif: Georgia, serif;
+  --font-mono: Menlo, monospace;
+  --radius: 0.75rem;
+  --shadow-2xs: 0px 2px 0px 0px hsl(217.2, 91.2%, 59.8% / 0.00);
+  --shadow-xs: 0px 2px 0px 0px hsl(217.2, 91.2%, 59.8% / 0.00);
+  --shadow-sm: 0px 1px 2px 0px hsl(0, 0%, 0% / 0.05);
+  --shadow: 0px 1px 3px 0px hsl(0, 0%, 0% / 0.1), 0px 1px 2px 0px hsl(0, 0%, 0% / 0.06);
+  --shadow-md: 0px 4px 6px -1px hsl(0, 0%, 0% / 0.1), 0px 2px 4px -1px hsl(0, 0%, 0% / 0.06);
+  --shadow-lg: 0px 10px 15px -3px hsl(0, 0%, 0% / 0.1), 0px 4px 6px -2px hsl(0, 0%, 0% / 0.05);
+  --shadow-xl: 0px 20px 25px -5px hsl(0, 0%, 0% / 0.1), 0px 10px 10px -5px hsl(0, 0%, 0% / 0.04);
+  --shadow-2xl: 0px 25px 50px -12px hsl(0, 0%, 0% / 0.25);
+  --tracking-normal: 0em;
+  --spacing: 0.25rem;
+
+  /* Custom colors for social platforms - Neon Style */
+  --instagram: hsl(300, 100%, 60%);
+  --facebook: hsl(220, 100%, 60%);
+  --twitter: hsl(200, 100%, 60%);
+  --tiktok: hsl(0, 0%, 100%);
+  --linkedin: hsl(210, 100%, 50%);
+  
+  /* Futuristic Neon Gradients */
+  --gradient-primary: linear-gradient(135deg, hsl(280, 100%, 60%), hsl(320, 100%, 50%));
+  --gradient-secondary: linear-gradient(135deg, hsl(200, 100%, 30%), hsl(180, 100%, 40%));
+  --gradient-accent: linear-gradient(135deg, hsl(300, 100%, 50%), hsl(260, 100%, 60%));
+  --gradient-neon: linear-gradient(135deg, hsl(280, 100%, 60%), hsl(180, 100%, 50%));
+  --gradient-cyber: linear-gradient(135deg, hsl(0, 0%, 0%), hsl(280, 100%, 20%));
+}
+
+[data-theme="neon-blue"] {
+  /* Futuristic Dark Theme - Jet Black Base with Neon Blue */
+  --background: hsl(0, 0%, 0%);
+  --foreground: hsl(0, 0%, 90%);
+  --card: hsl(0, 0%, 3%);
+  --card-foreground: hsl(0, 0%, 90%);
+  --popover: hsl(0, 0%, 5%);
+  --popover-foreground: hsl(0, 0%, 90%);
+  --primary: hsl(200, 100%, 60%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(180, 100%, 40%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(0, 0%, 8%);
+  --muted-foreground: hsl(0, 0%, 60%);
+  --accent: hsl(190, 100%, 50%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 100%, 50%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(200, 50%, 20%);
+  --input: hsl(0, 0%, 10%);
+  --ring: hsl(200, 100%, 60%);
+  --chart-1: hsl(200, 100%, 60%);
+  --chart-2: hsl(180, 100%, 40%);
+  --chart-3: hsl(60, 100%, 50%);
+  --chart-4: hsl(220, 100%, 50%);
+  --chart-5: hsl(160, 100%, 50%);
+  --sidebar: hsl(0, 0%, 2%);
+  --sidebar-foreground: hsl(0, 0%, 90%);
+  --sidebar-primary: hsl(200, 100%, 60%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(200, 100%, 10%);
+  --sidebar-accent-foreground: hsl(200, 100%, 70%);
+  --sidebar-border: hsl(200, 50%, 15%);
+  --sidebar-ring: hsl(200, 100%, 60%);
+  
+  /* Gradients for Neon Blue theme */
+  --gradient-primary: linear-gradient(135deg, hsl(200, 100%, 60%), hsl(220, 100%, 50%));
+  --gradient-secondary: linear-gradient(135deg, hsl(180, 100%, 40%), hsl(160, 100%, 50%));
+  --gradient-accent: linear-gradient(135deg, hsl(190, 100%, 50%), hsl(210, 100%, 60%));
+  --gradient-neon: linear-gradient(135deg, hsl(200, 100%, 60%), hsl(180, 100%, 50%));
+  --gradient-cyber: linear-gradient(135deg, hsl(0, 0%, 0%), hsl(200, 100%, 20%));
+}
+
+[data-theme="professional"] {
+  /* Professional Theme - Easy on the eyes with subtle accents */
+  --background: hsl(210, 20%, 8%);
+  --foreground: hsl(0, 0%, 85%);
+  --card: hsl(210, 15%, 12%);
+  --card-foreground: hsl(0, 0%, 85%);
+  --popover: hsl(210, 15%, 14%);
+  --popover-foreground: hsl(0, 0%, 85%);
+  --primary: hsl(160, 70%, 45%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(210, 40%, 35%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(210, 15%, 18%);
+  --muted-foreground: hsl(0, 0%, 65%);
+  --accent: hsl(160, 60%, 40%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 60%, 50%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(210, 20%, 25%);
+  --input: hsl(210, 15%, 16%);
+  --ring: hsl(160, 70%, 45%);
+  --chart-1: hsl(160, 70%, 45%);
+  --chart-2: hsl(210, 60%, 50%);
+  --chart-3: hsl(45, 80%, 55%);
+  --chart-4: hsl(330, 60%, 50%);
+  --chart-5: hsl(180, 60%, 45%);
+  --sidebar: hsl(210, 20%, 10%);
+  --sidebar-foreground: hsl(0, 0%, 85%);
+  --sidebar-primary: hsl(160, 70%, 45%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(210, 15%, 15%);
+  --sidebar-accent-foreground: hsl(160, 70%, 55%);
+  --sidebar-border: hsl(210, 20%, 20%);
+  --sidebar-ring: hsl(160, 70%, 45%);
+  
+  /* Subtle gradients for Professional theme */
+  --gradient-primary: linear-gradient(135deg, hsl(160, 70%, 45%), hsl(180, 60%, 40%));
+  --gradient-secondary: linear-gradient(135deg, hsl(210, 40%, 35%), hsl(220, 45%, 40%));
+  --gradient-accent: linear-gradient(135deg, hsl(160, 60%, 40%), hsl(170, 65%, 45%));
+  --gradient-neon: linear-gradient(135deg, hsl(160, 70%, 45%), hsl(180, 70%, 45%));
+  --gradient-cyber: linear-gradient(135deg, hsl(210, 20%, 8%), hsl(160, 50%, 20%));
+}
+
+.dark {
+  /* Futuristic Dark Theme - Same as root for consistency */
+  --background: hsl(0, 0%, 0%);
+  --foreground: hsl(0, 0%, 90%);
+  --card: hsl(0, 0%, 3%);
+  --card-foreground: hsl(0, 0%, 90%);
+  --popover: hsl(0, 0%, 5%);
+  --popover-foreground: hsl(0, 0%, 90%);
+  --primary: hsl(280, 100%, 60%);
+  --primary-foreground: hsl(0, 0%, 100%);
+  --secondary: hsl(200, 100%, 30%);
+  --secondary-foreground: hsl(0, 0%, 100%);
+  --muted: hsl(0, 0%, 8%);
+  --muted-foreground: hsl(0, 0%, 60%);
+  --accent: hsl(300, 100%, 50%);
+  --accent-foreground: hsl(0, 0%, 100%);
+  --destructive: hsl(0, 100%, 50%);
+  --destructive-foreground: hsl(0, 0%, 100%);
+  --border: hsl(280, 50%, 20%);
+  --input: hsl(0, 0%, 10%);
+  --ring: hsl(280, 100%, 60%);
+  --sidebar: hsl(0, 0%, 2%);
+  --sidebar-foreground: hsl(0, 0%, 90%);
+  --sidebar-primary: hsl(280, 100%, 60%);
+  --sidebar-primary-foreground: hsl(0, 0%, 100%);
+  --sidebar-accent: hsl(280, 100%, 10%);
+  --sidebar-accent-foreground: hsl(280, 100%, 70%);
+  --sidebar-border: hsl(280, 50%, 15%);
+  --sidebar-ring: hsl(280, 100%, 60%);
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply font-sans antialiased bg-background text-foreground;
+    font-family: var(--font-sans);
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-semibold tracking-tight;
+  }
+
+  /* Text selection styling - High contrast for all themes */
+  ::selection {
+    background-color: hsl(280, 100%, 60%);
+    color: hsl(0, 0%, 0%);
+    text-shadow: none;
+  }
+  
+  ::-moz-selection {
+    background-color: hsl(280, 100%, 60%);
+    color: hsl(0, 0%, 0%);
+    text-shadow: none;
+  }
+  
+  /* Neon Blue theme selection - bright yellow for contrast */
+  [data-theme="neon-blue"] ::selection {
+    background-color: hsl(50, 100%, 50%);
+    color: hsl(0, 0%, 0%);
+    text-shadow: none;
+  }
+  
+  [data-theme="neon-blue"] ::-moz-selection {
+    background-color: hsl(50, 100%, 50%);
+    color: hsl(0, 0%, 0%);
+    text-shadow: none;
+  }
+  
+  /* Professional theme selection - bright teal */
+  [data-theme="professional"] ::selection {
+    background-color: hsl(160, 100%, 45%);
+    color: hsl(0, 0%, 0%);
+    text-shadow: none;
+  }
+  
+  [data-theme="professional"] ::-moz-selection {
+    background-color: hsl(160, 100%, 45%);
+    color: hsl(0, 0%, 0%);
+    text-shadow: none;
+  }
+  
+  /* Make blue text more visible on dark backgrounds */
+  .text-blue-400 {
+    color: hsl(200, 100%, 65%) !important;
+  }
+  
+  .text-blue-500 {
+    color: hsl(200, 100%, 60%) !important;
+  }
+  
+  .text-blue-600 {
+    color: hsl(200, 100%, 55%) !important;
+  }
+  
+  .text-blue-700 {
+    color: hsl(200, 100%, 50%) !important;
+  }
+  
+  /* Ensure link colors are visible */
+  a, .link {
+    color: hsl(200, 100%, 65%) !important;
+  }
+  
+  a:hover, .link:hover {
+    color: hsl(200, 100%, 75%) !important;
+  }
+}
+
+@layer utilities {
+  .text-instagram {
+    color: var(--instagram);
+  }
+  
+  .text-facebook {
+    color: var(--facebook);
+  }
+  
+  .text-twitter {
+    color: var(--twitter);
+  }
+  
+  /* Futuristic Effects */
+  .neon-glow {
+    box-shadow: 
+      0 0 5px var(--primary),
+      0 0 10px var(--primary),
+      0 0 20px var(--primary),
+      0 0 40px var(--primary);
+  }
+  
+  .neon-text {
+    text-shadow: 
+      0 0 5px currentColor,
+      0 0 10px currentColor,
+      0 0 20px currentColor;
+  }
+  
+  .cyber-border {
+    position: relative;
+    background: linear-gradient(135deg, transparent 25%, var(--border) 25%, var(--border) 50%, transparent 50%, transparent 75%, var(--border) 75%);
+    background-size: 20px 20px;
+    animation: cyber-border-move 1s linear infinite;
+  }
+  
+  @keyframes cyber-border-move {
+    0% { background-position: 0 0; }
+    100% { background-position: 20px 20px; }
+  }
+  
+  .glass-morphism {
+    background: rgba(0, 0, 0, 0.7);
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(128, 0, 255, 0.2);
+  }
+  
+  .holographic {
+    background: linear-gradient(
+      135deg,
+      hsl(280, 100%, 60%) 0%,
+      hsl(300, 100%, 50%) 25%,
+      hsl(180, 100%, 50%) 50%,
+      hsl(300, 100%, 50%) 75%,
+      hsl(280, 100%, 60%) 100%
+    );
+    background-size: 400% 400%;
+    animation: holographic-shift 3s ease infinite;
+  }
+  
+  @keyframes holographic-shift {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  .pulse-glow {
+    animation: pulse-glow 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulse-glow {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+  
+  .tech-grid {
+    background-image: 
+      linear-gradient(rgba(128, 0, 255, 0.1) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(128, 0, 255, 0.1) 1px, transparent 1px);
+    background-size: 50px 50px;
+  }
+  
+  .text-tiktok {
+    color: var(--tiktok);
+  }
+  
+  .text-linkedin {
+    color: var(--linkedin);
+  }
+
+  .bg-instagram {
+    background-color: var(--instagram);
+  }
+  
+  .bg-facebook {
+    background-color: var(--facebook);
+  }
+  
+  .bg-twitter {
+    background-color: var(--twitter);
+  }
+  
+  .bg-tiktok {
+    background-color: var(--tiktok);
+  }
+  
+  .bg-linkedin {
+    background-color: var(--linkedin);
+  }
+
+  .hover-lift {
+    transition: transform 0.2s ease-in-out;
+  }
+  
+  .hover-lift:hover {
+    transform: translateY(-2px);
+  }
+  
+  .chart-bar {
+    transition: height 0.3s ease-in-out;
+  }
+}

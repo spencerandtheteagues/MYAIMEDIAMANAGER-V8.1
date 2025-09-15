@@ -1,0 +1,24 @@
+{
+  "runId": "20250910-053126",
+  "startedAt": "2025-09-10T05:31:26.877Z",
+  "phases": [
+    {
+      "name": "health",
+      "status": "PASS"
+    },
+    {
+      "name": "unit",
+      "status": "SKIP"
+    },
+    {
+      "name": "integration",
+      "status": "FAIL"
+    },
+    {
+      "name": "e2e",
+      "status": "FAIL"
+    }
+  ],
+  "status": "FAIL",
+  "endedAt": "2025-09-10T05:31:40.211Z"
+}

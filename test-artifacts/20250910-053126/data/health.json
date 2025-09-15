@@ -1,0 +1,23 @@
+{
+  "base": "http://localhost:5000",
+  "ts": "2025-09-10T05:31:26.987Z",
+  "health": {
+    "status": 200,
+    "data": {
+      "status": "ok",
+      "timestamp": "2025-09-10T05:31:27.045Z",
+      "service": "myaimediamgr"
+    }
+  },
+  "ready": {
+    "status": 200,
+    "data": {
+      "status": "ready",
+      "checks": {
+        "database": true,
+        "timestamp": "2025-09-10T05:31:27.069Z"
+      },
+      "timestamp": "2025-09-10T05:31:27.069Z"
+    }
+  }
+}
