@@ -11,9 +11,9 @@ services:
       - key: NODE_ENV
         value: production
       - key: APP_URL
-        value: https://REPLACE_ME.onrender.com
+        value: https://myaimediamgr.onrender.com
       - key: ALLOWED_ORIGINS
-        value: https://REPLACE_ME.onrender.com,https://myaimediamgr.com
+        value: https://myaimediamgr.onrender.com,https://myaimediamgr.com
       - key: SESSION_SECRET
         generateValue: true
       - key: DATABASE_URL
