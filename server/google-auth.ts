@@ -390,7 +390,7 @@ router.get("/google", async (req: Request, res: Response, next: Function) => {
   logMobileDiagnostics(req, 'oauth-initiate');
   
   // Generate and store state parameter for CSRF protection using crypto for better security
-  const crypto = require('crypto');
+  import crypto from 'crypto';
   const state = crypto.randomBytes(32).toString('hex');
   req.session.oauthState = state;
   
