@@ -21,7 +21,7 @@ async function main() {
     const hash = await bcrypt.hash(a.password, 12);
     const user = await storage.createUser({
       email: a.email,
-      passwordHash: hash,
+      password: hash,
       isAdmin: true,
       role: 'admin',
       creditsUnlimited: true,
