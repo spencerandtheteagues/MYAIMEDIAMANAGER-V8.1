@@ -14,10 +14,10 @@ async function main() {
   for (const a of admins) {
     const existing = await storage.getUserByEmail(a.email);
     if (existing) {
-      await storage.updateUser(existing.id, { isAdmin: true, role: 'admin', creditsUnlimited: true });
-      console.log(`✔ Updated existing admin ${a.email}`);
-      continue;
+      console.log(`🗑 Deleting existing admin ${a.email} to fix password field`);
+      await storage.deleteUser(existing.id);
     }
+    
     const hash = await bcrypt.hash(a.password, 12);
     const user = await storage.createUser({
       email: a.email,
