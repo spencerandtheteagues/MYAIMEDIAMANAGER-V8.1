@@ -3,6 +3,7 @@ import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import { storage } from "./storage";
 import type { User } from "@shared/schema";
+import { randomBytes } from "crypto";
 
 // Enable OAuth debug logging - always enabled in production for now
 const isDebugEnabled = true; // process.env.DEBUG_OAUTH === 'true';
@@ -390,8 +391,7 @@ router.get("/google", async (req: Request, res: Response, next: Function) => {
   logMobileDiagnostics(req, 'oauth-initiate');
   
   // Generate and store state parameter for CSRF protection using crypto for better security
-  import crypto from 'crypto';
-  const state = crypto.randomBytes(32).toString('hex');
+  const state = randomBytes(32).toString('hex');
   req.session.oauthState = state;
   
   console.log('[OAuth] Generated state:', state);
