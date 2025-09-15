@@ -120,6 +120,7 @@
     "ws": "^8.18.0",
     "zod": "^3.24.2",
     "zod-validation-error": "^3.4.0",
+    "dotenv": "^16.4.5",
     "vite": "^5.4.19",
     "@vitejs/plugin-react": "^4.3.2",
     "esbuild": "^0.25.0",
