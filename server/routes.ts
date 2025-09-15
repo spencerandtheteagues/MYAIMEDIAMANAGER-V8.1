@@ -9,7 +9,7 @@ import aiChatRoutes from "./aiChatRoutes";
 import { generateXAuthUrl, handleXOAuthCallback, postToXWithOAuth } from "./x-oauth";
 import { getSession } from "./replitAuth";
 import authRoutes, { requireAuth, requireAdmin } from "./auth";
-import googleAuthRoutes from "./google-auth";
+import { registerGoogleAuth } from "./google-auth";
 import stripeRoutes from "./stripeRoutes";
 import userRoutes from "./userRoutes";
 import adminRoutes from "./adminRoutes";
