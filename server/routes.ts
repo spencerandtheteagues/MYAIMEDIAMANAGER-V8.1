@@ -305,8 +305,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Auth routes
   app.get('/api/auth/user', async (req: any, res) => {
     try {
-      // Check for authenticated user - no fallback to demo
-      const userId = req.user?.claims?.sub;
+      // Check for authenticated user - support both JWT and legacy auth
+      const userId = req.user?.sub || req.user?.claims?.sub;
       if (!userId) {
         return res.status(401).json({ message: "Not authenticated" });
       }
@@ -325,9 +325,13 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/user", async (req: any, res) => {
     try {
       let userId: string | undefined;
-      
+
+      // Check for JWT auth (new stateless system)
+      if (req.user?.sub) {
+        userId = req.user.sub;
+      }
       // Check for session-based auth (app auth)
-      if (req.session?.userId) {
+      else if (req.session?.userId) {
         userId = req.session.userId;
       }
       // Check for Replit auth
@@ -764,8 +768,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Create new post
   app.post("/api/posts", async (req: any, res) => {
     try {
-      // Get user ID from session or auth
-      const userId = req.session?.userId || req.user?.claims?.sub;
+      // Get user ID from JWT, session, or auth
+      const userId = req.user?.sub || req.session?.userId || req.user?.claims?.sub;
       
       // Require authentication for post creation
       if (!userId) {
