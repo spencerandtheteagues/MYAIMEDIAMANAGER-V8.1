@@ -3,6 +3,7 @@ import bcrypt from "bcryptjs";
 import { storage } from "./storage";
 import { z } from "zod";
 import type { User } from "@shared/schema";
+import { signJwt } from "./auth/jwt";
 
 // Helper function to generate unique referral code
 function generateReferralCode(): string {
@@ -47,26 +48,30 @@ const loginSchema = z.object({
   password: z.string(),
 });
 
-// Helper to create user session
-function createUserSession(req: Request, user: User) {
-  // Ensure user has email before creating session
+// Helper to create JWT token and set cookie
+function createUserJWT(res: Response, user: User): string {
+  // Ensure user has email before creating JWT
   if (!user.email) {
-    throw new Error('Cannot create session: user email is required');
+    throw new Error('Cannot create JWT: user email is required');
   }
 
-  const sessionUser = {
-    id: user.id,
-    email: user.email, // Now guaranteed to be non-null
-    username: user.username,
-    businessName: user.businessName,
-    role: user.role,
-    tier: user.tier,
-    isAdmin: user.isAdmin,
-  };
-  
-  req.session.userId = user.id;
-  req.session.user = sessionUser;
-  req.user = sessionUser;
+  const token = signJwt({
+    sub: String(user.id),
+    email: user.email,
+    name: user.fullName,
+    picture: user.googleAvatar,
+    roles: [user.role],
+  });
+
+  res.cookie('mam_jwt', token, {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+  });
+
+  return token;
 }
 
 // Signup endpoint
@@ -99,35 +104,25 @@ router.post("/signup", async (req: Request, res: Response) => {
     // Generate unique referral code for the new user
     const userReferralCode = await generateUniqueReferralCode();
     
-    // Set up no-card trial for new users
-    const now = new Date();
-    const trialDays = 7;
-    const trialEndsAt = new Date(now.getTime() + trialDays * 24 * 60 * 60 * 1000);
-    
-    // Create user with automatic no-card trial and referral code
+    // Create user without any trial - they must select one after email verification
     const user = await storage.createUser({
       email: data.email,
       username: data.username,
       password: hashedPassword,
       firstName: data.firstName,
       lastName: data.lastName,
-      fullName: data.firstName && data.lastName 
-        ? `${data.firstName} ${data.lastName}` 
+      fullName: data.firstName && data.lastName
+        ? `${data.firstName} ${data.lastName}`
         : undefined,
       businessName: data.businessName,
       role: "user",
-      tier: "free_trial",
-      credits: 50, // Initial free credits
+      tier: "free", // Start as free tier
+      credits: 0, // No initial credits until trial selected
       emailVerified: false, // Require email verification
       emailVerificationCode: hashedCode,
       emailVerificationExpiry: verificationExpiry,
       emailVerificationAttempts: 0,
-      // Automatically assign no-card trial
-      trialVariant: "nocard7",
-      trialStartedAt: now,
-      trialEndsAt: trialEndsAt,
-      trialImagesRemaining: 6,
-      trialVideosRemaining: 0,
+      needsTrialSelection: true, // Must select trial after verification
       // Add referral code for this user
       referralCode: userReferralCode,
     });
@@ -188,28 +183,18 @@ router.post("/signup", async (req: Request, res: Response) => {
       }
     }
     
-    // Create session
-    createUserSession(req, user);
-    
-    // Save session
-    req.session.save((err) => {
-      if (err) {
-        console.error("Session save error:", err);
-        return res.status(500).json({ message: "Failed to create session" });
-      }
-      
-      res.json({
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        businessName: user.businessName,
-        tier: user.tier,
-        credits: user.credits,
-        emailVerified: false,
-        requiresVerification: true,
-        referralCode: user.referralCode,
-        message: 'Account created! Please check your email for verification code.',
-      });
+    // Don't create JWT yet - user needs to verify email first
+    res.json({
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      businessName: user.businessName,
+      tier: user.tier,
+      credits: user.credits,
+      emailVerified: false,
+      requiresVerification: true,
+      referralCode: user.referralCode,
+      message: 'Account created! Please check your email for verification code.',
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -269,28 +254,20 @@ router.post("/login", async (req: Request, res: Response) => {
     
     // Update last login
     await storage.updateUser(user.id, { lastLoginAt: new Date() });
-    
-    // Create session
-    createUserSession(req, user);
-    
-    // Save session
-    req.session.save((err) => {
-      if (err) {
-        console.error("Session save error:", err);
-        return res.status(500).json({ message: "Failed to create session" });
-      }
-      
-      res.json({
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        businessName: user.businessName,
-        tier: user.tier,
-        credits: user.credits,
-        isAdmin: user.isAdmin,
-        emailVerified: user.emailVerified,
-        referralCode: user.referralCode,
-      });
+
+    // Create JWT token for authenticated user
+    createUserJWT(res, user);
+
+    res.json({
+      id: user.id,
+      email: user.email,
+      username: user.username,
+      businessName: user.businessName,
+      tier: user.tier,
+      credits: user.credits,
+      isAdmin: user.isAdmin,
+      emailVerified: user.emailVerified,
+      referralCode: user.referralCode,
     });
   } catch (error) {
     if (error instanceof z.ZodError) {
@@ -306,28 +283,28 @@ router.post("/login", async (req: Request, res: Response) => {
 
 // Logout endpoint
 router.post("/logout", (req: Request, res: Response) => {
-  req.session.destroy((err) => {
-    if (err) {
-      console.error("Logout error:", err);
-      return res.status(500).json({ message: "Failed to logout" });
-    }
-    res.clearCookie("connect.sid");
-    res.json({ message: "Logged out successfully" });
+  res.clearCookie('mam_jwt', {
+    httpOnly: true,
+    secure: process.env.NODE_ENV === 'production',
+    sameSite: 'lax',
+    path: '/',
   });
+  res.json({ message: "Logged out successfully" });
 });
 
 // Get current user endpoint
 router.get("/me", async (req: Request, res: Response) => {
-  if (!req.session.userId) {
+  const userId = (req as any).user?.sub;
+  if (!userId) {
     return res.status(401).json({ message: "Not authenticated" });
   }
-  
+
   try {
-    const user = await storage.getUser(req.session.userId);
+    const user = await storage.getUser(userId);
     if (!user) {
       return res.status(404).json({ message: "User not found" });
     }
-    
+
     res.json({
       id: user.id,
       email: user.email,
@@ -352,15 +329,17 @@ router.get("/me", async (req: Request, res: Response) => {
 
 // Check authentication status
 router.get("/check", (req: Request, res: Response) => {
-  res.json({ 
-    authenticated: !!req.session.userId,
-    userId: req.session.userId || null,
+  const userId = (req as any).user?.sub;
+  res.json({
+    authenticated: !!userId,
+    userId: userId || null,
   });
 });
 
 // Middleware to check if user is authenticated
 export const requireAuth = (req: Request, res: Response, next: Function) => {
-  if (!req.session.userId) {
+  const userId = (req as any).user?.sub;
+  if (!userId) {
     return res.status(401).json({ message: "Authentication required" });
   }
   next();
@@ -368,42 +347,44 @@ export const requireAuth = (req: Request, res: Response, next: Function) => {
 
 // Middleware to check if user's email is verified
 export const requireVerifiedEmail = async (req: Request, res: Response, next: Function) => {
-  if (!req.session.userId) {
+  const userId = (req as any).user?.sub;
+  if (!userId) {
     return res.status(401).json({ message: "Authentication required" });
   }
-  
-  const user = await storage.getUser(req.session.userId);
+
+  const user = await storage.getUser(userId);
   if (!user) {
     return res.status(404).json({ message: "User not found" });
   }
-  
+
   // Skip verification check for OAuth users (no password)
   if (!user.password) {
     return next();
   }
-  
+
   if (!user.emailVerified) {
-    return res.status(403).json({ 
+    return res.status(403).json({
       message: "Email verification required",
       requiresVerification: true,
       email: user.email,
     });
   }
-  
+
   next();
 };
 
 // Middleware to check if user is admin
 export const requireAdmin = async (req: Request, res: Response, next: Function) => {
-  if (!req.session.userId) {
+  const userId = (req as any).user?.sub;
+  if (!userId) {
     return res.status(401).json({ message: "Authentication required" });
   }
-  
-  const user = await storage.getUser(req.session.userId);
-  if (!user || !user.isAdmin) {
+
+  const user = await storage.getUser(userId);
+  if (!user || (!user.isAdmin && user.role !== 'admin')) {
     return res.status(403).json({ message: "Admin access required" });
   }
-  
+
   next();
 };
 

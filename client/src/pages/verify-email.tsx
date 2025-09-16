@@ -138,11 +138,18 @@ export default function VerifyEmail() {
         description: "Your email has been successfully verified. Welcome to MyAI MediaMgr!",
       });
       localStorage.removeItem("verificationEmail");
-      
-      // Redirect to dashboard after a short delay
-      setTimeout(() => {
-        setLocation("/");
-      }, 2000);
+
+      // Check if user needs trial selection
+      if (data.user?.needsTrialSelection) {
+        setTimeout(() => {
+          setLocation("/trial-selection");
+        }, 2000);
+      } else {
+        // Existing user, go to dashboard
+        setTimeout(() => {
+          setLocation("/");
+        }, 2000);
+      }
     },
     onError: (error: any) => {
       const errorData = error.response?.data || error;

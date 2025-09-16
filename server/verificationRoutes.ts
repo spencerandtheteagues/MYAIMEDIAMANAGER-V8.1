@@ -10,6 +10,7 @@ import {
   emailRateLimiter,
   verificationRateLimiter,
 } from './emailService';
+import { signJwt } from './auth/jwt';
 
 const router = Router();
 
@@ -169,28 +170,37 @@ router.post('/verify-email', async (req, res) => {
     
     // Send welcome email
     await sendWelcomeEmail(email);
+
+    // Create JWT token for automatic login after verification
+    const token = signJwt({
+      sub: String(user.id),
+      email: user.email,
+      name: user.fullName,
+      picture: user.googleAvatar,
+      roles: [user.role],
+    });
+
+    res.cookie('mam_jwt', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    });
     
-    // Create session if not already logged in
-    if (!req.session?.userId) {
-      req.session.userId = user.id;
-      req.session.user = {
-        id: user.id,
-        email: user.email,
-        username: user.username,
-        businessName: user.businessName,
-        role: user.role,
-        tier: user.tier,
-        isAdmin: user.isAdmin,
-      };
-    }
-    
+    // Fetch updated user data to include needsTrialSelection status
+    const updatedUser = await storage.getUser(user.id);
+
     res.json({
       message: 'Email verified successfully! Welcome to MyAI MediaMgr.',
       verified: true,
       user: {
-        id: user.id,
-        email: user.email,
-        username: user.username,
+        id: updatedUser.id,
+        email: updatedUser.email,
+        username: updatedUser.username,
+        needsTrialSelection: updatedUser.needsTrialSelection,
+        role: updatedUser.role,
+        isAdmin: updatedUser.isAdmin,
       },
     });
   } catch (error) {

@@ -116,7 +116,24 @@ export function registerGoogleAuth(app: any) {
           maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
         });
 
-        const returnTo = (req.query.returnTo as string) || '/';
+        // Smart redirect logic based on user role and status
+        let redirectUrl = '/';
+
+        if (user.role === 'admin' || user.isAdmin) {
+          // Admin users go directly to dashboard
+          redirectUrl = '/';
+        } else if (user.needsTrialSelection) {
+          // New users need to select a trial
+          redirectUrl = '/trial-selection';
+        } else if (!user.emailVerified) {
+          // Users with unverified email
+          redirectUrl = `/verify-email?email=${encodeURIComponent(user.email)}`;
+        } else {
+          // Existing verified users go to dashboard
+          redirectUrl = '/';
+        }
+
+        const returnTo = (req.query.returnTo as string) || redirectUrl;
         return res.redirect(returnTo);
       }
     )(req, res, next);
@@ -124,7 +141,12 @@ export function registerGoogleAuth(app: any) {
 
   // Logout
   app.post('/api/auth/logout', (_req: Request, res: Response) => {
-    res.clearCookie('mam_jwt', { path: '/' });
+    res.clearCookie('mam_jwt', {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'lax',
+      path: '/',
+    });
     res.json({ ok: true });
   });
 }
