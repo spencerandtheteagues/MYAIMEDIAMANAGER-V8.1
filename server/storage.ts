@@ -187,13 +187,13 @@ export class MemStorage implements IStorage {
     // Import bcrypt for password hashing
     const bcrypt = await import("bcryptjs");
 
-    // Create all 4 admin users with their specified credentials
+    // Create admin users with secure password handling
+    // Passwords must be set via environment variables or admin panel
     const adminUsers = [
       {
         id: "admin-user-1",
         email: "admin@myaimediamgr.com",
         username: "admin",
-        password: "TheLionFi$hKey$",
         firstName: "Admin",
         lastName: "User",
         fullName: "Admin User",
@@ -203,7 +203,6 @@ export class MemStorage implements IStorage {
         id: "admin-user-2",
         email: "spencertheteague@gmail.com",
         username: "spencertheteague",
-        password: "TheZebr@Fi$hKey$",
         firstName: "Spencer",
         lastName: "Teague",
         fullName: "Spencer Teague",
@@ -213,7 +212,6 @@ export class MemStorage implements IStorage {
         id: "admin-user-3",
         email: "jaysonpowers505@gmail.com",
         username: "jaysonpowers",
-        password: "Illeatit420",
         firstName: "Jayson",
         lastName: "Powers",
         fullName: "Jayson Powers",
@@ -223,7 +221,6 @@ export class MemStorage implements IStorage {
         id: "admin-user-4",
         email: "spencer@myaimediamgr.com",
         username: "spencer.teague",
-        password: "TheMan0W@rKKey",
         firstName: "Spencer",
         lastName: "Teague",
         fullName: "Spencer Teague",
@@ -231,15 +228,17 @@ export class MemStorage implements IStorage {
       }
     ];
 
-    // Create each admin user with hashed password
+    // Create each admin user without passwords (OAuth only or set via admin panel)
     for (const adminData of adminUsers) {
-      const hashedPassword = await bcrypt.hash(adminData.password, 10);
+      // Check if user already exists to avoid duplicates
+      const existingUser = Array.from(this.users.values()).find(u => u.email === adminData.email);
+      if (existingUser) continue;
 
       const adminUser: User = {
         id: adminData.id,
         email: adminData.email,
         username: adminData.username,
-        password: hashedPassword,
+        password: null, // Password must be set securely via admin panel or OAuth
         firstName: adminData.firstName,
         lastName: adminData.lastName,
         fullName: adminData.fullName,

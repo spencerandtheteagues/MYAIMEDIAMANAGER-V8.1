@@ -11,6 +11,7 @@ import authRoutes, { requireAuth, requireAdmin } from "./auth";
 import { registerGoogleAuth } from "./google-auth";
 import { authOptional, authRequired } from "./auth/jwt";
 import cookieParser from "cookie-parser";
+import adminPasswordRoutes from "./adminPasswordReset";
 import stripeRoutes from "./stripeRoutes";
 import userRoutes from "./userRoutes";
 import adminRoutes from "./adminRoutes";
@@ -96,6 +97,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // Use app auth routes (Replit auth disabled for Render deployment)
   app.use("/api/auth", authRoutes);
+
+  // Admin password management routes (secure)
+  app.use("/api/admin", adminPasswordRoutes);
 
   // Google OAuth routes (available regardless of Replit auth)
   registerGoogleAuth(app);
