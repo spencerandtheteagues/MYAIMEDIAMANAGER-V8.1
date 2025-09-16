@@ -12,17 +12,22 @@ export default function TrialSelection() {
   const [selectedOption, setSelectedOption] = useState<string | null>(null);
   const { toast } = useToast();
 
-  // Check if user has already selected a trial
-  const { data: user } = useQuery({
+  // Check if user has already selected a trial (optional - may be unauthenticated)
+  const { data: user, isLoading, error } = useQuery({
     queryKey: ["/api/user"],
     retry: false,
+    // Don't throw errors if user is not authenticated
+    throwOnError: false,
   });
 
-  // If user has already selected a trial, redirect to app
+  // If user is authenticated and has already selected a trial, redirect to app
   if (user && !user.needsTrialSelection) {
     setLocation("/");
     return null;
   }
+
+  // Show loading only briefly - allow unauthenticated users to see pricing
+  const shouldShowContent = !isLoading || error || !user;
 
   const selectTrialMutation = useMutation({
     mutationFn: async (variant: string) => {
@@ -51,17 +56,41 @@ export default function TrialSelection() {
   const handleSelection = (optionId: string, isSubscription: boolean = false, isPaidTrial: boolean = false) => {
     setSelectedOption(optionId);
 
+    // If user is not authenticated, redirect to auth first
+    if (!user && !error) {
+      const returnUrl = encodeURIComponent(`/trial-selection`);
+      setLocation(`/auth?return=${returnUrl}`);
+      return;
+    }
+
     if (isSubscription || isPaidTrial) {
       // For subscriptions and paid trials, redirect to Stripe checkout
       const planParam = isPaidTrial ? `${optionId}&trial=true` : optionId;
       setLocation(`/checkout?plan=${planParam}`);
     } else {
-      // For Lite trial, activate directly
+      // For Lite trial, activate directly (requires authentication)
+      if (!user) {
+        const returnUrl = encodeURIComponent(`/trial-selection`);
+        setLocation(`/auth?return=${returnUrl}`);
+        return;
+      }
       selectTrialMutation.mutate(optionId);
     }
   };
 
   const isLoading = selectTrialMutation.isPending;
+
+  // Show loading only for authenticated users checking trial status
+  if (!shouldShowContent && !error) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-pink-950 flex items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-32 w-32 border-b-2 border-purple-400 mx-auto mb-4"></div>
+          <p className="text-white text-lg">Loading plans...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-pink-950 py-8 px-4">
@@ -74,7 +103,10 @@ export default function TrialSelection() {
             Scale your social media presence with AI-powered content creation and management
           </p>
           <p className="text-sm text-gray-400">
-            Select any option below to get started - all new users must choose a plan to continue
+            {user ?
+              "Select any option below to get started - all new users must choose a plan to continue" :
+              "View our plans and pricing options. Sign up to get started with your chosen plan."
+            }
           </p>
         </div>
 
