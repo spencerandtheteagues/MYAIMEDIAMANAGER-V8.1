@@ -144,6 +144,46 @@ export interface IStorage {
     creditsEarned: number;
     pendingReferrals: number;
   }>;
+
+  // Enhanced Admin Methods for God-like Powers
+  getUserLastActivity(userId: string): Promise<Date | null>;
+  getUserLoginHistory(userId: string, limit: number): Promise<Array<{ timestamp: Date; ip?: string; userAgent?: string }>>;
+  getUserMessages(userId: string, unreadOnly: boolean): Promise<Notification[]>;
+  createUrgentMessage(data: {
+    userId: string;
+    title: string;
+    message: string;
+    priority: string;
+    requiresPopup?: boolean;
+    requiresAcknowledgment?: boolean;
+    expiresAt?: Date;
+    adminId?: string;
+  }): Promise<Notification>;
+  createImpersonationSession(data: {
+    adminId: string;
+    userId: string;
+    reason: string;
+    expiresAt: Date;
+  }): Promise<{ id: string; token: string; }>;
+  getOnlineUserCount(): Promise<number>;
+  getSignupsCount(hours: number): Promise<number>;
+  getActiveTrialsCount(): Promise<number>;
+  getExpiredTrialsCount(): Promise<number>;
+  getTotalRevenue(): Promise<number>;
+  getMonthlyRevenue(): Promise<number>;
+  getAverageRevenuePerUser(): Promise<number>;
+  getChurnRate(): Promise<number>;
+  getSystemAlerts(): Promise<Array<{ id: string; type: string; message: string; severity: string; timestamp: Date }>>;
+  getSubscriptionHistory(userId: string): Promise<Array<{ date: Date; tier: string; action: string }>>;
+  getStripeInvoices(customerId: string): Promise<Array<any>>;
+  getPaymentMethods(customerId: string): Promise<Array<any>>;
+  getUserUsageStats(userId: string): Promise<{
+    postsGenerated: number;
+    creditsUsed: number;
+    campaignsCreated: number;
+    platformsConnected: number;
+    avgEngagement: number;
+  }>;
 }
 
 export class MemStorage implements IStorage {
@@ -161,6 +201,11 @@ export class MemStorage implements IStorage {
   private brandProfiles: Map<string, BrandProfile>;
   private contentFeedback: Map<string, ContentFeedback>;
   private referrals: Map<string, Referral>;
+  private urgentMessages: Map<string, any>;
+  private impersonationSessions: Map<string, any>;
+  private loginHistory: Map<string, Array<{ timestamp: Date; ip?: string; userAgent?: string }>>;
+  private systemAlerts: Map<string, any>;
+  private subscriptionHistory: Map<string, Array<any>>;
 
   constructor() {
     this.users = new Map();
@@ -177,7 +222,12 @@ export class MemStorage implements IStorage {
     this.brandProfiles = new Map();
     this.contentFeedback = new Map();
     this.referrals = new Map();
-    
+    this.urgentMessages = new Map();
+    this.impersonationSessions = new Map();
+    this.loginHistory = new Map();
+    this.systemAlerts = new Map();
+    this.subscriptionHistory = new Map();
+
     // Initialize with demo user and data
     this.initializeDemoData().catch(console.error);
     this.initializeSubscriptionPlans();
@@ -1274,6 +1324,218 @@ export class MemStorage implements IStorage {
       completedReferrals: completed.length,
       creditsEarned,
       pendingReferrals: pending.length,
+    };
+  }
+
+  // Enhanced Admin Methods Implementation
+  async getUserLastActivity(userId: string): Promise<Date | null> {
+    const user = this.users.get(userId);
+    return user?.lastActivityAt || user?.lastLoginAt || null;
+  }
+
+  async getUserLoginHistory(userId: string, limit: number): Promise<Array<{ timestamp: Date; ip?: string; userAgent?: string }>> {
+    const history = this.loginHistory.get(userId) || [];
+    return history.slice(0, limit).sort((a, b) => b.timestamp.getTime() - a.timestamp.getTime());
+  }
+
+  async getUserMessages(userId: string, unreadOnly: boolean): Promise<Notification[]> {
+    return Array.from(this.notifications.values())
+      .filter(n => {
+        if (n.userId !== userId) return false;
+        if (unreadOnly && n.read) return false;
+        return true;
+      })
+      .sort((a, b) => new Date(b.createdAt!).getTime() - new Date(a.createdAt!).getTime());
+  }
+
+  async createUrgentMessage(data: {
+    userId: string;
+    title: string;
+    message: string;
+    priority: string;
+    requiresPopup?: boolean;
+    requiresAcknowledgment?: boolean;
+    expiresAt?: Date;
+    adminId?: string;
+  }): Promise<Notification> {
+    const id = randomUUID();
+    const urgentMessage: Notification = {
+      id,
+      userId: data.userId,
+      fromUserId: data.adminId || null,
+      type: "urgent_message",
+      title: data.title,
+      message: data.message,
+      actionUrl: null,
+      read: false,
+      requiresPopup: data.requiresPopup || false,
+      deliveredAt: null,
+      priority: data.priority,
+      expiresAt: data.expiresAt,
+      requiresAcknowledgment: data.requiresAcknowledgment || false,
+      createdAt: new Date()
+    };
+    this.notifications.set(id, urgentMessage);
+    this.urgentMessages.set(id, urgentMessage);
+    return urgentMessage;
+  }
+
+  async createImpersonationSession(data: {
+    adminId: string;
+    userId: string;
+    reason: string;
+    expiresAt: Date;
+  }): Promise<{ id: string; token: string; }> {
+    const id = randomUUID();
+    const token = randomUUID();
+    const session = {
+      id,
+      token,
+      adminId: data.adminId,
+      userId: data.userId,
+      reason: data.reason,
+      expiresAt: data.expiresAt,
+      createdAt: new Date(),
+      active: true
+    };
+    this.impersonationSessions.set(id, session);
+    return { id, token };
+  }
+
+  async getOnlineUserCount(): Promise<number> {
+    // Simple implementation - users active in last 5 minutes
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const onlineUsers = Array.from(this.users.values()).filter(user => {
+      const lastActivity = user.lastActivityAt || user.lastLoginAt;
+      return lastActivity && new Date(lastActivity) > fiveMinutesAgo;
+    });
+    return onlineUsers.length;
+  }
+
+  async getSignupsCount(hours: number): Promise<number> {
+    const cutoffTime = new Date(Date.now() - hours * 60 * 60 * 1000);
+    return Array.from(this.users.values()).filter(user =>
+      user.createdAt && new Date(user.createdAt) > cutoffTime
+    ).length;
+  }
+
+  async getActiveTrialsCount(): Promise<number> {
+    const now = new Date();
+    return Array.from(this.users.values()).filter(user => {
+      if (user.tier !== 'free' || user.isPaid) return false;
+      const trialEnd = user.trialEndDate || user.trialEndsAt;
+      return trialEnd && new Date(trialEnd) > now;
+    }).length;
+  }
+
+  async getExpiredTrialsCount(): Promise<number> {
+    const now = new Date();
+    return Array.from(this.users.values()).filter(user => {
+      if (user.tier !== 'free' || user.isPaid) return false;
+      const trialEnd = user.trialEndDate || user.trialEndsAt;
+      return trialEnd && new Date(trialEnd) <= now;
+    }).length;
+  }
+
+  async getTotalRevenue(): Promise<number> {
+    return Array.from(this.creditTransactions.values())
+      .filter(t => t.type === "purchase" && t.amount > 0)
+      .reduce((sum, t) => sum + (t.amount * 0.1), 0); // $0.10 per credit
+  }
+
+  async getMonthlyRevenue(): Promise<number> {
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    return Array.from(this.creditTransactions.values())
+      .filter(t =>
+        t.type === "purchase" &&
+        t.amount > 0 &&
+        new Date(t.createdAt!) >= firstOfMonth
+      )
+      .reduce((sum, t) => sum + (t.amount * 0.1), 0);
+  }
+
+  async getAverageRevenuePerUser(): Promise<number> {
+    const totalRevenue = await this.getTotalRevenue();
+    const paidUsers = Array.from(this.users.values()).filter(u => u.isPaid).length;
+    return paidUsers > 0 ? totalRevenue / paidUsers : 0;
+  }
+
+  async getChurnRate(): Promise<number> {
+    // Simple churn calculation - cancelled subscriptions in last 30 days
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+    const totalPaidUsers = Array.from(this.users.values()).filter(u => u.isPaid).length;
+    const churned = Array.from(this.users.values()).filter(u =>
+      u.subscriptionStatus === "cancelled" &&
+      u.updatedAt &&
+      new Date(u.updatedAt) > thirtyDaysAgo
+    ).length;
+    return totalPaidUsers > 0 ? (churned / totalPaidUsers) * 100 : 0;
+  }
+
+  async getSystemAlerts(): Promise<Array<{ id: string; type: string; message: string; severity: string; timestamp: Date }>> {
+    const alerts = [];
+
+    // Check for system issues
+    const expiredTrials = await this.getExpiredTrialsCount();
+    if (expiredTrials > 10) {
+      alerts.push({
+        id: "expired-trials-high",
+        type: "user_management",
+        message: `${expiredTrials} users have expired trials`,
+        severity: "warning",
+        timestamp: new Date()
+      });
+    }
+
+    const lowCreditUsers = Array.from(this.users.values()).filter(u =>
+      u.credits && u.credits < 10 && !u.isPaid
+    ).length;
+    if (lowCreditUsers > 5) {
+      alerts.push({
+        id: "low-credit-users",
+        type: "billing",
+        message: `${lowCreditUsers} users have less than 10 credits`,
+        severity: "info",
+        timestamp: new Date()
+      });
+    }
+
+    return alerts;
+  }
+
+  async getSubscriptionHistory(userId: string): Promise<Array<{ date: Date; tier: string; action: string }>> {
+    return this.subscriptionHistory.get(userId) || [];
+  }
+
+  async getStripeInvoices(customerId: string): Promise<Array<any>> {
+    // Mock Stripe invoices - in real implementation, would call Stripe API
+    return [];
+  }
+
+  async getPaymentMethods(customerId: string): Promise<Array<any>> {
+    // Mock payment methods - in real implementation, would call Stripe API
+    return [];
+  }
+
+  async getUserUsageStats(userId: string): Promise<{
+    postsGenerated: number;
+    creditsUsed: number;
+    campaignsCreated: number;
+    platformsConnected: number;
+    avgEngagement: number;
+  }> {
+    const userPosts = Array.from(this.posts.values()).filter(p => p.userId === userId);
+    const userCampaigns = Array.from(this.campaigns.values()).filter(c => c.userId === userId);
+    const userPlatforms = Array.from(this.platforms.values()).filter(p => p.userId === userId);
+    const user = this.users.get(userId);
+
+    return {
+      postsGenerated: userPosts.length,
+      creditsUsed: user?.totalCreditsUsed || 0,
+      campaignsCreated: userCampaigns.length,
+      platformsConnected: userPlatforms.length,
+      avgEngagement: 0 // Would calculate from analytics in real implementation
     };
   }
 }

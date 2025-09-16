@@ -4,9 +4,8 @@ import { useMutation, useQuery } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Check, CreditCard, Sparkles, Zap, Building, Users, TrendingUp, BarChart } from "lucide-react";
+import { Check, CreditCard, Sparkles, Zap, Building, Users, TrendingUp, BarChart, Crown, Star } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 
 export default function TrialSelection() {
   const [, setLocation] = useLocation();
@@ -49,17 +48,13 @@ export default function TrialSelection() {
     },
   });
 
-  // Note: Subscription checkout is now handled via custom checkout page at /checkout
-
-  const handleSelection = (optionId: string, isSubscription: boolean = false) => {
+  const handleSelection = (optionId: string, isSubscription: boolean = false, isPaidTrial: boolean = false) => {
     setSelectedOption(optionId);
-    
-    if (isSubscription) {
-      // For subscriptions, redirect to custom checkout
-      setLocation(`/checkout?plan=${optionId}`);
-    } else if (optionId === "card14") {
-      // For Pro trial, redirect to checkout with $1 verification
-      setLocation(`/checkout?plan=professional&trial=true`);
+
+    if (isSubscription || isPaidTrial) {
+      // For subscriptions and paid trials, redirect to Stripe checkout
+      const planParam = isPaidTrial ? `${optionId}&trial=true` : optionId;
+      setLocation(`/checkout?plan=${planParam}`);
     } else {
       // For Lite trial, activate directly
       selectTrialMutation.mutate(optionId);
@@ -69,294 +64,303 @@ export default function TrialSelection() {
   const isLoading = selectTrialMutation.isPending;
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-pink-950 py-12">
-      <div className="max-w-7xl mx-auto px-6">
+    <div className="min-h-screen bg-gradient-to-br from-slate-950 via-purple-950 to-pink-950 py-8 px-4">
+      <div className="max-w-7xl mx-auto">
         <div className="text-center mb-12">
           <h1 className="text-5xl font-bold text-white mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
-            Welcome to MyAiMediaMgr
+            Choose Your Plan
           </h1>
-          <p className="text-xl text-gray-300">
-            Choose your plan to get started with AI-powered social media management
+          <p className="text-xl text-gray-300 mb-2">
+            Scale your social media presence with AI-powered content creation and management
           </p>
-          <p className="text-sm text-gray-400 mt-2">
-            You must select a trial or subscription to continue
+          <p className="text-sm text-gray-400">
+            Select any option below to get started - all new users must choose a plan to continue
           </p>
         </div>
 
-        <Tabs defaultValue="trials" className="w-full">
-          <TabsList className="grid w-full max-w-md mx-auto grid-cols-2 mb-8">
-            <TabsTrigger value="trials">Free Trials</TabsTrigger>
-            <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
-          </TabsList>
+        {/* All 5 Plan Options */}
+        <div className="grid md:grid-cols-5 gap-6 max-w-7xl mx-auto">
 
-          {/* Free Trials Tab */}
-          <TabsContent value="trials" className="space-y-4">
-            <div className="grid md:grid-cols-2 gap-6 max-w-4xl mx-auto">
-              {/* Lite Trial */}
-              <Card className="relative overflow-hidden border-2 border-purple-500/20 bg-gradient-to-br from-slate-900 to-purple-900/20">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <Sparkles className="h-8 w-8 text-purple-400" />
-                    <span className="text-sm bg-purple-500/20 text-purple-300 px-3 py-1 rounded-full">
-                      7 Days Free
-                    </span>
-                  </div>
-                  <CardTitle className="text-2xl text-white">Lite Trial</CardTitle>
-                  <CardDescription className="text-gray-300">
-                    Perfect for testing the waters
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>30 AI Credits</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>1 Social Platform</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>AI Content Generation</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>Image Generation (6 images)</span>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button
-                    className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
-                    onClick={() => handleSelection("nocard7")}
-                    disabled={isLoading || selectedOption === "nocard7"}
-                  >
-                    {selectedOption === "nocard7" && isLoading ? "Activating..." : "Start Lite Trial"}
-                  </Button>
-                </CardFooter>
-              </Card>
-
-              {/* Pro Trial */}
-              <Card className="relative overflow-hidden border-2 border-pink-500/20 bg-gradient-to-br from-slate-900 to-pink-900/20">
-                <div className="absolute top-0 right-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold px-3 py-1 rounded-bl-lg">
-                  RECOMMENDED
+          {/* Lite Trial - FREE */}
+          <Card className="relative overflow-hidden border-2 border-green-500/30 bg-gradient-to-br from-slate-900 to-green-900/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <Sparkles className="h-8 w-8 text-green-400" />
+                <span className="text-xs bg-green-500/20 text-green-300 px-2 py-1 rounded-full">
+                  FREE
+                </span>
+              </div>
+              <CardTitle className="text-xl text-white">Lite Trial</CardTitle>
+              <CardDescription className="text-gray-300">
+                No card required — 7 days
+              </CardDescription>
+              <div className="mt-2">
+                <span className="text-3xl font-bold text-white">$0</span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>30 AI Credits</span>
                 </div>
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <Zap className="h-8 w-8 text-pink-400" />
-                    <span className="text-sm bg-pink-500/20 text-pink-300 px-3 py-1 rounded-full">
-                      14 Days Free
-                    </span>
-                  </div>
-                  <CardTitle className="text-2xl text-white">Pro Trial</CardTitle>
-                  <CardDescription className="text-gray-300">
-                    Full experience with card verification
-                  </CardDescription>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>180 AI Credits</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>3 Social Platforms</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>1 Full Campaign</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>Image Generation (12 images)</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>Video Generation (2 videos)</span>
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-2 text-sm text-gray-400">
-                    <CreditCard className="h-4 w-4" />
-                    <span>Card required (not charged during trial)</span>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button
-                    className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
-                    onClick={() => handleSelection("card14")}
-                    disabled={isLoading || selectedOption === "card14"}
-                  >
-                    {selectedOption === "card14" && isLoading ? "Activating..." : "Start Pro Trial"}
-                  </Button>
-                </CardFooter>
-              </Card>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>1 Social Platform</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>6 AI Images total</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>Basic content creation</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500 mt-3">
+                Best for trying content creation without a card
+              </p>
+            </CardContent>
+            <CardFooter>
+              <Button
+                className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
+                onClick={() => handleSelection("nocard7")}
+                disabled={isLoading || selectedOption === "nocard7"}
+              >
+                {selectedOption === "nocard7" && isLoading ? "Activating..." : "Start Lite Trial"}
+              </Button>
+            </CardFooter>
+          </Card>
+
+          {/* Pro Trial - $1 */}
+          <Card className="relative overflow-hidden border-2 border-purple-500/30 bg-gradient-to-br from-slate-900 to-purple-900/20">
+            <div className="absolute top-0 right-0 bg-gradient-to-r from-purple-500 to-pink-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg">
+              RECOMMENDED
             </div>
-          </TabsContent>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <Zap className="h-8 w-8 text-purple-400" />
+                <span className="text-xs bg-purple-500/20 text-purple-300 px-2 py-1 rounded-full">
+                  14 DAYS
+                </span>
+              </div>
+              <CardTitle className="text-xl text-white">Pro Trial</CardTitle>
+              <CardDescription className="text-gray-300">
+                Card verification — 14 days
+              </CardDescription>
+              <div className="mt-2">
+                <span className="text-3xl font-bold text-white">$1</span>
+                <span className="text-gray-400 text-sm"> one-time</span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>150 AI Credits</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>All Social Platforms</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>Full Campaigns</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>AI Images & Videos</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>Everything in Pro</span>
+                </div>
+              </div>
+              <p className="text-xs text-green-400 font-medium mt-3">
+                Best for testing full workflow including video
+              </p>
+            </CardContent>
+            <CardFooter>
+              <Button
+                className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
+                onClick={() => handleSelection("professional", false, true)}
+                disabled={isLoading || selectedOption === "professional"}
+              >
+                {selectedOption === "professional" && isLoading ? "Processing..." : "Start Pro Trial ($1)"}
+              </Button>
+            </CardFooter>
+          </Card>
 
-          {/* Subscriptions Tab */}
-          <TabsContent value="subscriptions" className="space-y-4">
-            <div className="grid md:grid-cols-3 gap-6 max-w-6xl mx-auto">
-              {/* Starter Plan */}
-              <Card className="relative overflow-hidden border-2 border-blue-500/20 bg-gradient-to-br from-slate-900 to-blue-900/20">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <TrendingUp className="h-8 w-8 text-blue-400" />
-                    <span className="text-sm bg-blue-500/20 text-blue-300 px-3 py-1 rounded-full">
-                      Best for Solopreneurs
-                    </span>
-                  </div>
-                  <CardTitle className="text-2xl text-white">Starter</CardTitle>
-                  <div className="mt-4">
-                    <span className="text-4xl font-bold text-white">$19</span>
-                    <span className="text-gray-400">/month</span>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>200 AI Credits/month</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>3 Social Platforms</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>2 Campaigns/month</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>Basic Analytics</span>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button
-                    className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
-                    onClick={() => handleSelection("starter", true)}
-                    disabled={isLoading || selectedOption === "starter"}
-                  >
-                    {selectedOption === "starter" && isLoading ? "Processing..." : "Subscribe to Starter"}
-                  </Button>
-                </CardFooter>
-              </Card>
+          {/* Starter Plan - $19/month */}
+          <Card className="relative overflow-hidden border-2 border-blue-500/30 bg-gradient-to-br from-slate-900 to-blue-900/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <TrendingUp className="h-8 w-8 text-blue-400" />
+                <span className="text-xs bg-blue-500/20 text-blue-300 px-2 py-1 rounded-full">
+                  MONTHLY
+                </span>
+              </div>
+              <CardTitle className="text-xl text-white">Starter</CardTitle>
+              <CardDescription className="text-gray-300">
+                Perfect for small businesses
+              </CardDescription>
+              <div className="mt-2">
+                <span className="text-3xl font-bold text-white">$19</span>
+                <span className="text-gray-400 text-sm">/month</span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>190 credits per month</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>3 social media accounts</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>1 campaign per month</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>AI content generation</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>Analytics dashboard</span>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button
+                className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
+                onClick={() => handleSelection("starter", true)}
+                disabled={isLoading || selectedOption === "starter"}
+              >
+                {selectedOption === "starter" && isLoading ? "Processing..." : "Get Started"}
+              </Button>
+            </CardFooter>
+          </Card>
 
-              {/* Professional Plan */}
-              <Card className="relative overflow-hidden border-2 border-green-500/20 bg-gradient-to-br from-slate-900 to-green-900/20">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <BarChart className="h-8 w-8 text-green-400" />
-                    <span className="text-sm bg-green-500/20 text-green-300 px-3 py-1 rounded-full">
-                      Most Popular
-                    </span>
-                  </div>
-                  <CardTitle className="text-2xl text-white">Professional</CardTitle>
-                  <div className="mt-4">
-                    <span className="text-4xl font-bold text-white">$49</span>
-                    <span className="text-gray-400">/month</span>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>500 AI Credits/month</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>Unlimited Platforms</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>5 Campaigns/month</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>Advanced Analytics</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>Video Generation</span>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button
-                    className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
-                    onClick={() => handleSelection("professional", true)}
-                    disabled={isLoading || selectedOption === "professional"}
-                  >
-                    {selectedOption === "professional" && isLoading ? "Processing..." : "Subscribe to Professional"}
-                  </Button>
-                </CardFooter>
-              </Card>
-
-              {/* Business Plan */}
-              <Card className="relative overflow-hidden border-2 border-yellow-500/20 bg-gradient-to-br from-slate-900 to-yellow-900/20">
-                <CardHeader>
-                  <div className="flex items-center justify-between">
-                    <Building className="h-8 w-8 text-yellow-400" />
-                    <span className="text-sm bg-yellow-500/20 text-yellow-300 px-3 py-1 rounded-full">
-                      For Teams
-                    </span>
-                  </div>
-                  <CardTitle className="text-2xl text-white">Business</CardTitle>
-                  <div className="mt-4">
-                    <span className="text-4xl font-bold text-white">$199</span>
-                    <span className="text-gray-400">/month</span>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-4">
-                  <div className="space-y-3">
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>2000 AI Credits/month</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>Unlimited Everything</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>Team Collaboration</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>Priority Support</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>Custom Integrations</span>
-                    </div>
-                    <div className="flex items-center gap-2 text-gray-300">
-                      <Check className="h-4 w-4 text-green-400" />
-                      <span>White-label Options</span>
-                    </div>
-                  </div>
-                </CardContent>
-                <CardFooter>
-                  <Button
-                    className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
-                    onClick={() => handleSelection("business", true)}
-                    disabled={isLoading || selectedOption === "business"}
-                  >
-                    {selectedOption === "business" && isLoading ? "Processing..." : "Subscribe to Business"}
-                  </Button>
-                </CardFooter>
-              </Card>
+          {/* Professional Plan - $49/month */}
+          <Card className="relative overflow-hidden border-2 border-pink-500/30 bg-gradient-to-br from-slate-900 to-pink-900/20">
+            <div className="absolute top-0 right-0 bg-gradient-to-r from-pink-500 to-purple-500 text-white text-xs font-bold px-2 py-1 rounded-bl-lg">
+              MOST POPULAR
             </div>
-          </TabsContent>
-        </Tabs>
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <Star className="h-8 w-8 text-pink-400" />
+                <span className="text-xs bg-pink-500/20 text-pink-300 px-2 py-1 rounded-full">
+                  MONTHLY
+                </span>
+              </div>
+              <CardTitle className="text-xl text-white">Professional</CardTitle>
+              <CardDescription className="text-gray-300">
+                For growing businesses
+              </CardDescription>
+              <div className="mt-2">
+                <span className="text-3xl font-bold text-white">$49</span>
+                <span className="text-gray-400 text-sm">/month</span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>500 credits per month</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>10 social media accounts</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>Unlimited posts</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>Advanced AI generation</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>Full analytics suite</span>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button
+                className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
+                onClick={() => handleSelection("professional", true)}
+                disabled={isLoading || selectedOption === "professional"}
+              >
+                {selectedOption === "professional" && isLoading ? "Processing..." : "Get Started"}
+              </Button>
+            </CardFooter>
+          </Card>
+
+          {/* Business Plan - $199/month */}
+          <Card className="relative overflow-hidden border-2 border-yellow-500/30 bg-gradient-to-br from-slate-900 to-yellow-900/20">
+            <CardHeader>
+              <div className="flex items-center justify-between">
+                <Crown className="h-8 w-8 text-yellow-400" />
+                <span className="text-xs bg-yellow-500/20 text-yellow-300 px-2 py-1 rounded-full">
+                  ENTERPRISE
+                </span>
+              </div>
+              <CardTitle className="text-xl text-white">Business</CardTitle>
+              <CardDescription className="text-gray-300">
+                For advanced teams
+              </CardDescription>
+              <div className="mt-2">
+                <span className="text-3xl font-bold text-white">$199</span>
+                <span className="text-gray-400 text-sm">/month</span>
+              </div>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="space-y-2 text-sm">
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>2000 credits per month</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>Unlimited accounts</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>Advanced AI with custom models</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>White-label options</span>
+                </div>
+                <div className="flex items-center gap-2 text-gray-300">
+                  <Check className="h-3 w-3 text-green-400" />
+                  <span>Dedicated account manager</span>
+                </div>
+              </div>
+            </CardContent>
+            <CardFooter>
+              <Button
+                className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
+                onClick={() => handleSelection("business", true)}
+                disabled={isLoading || selectedOption === "business"}
+              >
+                {selectedOption === "business" && isLoading ? "Processing..." : "Get Started"}
+              </Button>
+            </CardFooter>
+          </Card>
+
+        </div>
 
         <div className="text-center mt-12 text-gray-400">
           <p className="text-sm">
             All plans include AI-powered content generation, scheduling, and analytics.
           </p>
           <p className="text-sm mt-2">
-            No credit card required for Lite Trial. Cancel anytime.
+            Only Lite Trial is free. All other options require payment. Cancel anytime.
           </p>
         </div>
       </div>

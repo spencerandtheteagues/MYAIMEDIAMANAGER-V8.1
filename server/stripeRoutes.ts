@@ -16,9 +16,10 @@ const router = Router();
 
 // Helper function to get user ID from request
 function getUserId(req: any): string | null {
-  if (req.session?.userId) return req.session.userId;
-  if (req.user?.id) return req.user.id;
-  if (req.user?.claims?.sub) return req.user.claims.sub;
+  if (req.user?.sub) return req.user.sub; // JWT auth (primary)
+  if (req.session?.userId) return req.session.userId; // Session auth (fallback)
+  if (req.user?.id) return req.user.id; // Direct user object
+  if (req.user?.claims?.sub) return req.user.claims.sub; // Replit auth (legacy)
   return null;
 }
 
@@ -446,25 +447,53 @@ router.post("/create-pro-trial", requireAuth, async (req, res) => {
     if (!userId) return res.status(401).json({ message: "Not authenticated" });
 
     const user = await storage.getUser(userId!);
-    const baseUrl = getBaseUrl(req);
-    const priceId = process.env.STRIPE_PRO_TRIAL_PRODUCT;
-    if (!priceId) return res.status(500).json({ message: "Missing STRIPE_PRO_TRIAL_PRODUCT" });
-
-    let customerId = user?.stripeCustomerId;
-    if (!customerId) {
-      const customer = await stripe.customers.create({ email: user?.email || undefined });
-      customerId = customer.id;
-      if (user) await storage.updateUser(user.id, { stripeCustomerId: customerId });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
     }
 
+    // Check if user already has a trial or subscription
+    if (user.tier !== 'free' || user.subscriptionStatus === 'active') {
+      return res.status(400).json({ message: "You already have an active plan" });
+    }
+
+    const baseUrl = getBaseUrl(req);
+
+    // Create or retrieve Stripe customer
+    let customerId = user.stripeCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create({
+        email: user.email || undefined,
+        name: user.fullName || undefined,
+        metadata: { userId: user.id }
+      });
+      customerId = customer.id;
+      await storage.updateUser(user.id, { stripeCustomerId: customerId });
+    }
+
+    // Create Stripe checkout session for $1 Pro Trial
     const session = await stripe.checkout.sessions.create({
       customer: customerId,
+      payment_method_types: ['card'],
       mode: 'payment',
-      line_items: [{ price: priceId, quantity: 1 }],
-      success_url: `${baseUrl}/trial/success?session_id={CHECKOUT_SESSION_ID}`,
-      cancel_url: `${baseUrl}/choose-trial?canceled=1`,
-      payment_intent_data: { metadata: { purpose: 'pro_trial_1usd', userId } },
-      metadata: { purpose: 'pro_trial_1usd', userId }
+      line_items: [{
+        price_data: {
+          currency: 'usd',
+          product_data: {
+            name: 'Pro Trial - Card Verification',
+            description: '14-day Pro trial with 150 credits, all platforms, campaigns, images & videos',
+          },
+          unit_amount: 100, // $1.00 in cents
+        },
+        quantity: 1,
+      }],
+      success_url: `${baseUrl}/checkout-return?session_id={CHECKOUT_SESSION_ID}`,
+      cancel_url: `${baseUrl}/trial-selection`,
+      metadata: {
+        userId: user.id,
+        type: 'pro_trial',
+        planId: 'professional',
+        credits: '150'
+      }
     });
 
     res.json({ url: session.url });

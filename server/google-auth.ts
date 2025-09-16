@@ -29,6 +29,8 @@ async function findOrCreateUserFromGoogle(profile: any) {
       credits: 50, // Welcome credits
       accountStatus: 'active',
       subscriptionStatus: 'trial',
+      needsTrialSelection: true, // NEW USERS MUST SELECT A TRIAL
+      emailVerified: true, // Google OAuth users are pre-verified
       trialStartDate: new Date(),
       trialEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7-day trial
     };

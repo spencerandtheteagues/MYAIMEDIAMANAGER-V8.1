@@ -831,4 +831,535 @@ router.patch("/users/:id/trial", async (req, res) => {
   }
 });
 
+// ==== ENHANCED ADMIN POWERS - GOD MODE ====
+
+// Get real-time user activity and status
+router.get("/real-time-users", async (req, res) => {
+  try {
+    const users = await storage.getAllUsers();
+
+    // Enhanced real-time user info
+    const realTimeUsers = await Promise.all(
+      users.map(async (user) => {
+        const isOnline = await isUserOnline(user.id);
+        const lastActivity = await storage.getUserLastActivity(user.id);
+        const loginHistory = await storage.getUserLoginHistory(user.id, 5); // Last 5 logins
+        const creditTransactions = await storage.getCreditTransactionsByUserId(user.id);
+        const messages = await storage.getUserMessages(user.id, true); // Unread messages
+
+        // Calculate trial info
+        const now = new Date();
+        const trialEndDate = user.trialEndDate || user.trialEndsAt;
+        let trialDaysRemaining = null;
+        let trialStatus = null;
+
+        if (user.tier === 'free' && !user.isPaid && trialEndDate) {
+          const daysRemaining = Math.ceil(
+            (new Date(trialEndDate).getTime() - now.getTime()) / (1000 * 60 * 60 * 24)
+          );
+          trialDaysRemaining = Math.max(0, daysRemaining);
+          trialStatus = trialDaysRemaining > 0 ? 'active' : 'expired';
+        }
+
+        return {
+          ...user,
+          isOnline,
+          lastActivity,
+          loginHistory,
+          recentTransactions: creditTransactions.slice(0, 3),
+          unreadMessages: messages.length,
+          trialDaysRemaining,
+          trialStatus,
+          accountAge: Math.floor((now.getTime() - new Date(user.createdAt).getTime()) / (1000 * 60 * 60 * 24)),
+        };
+      })
+    );
+
+    // Sort by creation date (newest first)
+    realTimeUsers.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+
+    res.json(realTimeUsers);
+  } catch (error: any) {
+    res.status(500).json({ message: "Error fetching real-time users: " + error.message });
+  }
+});
+
+// Send urgent message to user (immediate popup)
+router.post("/send-urgent-message", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const { userId, title, message, priority = "high", expiresIn = 24 } = req.body;
+
+    if (!userId || !title || !message) {
+      return res.status(400).json({ message: "userId, title, and message are required" });
+    }
+
+    // Create urgent message with popup
+    const urgentMessage = await storage.createUrgentMessage({
+      userId,
+      title,
+      message,
+      priority, // low, medium, high, critical
+      requiresPopup: true,
+      requiresAcknowledgment: priority === "critical",
+      expiresAt: new Date(Date.now() + expiresIn * 60 * 60 * 1000),
+      adminId,
+    });
+
+    // If user is online, trigger real-time notification
+    const isOnline = await isUserOnline(userId);
+    if (isOnline) {
+      // TODO: Implement WebSocket/SSE for real-time notifications
+      console.log(`User ${userId} is online - triggering real-time popup`);
+    }
+
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: userId,
+      action: "send_urgent_message",
+      details: { title, priority, expiresIn },
+    });
+
+    res.json({ message: "Urgent message sent", urgentMessage, userOnline: isOnline });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error sending urgent message: " + error.message });
+  }
+});
+
+// Broadcast message to all users
+router.post("/broadcast-message", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const { title, message, priority = "medium", targetTier, targetStatus } = req.body;
+
+    if (!title || !message) {
+      return res.status(400).json({ message: "Title and message are required" });
+    }
+
+    // Get target users based on filters
+    let users = await storage.getAllUsers();
+
+    if (targetTier) {
+      users = users.filter(u => u.tier === targetTier);
+    }
+
+    if (targetStatus) {
+      users = users.filter(u => u.accountStatus === targetStatus);
+    }
+
+    // Send message to all target users
+    const messagePromises = users.map(async (user) => {
+      return storage.createUrgentMessage({
+        userId: user.id,
+        title,
+        message,
+        priority,
+        requiresPopup: priority === "high" || priority === "critical",
+        requiresAcknowledgment: priority === "critical",
+        expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
+        adminId,
+      });
+    });
+
+    await Promise.all(messagePromises);
+
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: null,
+      action: "broadcast_message",
+      details: { title, priority, targetCount: users.length, targetTier, targetStatus },
+    });
+
+    res.json({
+      message: "Broadcast sent successfully",
+      targetCount: users.length,
+      filters: { targetTier, targetStatus }
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error broadcasting message: " + error.message });
+  }
+});
+
+// Advanced user search and filtering
+router.post("/search-users", async (req, res) => {
+  try {
+    const {
+      query,
+      tier,
+      status,
+      isOnline,
+      hasTrialExpired,
+      dateRange,
+      minCredits,
+      maxCredits,
+      sortBy = "createdAt",
+      sortOrder = "desc"
+    } = req.body;
+
+    let users = await storage.getAllUsers();
+
+    // Apply filters
+    if (query) {
+      const searchQuery = query.toLowerCase();
+      users = users.filter(u =>
+        u.email?.toLowerCase().includes(searchQuery) ||
+        u.username?.toLowerCase().includes(searchQuery) ||
+        u.fullName?.toLowerCase().includes(searchQuery) ||
+        u.businessName?.toLowerCase().includes(searchQuery)
+      );
+    }
+
+    if (tier) {
+      users = users.filter(u => u.tier === tier);
+    }
+
+    if (status) {
+      users = users.filter(u => u.accountStatus === status);
+    }
+
+    if (minCredits !== undefined) {
+      users = users.filter(u => (u.credits || 0) >= minCredits);
+    }
+
+    if (maxCredits !== undefined) {
+      users = users.filter(u => (u.credits || 0) <= maxCredits);
+    }
+
+    if (dateRange) {
+      const startDate = new Date(dateRange.start);
+      const endDate = new Date(dateRange.end);
+      users = users.filter(u => {
+        const createdAt = new Date(u.createdAt);
+        return createdAt >= startDate && createdAt <= endDate;
+      });
+    }
+
+    // Add online status and trial info
+    const enhancedUsers = await Promise.all(
+      users.map(async (user) => {
+        const online = await isUserOnline(user.id);
+
+        // Trial expiry check
+        const now = new Date();
+        const trialEndDate = user.trialEndDate || user.trialEndsAt;
+        const trialExpired = trialEndDate ? new Date(trialEndDate) < now : false;
+
+        return {
+          ...user,
+          isOnline: online,
+          trialExpired,
+        };
+      })
+    );
+
+    // Apply online filter after enhancement
+    let filteredUsers = enhancedUsers;
+    if (isOnline !== undefined) {
+      filteredUsers = enhancedUsers.filter(u => u.isOnline === isOnline);
+    }
+
+    if (hasTrialExpired !== undefined) {
+      filteredUsers = filteredUsers.filter(u => u.trialExpired === hasTrialExpired);
+    }
+
+    // Sort results
+    filteredUsers.sort((a, b) => {
+      let aVal = a[sortBy];
+      let bVal = b[sortBy];
+
+      if (sortBy === "createdAt") {
+        aVal = new Date(aVal).getTime();
+        bVal = new Date(bVal).getTime();
+      }
+
+      if (sortOrder === "desc") {
+        return bVal > aVal ? 1 : -1;
+      } else {
+        return aVal > bVal ? 1 : -1;
+      }
+    });
+
+    res.json({
+      users: filteredUsers,
+      totalCount: filteredUsers.length,
+      filters: { query, tier, status, isOnline, hasTrialExpired, dateRange, minCredits, maxCredits },
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error searching users: " + error.message });
+  }
+});
+
+// Impersonate user (admin login as user)
+router.post("/impersonate/:userId", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const { userId } = req.params;
+    const { reason } = req.body;
+
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Create impersonation session token
+    const impersonationToken = await storage.createImpersonationSession({
+      adminId,
+      userId,
+      reason: reason || "Admin impersonation",
+      expiresAt: new Date(Date.now() + 60 * 60 * 1000), // 1 hour
+    });
+
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: userId,
+      action: "impersonate_user",
+      details: { reason, sessionId: impersonationToken.id },
+    });
+
+    res.json({
+      message: "Impersonation session created",
+      impersonationToken: impersonationToken.token,
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        fullName: user.fullName,
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error creating impersonation session: " + error.message });
+  }
+});
+
+// Bulk user operations
+router.post("/bulk-operations", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const {
+      operation,
+      userIds,
+      data = {}
+    } = req.body;
+
+    if (!operation || !userIds || !Array.isArray(userIds)) {
+      return res.status(400).json({ message: "operation and userIds array are required" });
+    }
+
+    const results = [];
+
+    for (const userId of userIds) {
+      try {
+        let result;
+
+        switch (operation) {
+          case "grant_credits":
+            result = await storage.createCreditTransaction({
+              userId,
+              amount: data.amount || 100,
+              type: "admin_bulk_grant",
+              description: data.reason || "Bulk credit grant",
+            });
+            break;
+
+          case "change_tier":
+            result = await storage.updateUser(userId, { tier: data.tier });
+            break;
+
+          case "freeze_accounts":
+            result = await storage.updateUser(userId, { accountStatus: "frozen" });
+            break;
+
+          case "unfreeze_accounts":
+            result = await storage.updateUser(userId, { accountStatus: "active" });
+            break;
+
+          case "extend_trial":
+            const user = await storage.getUser(userId);
+            if (user) {
+              const currentEnd = user.trialEndDate || user.trialEndsAt || new Date();
+              const newEnd = new Date(new Date(currentEnd).getTime() + (data.days || 7) * 24 * 60 * 60 * 1000);
+              result = await storage.updateTrialPeriod(userId, newEnd);
+            }
+            break;
+
+          case "send_message":
+            result = await storage.createUrgentMessage({
+              userId,
+              title: data.title || "Bulk Message",
+              message: data.message || "",
+              priority: data.priority || "medium",
+              requiresPopup: data.requiresPopup || false,
+              adminId,
+            });
+            break;
+
+          default:
+            result = { error: "Unknown operation" };
+        }
+
+        results.push({ userId, success: true, result });
+
+      } catch (error: any) {
+        results.push({ userId, success: false, error: error.message });
+      }
+    }
+
+    // Log bulk admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: null,
+      action: `bulk_${operation}`,
+      details: {
+        operation,
+        userCount: userIds.length,
+        successCount: results.filter(r => r.success).length,
+        data
+      },
+    });
+
+    res.json({
+      message: "Bulk operation completed",
+      operation,
+      totalCount: userIds.length,
+      successCount: results.filter(r => r.success).length,
+      results,
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error performing bulk operation: " + error.message });
+  }
+});
+
+// Get system health and performance metrics
+router.get("/system-health", async (req, res) => {
+  try {
+    const stats = await storage.getSystemStats();
+    const now = new Date();
+
+    // Enhanced system metrics
+    const healthMetrics = {
+      ...stats,
+      systemInfo: {
+        uptime: process.uptime(),
+        nodeVersion: process.version,
+        platform: process.platform,
+        memory: process.memoryUsage(),
+        timestamp: now.toISOString(),
+      },
+      userActivity: {
+        onlineUsers: await storage.getOnlineUserCount(),
+        signupsToday: await storage.getSignupsCount(24), // Last 24 hours
+        signupsThisWeek: await storage.getSignupsCount(168), // Last 7 days
+        activeTrials: await storage.getActiveTrialsCount(),
+        expiredTrials: await storage.getExpiredTrialsCount(),
+      },
+      financial: {
+        totalRevenue: await storage.getTotalRevenue(),
+        revenueThisMonth: await storage.getMonthlyRevenue(),
+        averageRevenuePerUser: await storage.getAverageRevenuePerUser(),
+        churnRate: await storage.getChurnRate(),
+      },
+      alerts: await storage.getSystemAlerts(),
+    };
+
+    res.json(healthMetrics);
+  } catch (error: any) {
+    res.status(500).json({ message: "Error fetching system health: " + error.message });
+  }
+});
+
+// Advanced billing management
+router.get("/billing/:userId", async (req, res) => {
+  try {
+    const { userId } = req.params;
+
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Get comprehensive billing info
+    const billingInfo = {
+      user: {
+        id: user.id,
+        email: user.email,
+        tier: user.tier,
+        subscriptionStatus: user.subscriptionStatus,
+        stripeCustomerId: user.stripeCustomerId,
+        stripeSubscriptionId: user.stripeSubscriptionId,
+      },
+      transactions: await storage.getCreditTransactionsByUserId(userId),
+      subscriptionHistory: await storage.getSubscriptionHistory(userId),
+      invoices: user.stripeCustomerId ? await storage.getStripeInvoices(user.stripeCustomerId) : [],
+      paymentMethods: user.stripeCustomerId ? await storage.getPaymentMethods(user.stripeCustomerId) : [],
+      usage: await storage.getUserUsageStats(userId),
+    };
+
+    res.json(billingInfo);
+  } catch (error: any) {
+    res.status(500).json({ message: "Error fetching billing info: " + error.message });
+  }
+});
+
+// Force password reset for user
+router.post("/force-password-reset/:userId", async (req, res) => {
+  try {
+    const adminId = (req as any).adminId;
+    const { userId } = req.params;
+    const { reason, notifyUser = true } = req.body;
+
+    // Generate secure temporary password
+    const tempPassword = Math.random().toString(36).slice(-12) + "!A1";
+    const bcrypt = require("bcryptjs");
+    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+
+    // Update user password and force password change on next login
+    const updatedUser = await storage.updateUser(userId, {
+      password: hashedPassword,
+      mustChangePassword: true,
+      passwordResetRequired: true,
+      updatedAt: new Date(),
+    });
+
+    if (!updatedUser) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    // Send notification to user if requested
+    if (notifyUser) {
+      await storage.createUrgentMessage({
+        userId,
+        title: "Password Reset Required",
+        message: `Your password has been reset by an administrator. Your temporary password is: ${tempPassword}. Please change it immediately after logging in.`,
+        priority: "high",
+        requiresPopup: true,
+        requiresAcknowledgment: true,
+        adminId,
+      });
+    }
+
+    // Log admin action
+    await storage.logAdminAction({
+      adminUserId: adminId || null,
+      targetUserId: userId,
+      action: "force_password_reset",
+      details: { reason, notifyUser, tempPasswordGenerated: true },
+    });
+
+    res.json({
+      message: "Password reset successfully",
+      tempPassword: tempPassword, // Only return to admin
+      user: {
+        id: updatedUser.id,
+        email: updatedUser.email,
+        mustChangePassword: updatedUser.mustChangePassword,
+      }
+    });
+  } catch (error: any) {
+    res.status(500).json({ message: "Error forcing password reset: " + error.message });
+  }
+});
+
 export default router;

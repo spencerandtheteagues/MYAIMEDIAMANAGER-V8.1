@@ -51,22 +51,22 @@ export function TrialCountdown() {
   return (
     <div className={`
       flex items-center justify-between p-4 mb-4 rounded-lg border
-      ${isUrgent ? 'bg-red-50 dark:bg-red-950/20 border-red-200 dark:border-red-800' : 
-        isWarning ? 'bg-yellow-50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800' : 
-        'bg-blue-50 dark:bg-blue-950/20 border-blue-200 dark:border-blue-800'}
+      ${isUrgent ? 'bg-red-950/20 border-red-800' :
+        isWarning ? 'bg-yellow-950/20 border-yellow-800' :
+        'bg-slate-800/50 border-slate-700'}
     `} data-testid="trial-countdown">
       <div className="flex items-center gap-3">
         <Clock className={`h-5 w-5 ${
-          isUrgent ? 'text-red-600 dark:text-red-400' : 
-          isWarning ? 'text-yellow-600 dark:text-yellow-400' : 
-          'text-blue-600 dark:text-blue-400'
+          isUrgent ? 'text-red-400' :
+          isWarning ? 'text-yellow-400' :
+          'text-blue-400'
         }`} />
-        
+
         <div className="flex items-center gap-2">
           <span className={`font-medium ${
-            isUrgent ? 'text-red-900 dark:text-red-100' : 
-            isWarning ? 'text-yellow-900 dark:text-yellow-100' : 
-            'text-blue-900 dark:text-blue-100'
+            isUrgent ? 'text-red-100' :
+            isWarning ? 'text-yellow-100' :
+            'text-blue-100'
           }`}>
             Free Trial:
           </span>
@@ -82,7 +82,7 @@ export function TrialCountdown() {
           </Badge>
           
           {isUrgent && (
-            <span className="text-sm text-red-600 dark:text-red-400 font-medium animate-pulse">
+            <span className="text-sm text-red-400 font-medium animate-pulse">
               ⚠️ Expiring Soon
             </span>
           )}

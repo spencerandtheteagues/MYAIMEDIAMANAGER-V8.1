@@ -654,6 +654,7 @@ export default function AdminPanel() {
       <Tabs defaultValue="users" className="space-y-4">
         <TabsList>
           <TabsTrigger value="users">Users</TabsTrigger>
+          <TabsTrigger value="advanced">God Powers</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
           <TabsTrigger value="notifications">Notifications</TabsTrigger>
         </TabsList>
@@ -1528,6 +1529,249 @@ export default function AdminPanel() {
                   </TableBody>
                   </Table>
                 </div>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Advanced God Powers Tab */}
+        <TabsContent value="advanced" className="space-y-4">
+          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+            {/* Real-time User Monitoring */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Activity className="h-5 w-5" />
+                  Real-time Users
+                </CardTitle>
+                <CardDescription>
+                  Monitor user activity in real-time
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    // TODO: Implement real-time user monitoring
+                    toast({ title: "Real-time monitoring activated" });
+                  }}
+                >
+                  View Live Activity
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* System Health */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Shield className="h-5 w-5" />
+                  System Health
+                </CardTitle>
+                <CardDescription>
+                  Monitor system performance and alerts
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    // TODO: Implement system health monitoring
+                    toast({ title: "System health check initiated" });
+                  }}
+                >
+                  Health Dashboard
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Urgent Messaging */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5" />
+                  Urgent Messaging
+                </CardTitle>
+                <CardDescription>
+                  Send urgent popup messages
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    // TODO: Implement urgent messaging
+                    toast({ title: "Urgent message system ready" });
+                  }}
+                >
+                  Send Urgent Alert
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Broadcast Messages */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Send className="h-5 w-5" />
+                  Broadcast
+                </CardTitle>
+                <CardDescription>
+                  Send messages to all users
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    // TODO: Implement broadcast messaging
+                    toast({ title: "Broadcast system activated" });
+                  }}
+                >
+                  Broadcast Message
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* User Impersonation */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <UserCog className="h-5 w-5" />
+                  Impersonation
+                </CardTitle>
+                <CardDescription>
+                  Login as any user
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    // TODO: Implement user impersonation
+                    toast({ title: "Impersonation mode ready" });
+                  }}
+                >
+                  Impersonate User
+                </Button>
+              </CardContent>
+            </Card>
+
+            {/* Bulk Operations */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center gap-2">
+                  <Users className="h-5 w-5" />
+                  Bulk Operations
+                </CardTitle>
+                <CardDescription>
+                  Perform actions on multiple users
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Button
+                  className="w-full"
+                  onClick={() => {
+                    // TODO: Implement bulk operations
+                    toast({ title: "Bulk operations panel ready" });
+                  }}
+                >
+                  Bulk Actions
+                </Button>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Advanced Search */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Advanced User Search</CardTitle>
+              <CardDescription>
+                Search and filter users with advanced criteria
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-3">
+                <div>
+                  <Label>Search Query</Label>
+                  <Input placeholder="Search by name, email, username..." />
+                </div>
+                <div>
+                  <Label>Tier Filter</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All tiers" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Tiers</SelectItem>
+                      <SelectItem value="free">Free</SelectItem>
+                      <SelectItem value="starter">Starter</SelectItem>
+                      <SelectItem value="professional">Professional</SelectItem>
+                      <SelectItem value="business">Business</SelectItem>
+                      <SelectItem value="enterprise">Enterprise</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Status Filter</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="All statuses" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All Statuses</SelectItem>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="suspended">Suspended</SelectItem>
+                      <SelectItem value="frozen">Frozen</SelectItem>
+                      <SelectItem value="deleted">Deleted</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <Button>Search Users</Button>
+                <Button variant="outline">Clear Filters</Button>
+                <Button variant="outline">Export Results</Button>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* Force Password Reset */}
+          <Card>
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Lock className="h-5 w-5 text-red-500" />
+                Force Password Reset
+              </CardTitle>
+              <CardDescription>
+                Force any user to reset their password on next login
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid gap-4 md:grid-cols-2">
+                <div>
+                  <Label>Select User</Label>
+                  <Select>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Choose user..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {users.map((user) => (
+                        <SelectItem key={user.id} value={user.id}>
+                          {user.fullName || user.username} ({user.email})
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label>Reason</Label>
+                  <Input placeholder="Security breach, compromised account..." />
+                </div>
+              </div>
+              <div className="mt-4 flex gap-2">
+                <Button variant="destructive">Force Password Reset</Button>
+                <Button variant="outline">Send Notification</Button>
               </div>
             </CardContent>
           </Card>
