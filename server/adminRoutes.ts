@@ -11,20 +11,24 @@ const stripe = process.env.STRIPE_SECRET_KEY
 
 const router = Router();
 
-// Admin authentication middleware that works with both session and Replit auth
+// Admin authentication middleware that works with JWT, session, and Replit auth
 const isAdmin = async (req: Request, res: Response, next: NextFunction) => {
   try {
     let userId: string | undefined;
-    
-    // Check for session-based auth first
-    if (req.session?.userId) {
+
+    // Check for JWT auth first (new stateless system)
+    if ((req as any).user?.sub) {
+      userId = (req as any).user.sub;
+    }
+    // Check for session-based auth
+    else if (req.session?.userId) {
       userId = req.session.userId;
     }
     // Check for Replit auth
     else if ((req as any).user?.claims?.sub) {
       userId = (req as any).user.claims.sub;
     }
-    
+
     if (!userId) {
       return res.status(401).json({ message: "Authentication required" });
     }
@@ -122,11 +126,14 @@ router.post("/users", async (req, res) => {
       firstName: firstName || null,
       lastName: lastName || null,
       businessName: businessName || null,
+      role: isAdmin ? "admin" : "user",
       tier,
       credits,
       isAdmin,
       emailVerified: true, // Admin-created users are pre-verified
+      needsTrialSelection: !isAdmin && tier === "free", // Only free non-admin users need trial selection
       accountStatus: "active",
+      subscriptionStatus: tier === "free" ? "inactive" : "active",
       trialType: null,
       trialStartDate: null,
       trialEndDate: null,
