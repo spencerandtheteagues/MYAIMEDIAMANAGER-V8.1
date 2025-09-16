@@ -78,7 +78,7 @@ export default function TrialSelection() {
     }
   };
 
-  const isLoading = selectTrialMutation.isPending;
+  const isMutating = selectTrialMutation.isPending;
 
   // Show loading only for authenticated users checking trial status
   if (!shouldShowContent && !error) {
@@ -157,9 +157,9 @@ export default function TrialSelection() {
               <Button
                 className="w-full bg-gradient-to-r from-green-500 to-emerald-500 hover:from-green-600 hover:to-emerald-600"
                 onClick={() => handleSelection("nocard7")}
-                disabled={isLoading || selectedOption === "nocard7"}
+                disabled={isMutating || selectedOption === "nocard7"}
               >
-                {selectedOption === "nocard7" && isLoading ? "Activating..." : "Start Lite Trial"}
+                {selectedOption === "nocard7" && isMutating ? "Activating..." : "Start Lite Trial"}
               </Button>
             </CardFooter>
           </Card>
@@ -216,9 +216,9 @@ export default function TrialSelection() {
               <Button
                 className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600"
                 onClick={() => handleSelection("professional", false, true)}
-                disabled={isLoading || selectedOption === "professional"}
+                disabled={isMutating || selectedOption === "professional"}
               >
-                {selectedOption === "professional" && isLoading ? "Processing..." : "Start Pro Trial ($1)"}
+                {selectedOption === "professional" && isMutating ? "Processing..." : "Start Pro Trial ($1)"}
               </Button>
             </CardFooter>
           </Card>
@@ -269,9 +269,9 @@ export default function TrialSelection() {
               <Button
                 className="w-full bg-gradient-to-r from-blue-500 to-cyan-500 hover:from-blue-600 hover:to-cyan-600"
                 onClick={() => handleSelection("starter", true)}
-                disabled={isLoading || selectedOption === "starter"}
+                disabled={isMutating || selectedOption === "starter"}
               >
-                {selectedOption === "starter" && isLoading ? "Processing..." : "Get Started"}
+                {selectedOption === "starter" && isMutating ? "Processing..." : "Get Started"}
               </Button>
             </CardFooter>
           </Card>
@@ -325,9 +325,9 @@ export default function TrialSelection() {
               <Button
                 className="w-full bg-gradient-to-r from-pink-500 to-purple-500 hover:from-pink-600 hover:to-purple-600"
                 onClick={() => handleSelection("professional", true)}
-                disabled={isLoading || selectedOption === "professional"}
+                disabled={isMutating || selectedOption === "professional"}
               >
-                {selectedOption === "professional" && isLoading ? "Processing..." : "Get Started"}
+                {selectedOption === "professional" && isMutating ? "Processing..." : "Get Started"}
               </Button>
             </CardFooter>
           </Card>
@@ -378,9 +378,9 @@ export default function TrialSelection() {
               <Button
                 className="w-full bg-gradient-to-r from-yellow-500 to-orange-500 hover:from-yellow-600 hover:to-orange-600"
                 onClick={() => handleSelection("business", true)}
-                disabled={isLoading || selectedOption === "business"}
+                disabled={isMutating || selectedOption === "business"}
               >
-                {selectedOption === "business" && isLoading ? "Processing..." : "Get Started"}
+                {selectedOption === "business" && isMutating ? "Processing..." : "Get Started"}
               </Button>
             </CardFooter>
           </Card>
