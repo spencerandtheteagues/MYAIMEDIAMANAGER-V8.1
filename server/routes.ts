@@ -54,11 +54,13 @@ function getUserId(req: any): string | null {
 async function checkTrialSelection(req: any, res: any, next: Function) {
   const userId = getUserId(req);
   
-  // Skip check for auth endpoints, verification, and trial selection endpoint
-  if (req.path === '/api/trial/select' || 
-      req.path === '/api/user' || 
+  // Skip check for auth endpoints, verification, trial selection, and Stripe checkout
+  if (req.path === '/api/trial/select' ||
+      req.path === '/api/user' ||
       req.path.startsWith('/api/auth/') ||
-      req.path.startsWith('/api/verification/')) {
+      req.path.startsWith('/api/verification/') ||
+      req.path.startsWith('/api/stripe/') ||
+      req.path.startsWith('/api/billing/')) {
     return next();
   }
   

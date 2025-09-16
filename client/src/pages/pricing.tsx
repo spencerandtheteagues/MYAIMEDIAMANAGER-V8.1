@@ -141,12 +141,12 @@ export default function PricingPage() {
             Want to try before you buy?
           </p>
           <Button
-            onClick={() => setLocation('/trial')}
+            onClick={() => setLocation('/trial-selection')}
             variant="outline"
             className="bg-transparent border-gray-600 text-gray-300 hover:bg-gray-800"
             data-testid="button-start-trial"
           >
-            Start Free Trial
+            View All Plans & Trials
           </Button>
         </div>
       </div>

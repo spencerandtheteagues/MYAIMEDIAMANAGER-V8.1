@@ -27,7 +27,7 @@ export default function Landing() {
               </h1>
             </div>
             <div className="flex items-center gap-4">
-              <Link href="/pricing">
+              <Link href="/trial-selection">
                 <Button variant="ghost" className="text-white hover:text-purple-400">
                   Pricing
                 </Button>
@@ -66,9 +66,9 @@ export default function Landing() {
             </p>
             
             <div className="flex justify-center">
-              <Link href="/trial">
+              <Link href="/trial-selection">
                 <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-lg px-8">
-                  Start Free Trial
+                  Choose Your Plan
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
@@ -231,9 +231,9 @@ export default function Landing() {
                 </div>
               </div>
               
-              <Link href="/trial">
+              <Link href="/trial-selection">
                 <Button size="lg" className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 text-lg px-12">
-                  Choose Your Trial
+                  View All Plans
                   <ArrowRight className="ml-2 w-5 h-5" />
                 </Button>
               </Link>
