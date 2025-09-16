@@ -179,42 +179,96 @@ export class MemStorage implements IStorage {
     this.referrals = new Map();
     
     // Initialize with demo user and data
-    this.initializeDemoData();
+    this.initializeDemoData().catch(console.error);
     this.initializeSubscriptionPlans();
   }
 
-  private initializeDemoData() {
-    // Create demo user with admin credentials
-    const demoUser: User = {
-      id: "demo-user-1",
-      email: "spencer@myaimediamgr.com",
-      username: "spencer.teague",
-      password: null, // Never hardcode passwords
-      firstName: "Spencer",
-      lastName: "Teague",
-      fullName: "Spencer Teague",
-      profileImageUrl: null,
-      businessName: "MyAiMediaMgr",
-      avatar: null,
-      googleAvatar: null,
-      role: "admin",
-      isAdmin: true,
-      accountStatus: "active",
-      tier: "enterprise",
-      subscriptionStatus: "active",
-      stripeCustomerId: null,
-      stripeSubscriptionId: null,
-      credits: 999999999,
-      freeCreditsUsed: false,
-      totalCreditsUsed: 0,
-      trialStartDate: new Date(),
-      trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
-      isPaid: true,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-      lastLoginAt: new Date(),
-    };
-    this.users.set(demoUser.id, demoUser);
+  private async initializeDemoData() {
+    // Import bcrypt for password hashing
+    const bcrypt = await import("bcryptjs");
+
+    // Create all 4 admin users with their specified credentials
+    const adminUsers = [
+      {
+        id: "admin-user-1",
+        email: "admin@myaimediamgr.com",
+        username: "admin",
+        password: "TheLionFi$hKey$",
+        firstName: "Admin",
+        lastName: "User",
+        fullName: "Admin User",
+        businessName: "MyAiMediaMgr"
+      },
+      {
+        id: "admin-user-2",
+        email: "spencertheteague@gmail.com",
+        username: "spencertheteague",
+        password: "TheZebr@Fi$hKey$",
+        firstName: "Spencer",
+        lastName: "Teague",
+        fullName: "Spencer Teague",
+        businessName: "MyAiMediaMgr"
+      },
+      {
+        id: "admin-user-3",
+        email: "jaysonpowers505@gmail.com",
+        username: "jaysonpowers",
+        password: "Illeatit420",
+        firstName: "Jayson",
+        lastName: "Powers",
+        fullName: "Jayson Powers",
+        businessName: "MyAiMediaMgr"
+      },
+      {
+        id: "admin-user-4",
+        email: "spencer@myaimediamgr.com",
+        username: "spencer.teague",
+        password: "TheMan0W@rKKey",
+        firstName: "Spencer",
+        lastName: "Teague",
+        fullName: "Spencer Teague",
+        businessName: "MyAiMediaMgr"
+      }
+    ];
+
+    // Create each admin user with hashed password
+    for (const adminData of adminUsers) {
+      const hashedPassword = await bcrypt.hash(adminData.password, 10);
+
+      const adminUser: User = {
+        id: adminData.id,
+        email: adminData.email,
+        username: adminData.username,
+        password: hashedPassword,
+        firstName: adminData.firstName,
+        lastName: adminData.lastName,
+        fullName: adminData.fullName,
+        profileImageUrl: null,
+        businessName: adminData.businessName,
+        avatar: null,
+        googleAvatar: null,
+        role: "admin",
+        isAdmin: true,
+        accountStatus: "active",
+        tier: "enterprise",
+        subscriptionStatus: "active",
+        stripeCustomerId: null,
+        stripeSubscriptionId: null,
+        credits: 999999999,
+        freeCreditsUsed: false,
+        totalCreditsUsed: 0,
+        emailVerified: true,
+        trialStartDate: new Date(),
+        trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        isPaid: true,
+        needsTrialSelection: false, // Admins don't need trial selection
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        lastLoginAt: new Date(),
+      };
+
+      this.users.set(adminUser.id, adminUser);
+    }
 
     // NO FAKE PLATFORMS - User must connect real platforms through OAuth
     // NO FAKE POSTS - All content must be created by user
