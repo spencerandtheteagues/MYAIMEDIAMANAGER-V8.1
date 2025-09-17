@@ -63,9 +63,7 @@ export const users = pgTable("users", {
   trialImagesRemaining: integer("trial_images_remaining").default(6),
   trialVideosRemaining: integer("trial_videos_remaining").default(0),
   
-  // Trial tracking
-  trialStartDate: timestamp("trial_start_date").defaultNow(),
-  trialEndDate: timestamp("trial_end_date").default(sql`NOW() + INTERVAL '7 days'`),
+  // Legacy trial fields (removed - use trialStartedAt/trialEndsAt instead)
   isPaid: boolean("is_paid").notNull().default(false),
   needsTrialSelection: boolean("needs_trial_selection").notNull().default(false),
   

@@ -2,6 +2,7 @@ import { GoogleGenAI } from "@google/genai";
 import * as fs from "fs/promises";
 import path from "path";
 import { randomUUID } from "crypto";
+import { logger } from "../logger";
 
 // Initialize Gemini client with the provided API key
 const geminiApiKey = process.env.GEMINI_API_KEY;
@@ -26,11 +27,11 @@ export interface GeminiVideoOptions {
 
 export async function generateVideoWithVeo3(opts: GeminiVideoOptions): Promise<Buffer> {
   try {
-    console.log('Starting Veo 3 video generation...');
+    logger.info('Starting Veo 3 video generation...', 'VEO3');
     
     // Select the correct model ID
     const modelId = opts.model === "veo-3-fast" ? VEO_MODELS.fast : VEO_MODELS.standard;
-    console.log(`Using model: ${modelId}`);
+    logger.info(`Using model: ${modelId}`, 'VEO3');
     
     // Start video generation with correct model ID
     let op = await ai.models.generateVideos({
@@ -42,7 +43,7 @@ export async function generateVideoWithVeo3(opts: GeminiVideoOptions): Promise<B
       }
     });
     
-    console.log('Video generation started, polling for completion...');
+    logger.info('Video generation started, polling for completion...', 'VEO3');
     
     // Poll until the operation is done (max 3 minutes)
     const maxAttempts = 18; // 18 * 10 seconds = 3 minutes
@@ -52,7 +53,7 @@ export async function generateVideoWithVeo3(opts: GeminiVideoOptions): Promise<B
       await new Promise(resolve => setTimeout(resolve, 10000)); // Wait 10 seconds
       op = await ai.operations.getVideosOperation({ operation: op });
       attempts++;
-      console.log(`Polling attempt ${attempts}/${maxAttempts}, done: ${op.done}`);
+      logger.debug(`Polling attempt ${attempts}/${maxAttempts}, done: ${op.done}`, 'VEO3');
     }
     
     if (!op.done) {
@@ -68,54 +69,54 @@ export async function generateVideoWithVeo3(opts: GeminiVideoOptions): Promise<B
     if (!videoFile) {
       throw new Error("No video file in response");
     }
-    console.log('Video generated successfully, downloading...');
+    logger.info('Video generated successfully, downloading...', 'VEO3');
     
     // Download the video file using the files API
     let videoBuffer: Buffer;
     
     try {
-      console.log('Downloading video file:', videoFile);
+      logger.debug('Downloading video file', 'VEO3', videoFile);
       
       // The GenAI SDK download method doesn't actually download the file content
       // Instead, we need to use the file's URI with proper authentication
       if ((videoFile as any).uri || (videoFile as any).url) {
         let fileUri = (videoFile as any).uri || (videoFile as any).url;
-        console.log('Original video URI:', fileUri);
+        logger.debug('Original video URI', 'VEO3', { uri: fileUri });
         
         // The URI already has the download endpoint, we need to add the API key as a query parameter
         const apiKey = process.env.GEMINI_API_KEY || process.env.GOOGLE_API_KEY;
         const separator = fileUri.includes('?') ? '&' : '?';
         fileUri = `${fileUri}${separator}key=${apiKey}`;
         
-        console.log('Fetching video from URI with API key...');
+        logger.info('Fetching video from URI with API key...', 'VEO3');
         const response = await fetch(fileUri);
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('Download error response:', errorText);
+          logger.error('Download error response', 'VEO3', { error: errorText });
           throw new Error(`Failed to fetch video: ${response.statusText} (${response.status})`);
         }
         
         const arrayBuffer = await response.arrayBuffer();
         videoBuffer = Buffer.from(arrayBuffer);
-        console.log(`Downloaded video successfully, size: ${videoBuffer.length} bytes`);
+        logger.info(`Downloaded video successfully, size: ${videoBuffer.length} bytes`, 'VEO3');
       } else {
         // If no URI is available, throw an error
         throw new Error("Video file has no URI for download. File details: " + JSON.stringify(videoFile));
       }
       
-      console.log('Veo 3 video generation completed successfully');
+      logger.info('Veo 3 video generation completed successfully', 'VEO3');
       return videoBuffer;
     } catch (downloadError: any) {
-      console.error('Failed to download video:', downloadError);
+      logger.error('Failed to download video', 'VEO3', downloadError);
       throw downloadError;
     }
     
   } catch (error: any) {
-    console.error('Veo 3 generation error:', error);
+    logger.error('Veo 3 generation error', 'VEO3', error);
     
     // If it's a model not found error and we were trying fast, fallback to standard
     if (opts.model === "veo-3-fast" && error.message?.includes('not found')) {
-      console.log('Falling back to standard Veo 3 model...');
+      logger.warn('Falling back to standard Veo 3 model...', 'VEO3');
       return generateVideoWithVeo3({
         ...opts,
         model: "veo-3"

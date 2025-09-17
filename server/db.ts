@@ -6,9 +6,14 @@ import * as schema from "@shared/schema";
 neonConfig.webSocketConstructor = ws;
 
 if (!process.env.DATABASE_URL) {
-  throw new Error(
-    "DATABASE_URL must be set. Did you forget to provision a database?",
-  );
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(
+      "DATABASE_URL must be set. Did you forget to provision a database?",
+    );
+  } else {
+    // In development, use a dummy URL to prevent import errors
+    process.env.DATABASE_URL = "postgresql://localhost:5432/dummy";
+  }
 }
 
 export const pool = new Pool({ connectionString: process.env.DATABASE_URL });

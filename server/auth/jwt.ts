@@ -1,8 +1,19 @@
 import jwt from 'jsonwebtoken';
 import { Request, Response, NextFunction } from 'express';
 
-const JWT_SECRET = process.env.JWT_SECRET!;
-if (!JWT_SECRET) throw new Error('Missing JWT_SECRET');
+// Ensure environment variables are loaded
+if (typeof process !== 'undefined' && !process.env.JWT_SECRET) {
+  try {
+    require('dotenv').config();
+  } catch (e) {
+    // dotenv might not be available, that's ok
+  }
+}
+
+const JWT_SECRET = process.env.JWT_SECRET || 'development-fallback-secret';
+if (!process.env.JWT_SECRET && process.env.NODE_ENV === 'production') {
+  throw new Error('Missing JWT_SECRET in production');
+}
 
 export type JwtClaims = {
   sub: string;           // user id

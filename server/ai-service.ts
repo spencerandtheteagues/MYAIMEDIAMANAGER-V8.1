@@ -1,9 +1,13 @@
 import { GoogleGenAI } from "@google/genai";
+import { logger } from "./logger";
+import { generateVideoWithGemini } from "./ai/gemini-video";
+import * as fs from "fs/promises";
+import * as path from "path";
 
 if (!process.env.GEMINI_API_KEY) {
-  console.warn("GEMINI_API_KEY not set. AI features will be disabled.");
+  logger.warn("GEMINI_API_KEY not set. AI features will be disabled.", "AI_SERVICE");
 } else {
-  console.log("GEMINI_API_KEY is configured.");
+  logger.info("GEMINI_API_KEY is configured.", "AI_SERVICE");
 }
 
 const genAI = process.env.GEMINI_API_KEY 
@@ -137,32 +141,50 @@ Format each post on a new line. Make each one unique and engaging.`;
       throw new Error("AI service not configured. Please set GEMINI_API_KEY.");
     }
 
-    // Video generation would use Veo 3 - using placeholder
     try {
+      logger.info("Starting video generation with Veo 3", "AI_SERVICE", { prompt: options.prompt });
+
+      // Use the actual Veo 3 implementation
+      const videoBuffer = await generateVideoWithGemini(
+        options.prompt,
+        options.duration || 8,
+        options.aspectRatio || "16:9"
+      );
+
+      // Save the video to attached_assets directory
+      const videoId = `video_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const videoPath = path.join(process.cwd(), 'attached_assets', `${videoId}.mp4`);
+
+      await fs.writeFile(videoPath, videoBuffer);
+      logger.info(`Video saved to ${videoPath}`, "AI_SERVICE");
+
+      // Generate a simple thumbnail (could be enhanced with actual frame extraction)
+      const thumbnail = `data:image/svg+xml;base64,${btoa(`
+        <svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
+          <defs>
+            <linearGradient id="videoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+              <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:1" />
+              <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
+            </linearGradient>
+          </defs>
+          <rect width="1280" height="720" fill="url(#videoGrad)"/>
+          <polygon points="580,300 580,420 700,360" fill="white" opacity="0.9"/>
+          <text x="50%" y="65%" text-anchor="middle" fill="white" font-size="24" font-family="system-ui">
+            AI Video Generated
+          </text>
+          <text x="50%" y="70%" text-anchor="middle" fill="white" font-size="16" font-family="system-ui" opacity="0.8">
+            "${options.prompt.substring(0, 60)}..."
+          </text>
+        </svg>
+      `)}`;
+
       return {
-        url: `data:video/mp4;base64,placeholder`,
-        thumbnail: `data:image/svg+xml;base64,${btoa(`
-          <svg width="1280" height="720" xmlns="http://www.w3.org/2000/svg">
-            <defs>
-              <linearGradient id="videoGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" style="stop-color:#8B5CF6;stop-opacity:1" />
-                <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
-              </linearGradient>
-            </defs>
-            <rect width="1280" height="720" fill="url(#videoGrad)"/>
-            <polygon points="580,300 580,420 700,360" fill="white" opacity="0.9"/>
-            <text x="50%" y="65%" text-anchor="middle" fill="white" font-size="24" font-family="system-ui">
-              AI Video Generation
-            </text>
-            <text x="50%" y="70%" text-anchor="middle" fill="white" font-size="16" font-family="system-ui" opacity="0.8">
-              "${options.prompt.substring(0, 60)}..."
-            </text>
-          </svg>
-        `)}`
+        url: `/attached_assets/${videoId}.mp4`,
+        thumbnail
       };
     } catch (error) {
-      console.error("Video generation error:", error);
-      throw new Error("Video generation is currently in preview. Please try again later.");
+      logger.error("Video generation error", "AI_SERVICE", error);
+      throw new Error("Video generation failed. Please try again later.");
     }
   }
 

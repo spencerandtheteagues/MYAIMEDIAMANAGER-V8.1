@@ -1,3 +1,12 @@
+// Ensure environment variables are loaded
+if (typeof process !== 'undefined' && !process.env.GOOGLE_CLIENT_ID) {
+  try {
+    require('dotenv').config();
+  } catch (e) {
+    // dotenv might not be available, that's ok
+  }
+}
+
 import passport from 'passport';
 import { Strategy as GoogleStrategy } from 'passport-google-oauth20';
 import type { Request, Response, NextFunction } from 'express';
@@ -31,8 +40,8 @@ async function findOrCreateUserFromGoogle(profile: any) {
       subscriptionStatus: 'inactive', // No trial until they select one
       needsTrialSelection: true, // NEW USERS MUST SELECT A TRIAL
       emailVerified: true, // Google OAuth users are pre-verified
-      trialStartDate: null, // No trial until they select one
-      trialEndDate: null, // No trial until they select one
+      trialStartedAt: null, // No trial until they select one
+      trialEndsAt: null, // No trial until they select one
     };
     user = await storage.createUser(newUser);
   } else {
@@ -63,8 +72,8 @@ function getCallbackUrl(req: Request) {
 // Strategy just to get the Google profile; we do NOT use passport sessions
 passport.use(new GoogleStrategy(
   {
-    clientID: process.env.GOOGLE_CLIENT_ID!,
-    clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+    clientID: process.env.GOOGLE_CLIENT_ID || 'dummy-client-id',
+    clientSecret: process.env.GOOGLE_CLIENT_SECRET || 'dummy-client-secret',
     callbackURL: '/api/auth/google/callback', // This will be overridden by the dynamic one
     passReqToCallback: true,
   },

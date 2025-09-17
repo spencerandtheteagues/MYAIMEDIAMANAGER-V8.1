@@ -605,7 +605,6 @@ export class DbStorage implements IStorage {
   async updateTrialPeriod(userId: string, endDate: Date): Promise<User | undefined> {
     const result = await db.update(users)
       .set({
-        trialEndDate: endDate,
         trialEndsAt: endDate,
         updatedAt: new Date()
       })
@@ -749,5 +748,56 @@ export class DbStorage implements IStorage {
       creditsEarned,
       pendingReferrals: pending.length,
     };
+  }
+
+  // Platform Connections (for social media publishing)
+  // TODO: Add database schema for platform connections
+  async getUserPlatformConnections(userId: string): Promise<any[]> {
+    // For now, return empty array until database schema is added
+    return [];
+  }
+
+  async createPlatformConnection(connection: any): Promise<any> {
+    throw new Error("Platform connections not yet implemented in database - add schema first");
+  }
+
+  async updatePlatformConnection(id: string, updates: any): Promise<any> {
+    throw new Error("Platform connections not yet implemented in database - add schema first");
+  }
+
+  async deletePlatformConnection(id: string): Promise<boolean> {
+    throw new Error("Platform connections not yet implemented in database - add schema first");
+  }
+
+  // Scheduled Posts (for social media publishing)
+  // TODO: Add database schema for scheduled posts
+  async getScheduledPostsDue(beforeTime: Date): Promise<any[]> {
+    // For now, return empty array until database schema is added
+    return [];
+  }
+
+  async createScheduledPost(schedule: any): Promise<any> {
+    throw new Error("Scheduled posts not yet implemented in database - add schema first");
+  }
+
+  async updateScheduledPost(id: string, updates: any): Promise<any> {
+    throw new Error("Scheduled posts not yet implemented in database - add schema first");
+  }
+
+  async getScheduledPost(id: string): Promise<any> {
+    throw new Error("Scheduled posts not yet implemented in database - add schema first");
+  }
+
+  async storePublishRequest(scheduleId: string, request: any): Promise<void> {
+    throw new Error("Publish requests not yet implemented in database - add schema first");
+  }
+
+  async getPublishRequest(scheduleId: string): Promise<any> {
+    throw new Error("Publish requests not yet implemented in database - add schema first");
+  }
+
+  async logPlatformPublication(publication: any): Promise<void> {
+    // For now, just log to console until database schema is added
+    console.log("Platform publication logged:", publication);
   }
 }

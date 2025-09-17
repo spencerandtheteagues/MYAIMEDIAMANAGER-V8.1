@@ -31,6 +31,21 @@ export interface IStorage {
   getPlatformById(id: string): Promise<Platform | undefined>;
   createPlatform(platform: InsertPlatform): Promise<Platform>;
   updatePlatform(id: string, updates: Partial<Platform>): Promise<Platform | undefined>;
+
+  // Platform Connections (for social media publishing)
+  getUserPlatformConnections(userId: string): Promise<any[]>;
+  createPlatformConnection(connection: any): Promise<any>;
+  updatePlatformConnection(id: string, updates: any): Promise<any>;
+  deletePlatformConnection(id: string): Promise<boolean>;
+
+  // Scheduled Posts (for social media publishing)
+  getScheduledPostsDue(beforeTime: Date): Promise<any[]>;
+  createScheduledPost(schedule: any): Promise<any>;
+  updateScheduledPost(id: string, updates: any): Promise<any>;
+  getScheduledPost(id: string): Promise<any>;
+  storePublishRequest(scheduleId: string, request: any): Promise<void>;
+  getPublishRequest(scheduleId: string): Promise<any>;
+  logPlatformPublication(publication: any): Promise<void>;
   
   // Campaigns
   getCampaignsByUserId(userId: string): Promise<Campaign[]>;
@@ -206,6 +221,10 @@ export class MemStorage implements IStorage {
   private loginHistory: Map<string, Array<{ timestamp: Date; ip?: string; userAgent?: string }>>;
   private systemAlerts: Map<string, any>;
   private subscriptionHistory: Map<string, Array<any>>;
+  private platformConnections: Map<string, any>;
+  private scheduledPosts: Map<string, any>;
+  private publishRequests: Map<string, any>;
+  private platformPublications: Map<string, any>;
 
   constructor() {
     this.users = new Map();
@@ -227,6 +246,10 @@ export class MemStorage implements IStorage {
     this.loginHistory = new Map();
     this.systemAlerts = new Map();
     this.subscriptionHistory = new Map();
+    this.platformConnections = new Map();
+    this.scheduledPosts = new Map();
+    this.publishRequests = new Map();
+    this.platformPublications = new Map();
 
     // Initialize with demo user and data
     this.initializeDemoData().catch(console.error);
@@ -307,8 +330,8 @@ export class MemStorage implements IStorage {
         freeCreditsUsed: false,
         totalCreditsUsed: 0,
         emailVerified: true,
-        trialStartDate: new Date(),
-        trialEndDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
+        trialStartedAt: new Date(),
+        trialEndsAt: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000),
         isPaid: true,
         needsTrialSelection: false, // Admins don't need trial selection
         createdAt: new Date(),
@@ -479,8 +502,8 @@ export class MemStorage implements IStorage {
         freeCreditsUsed: false,
         totalCreditsUsed: 0,
         isPaid: false,
-        trialStartDate: new Date(),
-        trialEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+        trialStartedAt: new Date(),
+        trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
         createdAt: new Date(),
         updatedAt: new Date(),
         lastLoginAt: new Date()
@@ -1174,7 +1197,6 @@ export class MemStorage implements IStorage {
     
     const updatedUser = { 
       ...user, 
-      trialEndDate: endDate,
       trialEndsAt: endDate,
       updatedAt: new Date()
     };
@@ -1423,7 +1445,7 @@ export class MemStorage implements IStorage {
     const now = new Date();
     return Array.from(this.users.values()).filter(user => {
       if (user.tier !== 'free' || user.isPaid) return false;
-      const trialEnd = user.trialEndDate || user.trialEndsAt;
+      const trialEnd = user.trialEndsAt;
       return trialEnd && new Date(trialEnd) > now;
     }).length;
   }
@@ -1432,7 +1454,7 @@ export class MemStorage implements IStorage {
     const now = new Date();
     return Array.from(this.users.values()).filter(user => {
       if (user.tier !== 'free' || user.isPaid) return false;
-      const trialEnd = user.trialEndDate || user.trialEndsAt;
+      const trialEnd = user.trialEndsAt;
       return trialEnd && new Date(trialEnd) <= now;
     }).length;
   }
@@ -1538,11 +1560,98 @@ export class MemStorage implements IStorage {
       avgEngagement: 0 // Would calculate from analytics in real implementation
     };
   }
+
+  // Platform Connections (for social media publishing)
+  async getUserPlatformConnections(userId: string): Promise<any[]> {
+    return Array.from(this.platformConnections.values()).filter((conn: any) => conn.userId === userId);
+  }
+
+  async createPlatformConnection(connection: any): Promise<any> {
+    const id = `conn_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const newConnection = {
+      ...connection,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.platformConnections.set(id, newConnection);
+    return newConnection;
+  }
+
+  async updatePlatformConnection(id: string, updates: any): Promise<any> {
+    const connection = this.platformConnections.get(id);
+    if (!connection) return undefined;
+
+    const updatedConnection = {
+      ...connection,
+      ...updates,
+      updatedAt: new Date()
+    };
+    this.platformConnections.set(id, updatedConnection);
+    return updatedConnection;
+  }
+
+  async deletePlatformConnection(id: string): Promise<boolean> {
+    return this.platformConnections.delete(id);
+  }
+
+  // Scheduled Posts (for social media publishing)
+  async getScheduledPostsDue(beforeTime: Date): Promise<any[]> {
+    return Array.from(this.scheduledPosts.values()).filter((post: any) =>
+      post.status === 'pending' && new Date(post.scheduledTime) <= beforeTime
+    );
+  }
+
+  async createScheduledPost(schedule: any): Promise<any> {
+    const id = `sched_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const newSchedule = {
+      ...schedule,
+      id,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+    this.scheduledPosts.set(id, newSchedule);
+    return newSchedule;
+  }
+
+  async updateScheduledPost(id: string, updates: any): Promise<any> {
+    const schedule = this.scheduledPosts.get(id);
+    if (!schedule) return undefined;
+
+    const updatedSchedule = {
+      ...schedule,
+      ...updates,
+      updatedAt: new Date()
+    };
+    this.scheduledPosts.set(id, updatedSchedule);
+    return updatedSchedule;
+  }
+
+  async getScheduledPost(id: string): Promise<any> {
+    return this.scheduledPosts.get(id);
+  }
+
+  async storePublishRequest(scheduleId: string, request: any): Promise<void> {
+    this.publishRequests.set(scheduleId, request);
+  }
+
+  async getPublishRequest(scheduleId: string): Promise<any> {
+    return this.publishRequests.get(scheduleId);
+  }
+
+  async logPlatformPublication(publication: any): Promise<void> {
+    const id = `pub_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    this.platformPublications.set(id, {
+      ...publication,
+      id,
+      createdAt: new Date()
+    });
+  }
 }
 
 import { DbStorage } from "./storage.db";
 
 // Use DbStorage in production with DATABASE_URL, MemStorage for development
-export const storage = process.env.DATABASE_URL 
-  ? new DbStorage() 
+export const storage = process.env.DATABASE_URL
+  ? new DbStorage()
   : new MemStorage();

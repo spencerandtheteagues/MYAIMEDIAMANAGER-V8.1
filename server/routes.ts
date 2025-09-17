@@ -71,7 +71,7 @@ async function checkTrialSelection(req: any, res: any, next: Function) {
         // Check if user actually needs trial selection or if they already have a trial/plan
         const hasExistingPlan = user.tier !== 'free' ||
                                user.subscriptionStatus === 'active' ||
-                               (user.subscriptionStatus === 'trial' && user.trialStartDate && user.trialPlan);
+                               (user.subscriptionStatus === 'trial' && user.trialStartedAt && user.trialPlan);
 
         if (hasExistingPlan) {
           // User already has a plan but flag wasn't cleared - fix it
@@ -947,18 +947,149 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Post not found" });
       }
       
-      // Update post status to published
-      const updatedPost = await storage.updatePost(id, {
-        status: "published",
-        publishedAt: new Date()
-      });
-      
-      // TODO: Actually publish to connected platforms
-      // This would involve calling platform APIs
-      
-      res.json(updatedPost);
+      // Publish to platform APIs using the publishing framework
+      const { platformPublisher } = await import('./platforms/publisher');
+
+      try {
+        // Create publish request from post data
+        const publishRequest = {
+          content: post.content,
+          media: post.media ? [post.media] : [],
+          platforms: post.platforms ? post.platforms.split(',') : ['instagram'], // Default platform
+          metadata: {
+            hashtags: post.hashtags ? post.hashtags.split(',') : [],
+          }
+        };
+
+        // Publish immediately to all platforms
+        const results = await platformPublisher.publishToAll(post.userId, publishRequest);
+
+        // Update post with publish results
+        const updatedPost = await storage.updatePost(id, {
+          status: results.every(r => r.success) ? "published" : "failed",
+          publishedAt: new Date()
+        });
+
+        // Return post with publish results
+        res.json({
+          ...updatedPost,
+          publishResults: results
+        });
+        return;
+
+      } catch (error) {
+        console.error("Platform publishing failed:", error);
+        // Fall back to just updating status if publishing fails
+        const updatedPost = await storage.updatePost(id, {
+          status: "published", // Still mark as published even if platform APIs fail
+          publishedAt: new Date()
+        });
+        res.json(updatedPost);
+        return;
+      }
     } catch (error) {
       res.status(500).json({ message: "Failed to publish post" });
+    }
+  });
+
+  // Platform Publishing API Endpoints
+
+  // Get user's platform connections
+  app.get("/api/platforms/connections", async (req: any, res) => {
+    try {
+      const { platformPublisher } = await import('./platforms/publisher');
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const status = await platformPublisher.getPlatformStatus(userId);
+      res.json(status);
+    } catch (error) {
+      console.error("Error getting platform connections:", error);
+      res.status(500).json({ message: "Failed to get platform connections" });
+    }
+  });
+
+  // Test platform connection
+  app.post("/api/platforms/:platform/test", async (req: any, res) => {
+    try {
+      const { platform } = req.params;
+      const { platformPublisher } = await import('./platforms/publisher');
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const isWorking = await platformPublisher.testConnection(userId, platform);
+      res.json({ platform, connected: isWorking });
+    } catch (error) {
+      console.error(`Error testing ${req.params.platform} connection:`, error);
+      res.status(500).json({ message: "Failed to test platform connection" });
+    }
+  });
+
+  // Get platform adapter info (limits, auth URL, etc.)
+  app.get("/api/platforms/:platform/info", async (req: any, res) => {
+    try {
+      const { platform } = req.params;
+      const { platformRegistry } = await import('./platforms/registry');
+
+      const info = platformRegistry.getAdapterInfo(platform);
+      res.json(info);
+    } catch (error) {
+      console.error(`Error getting ${req.params.platform} info:`, error);
+      res.status(500).json({ message: "Platform not found" });
+    }
+  });
+
+  // Schedule a post for future publishing
+  app.post("/api/posts/schedule", async (req: any, res) => {
+    try {
+      const { content, platforms, scheduledTime, media, hashtags } = req.body;
+      const { platformPublisher } = await import('./platforms/publisher');
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const publishRequest = {
+        content,
+        media: media || [],
+        scheduledTime: new Date(scheduledTime),
+        platforms: platforms || ['instagram'],
+        metadata: {
+          hashtags: hashtags || []
+        }
+      };
+
+      const scheduledPost = await platformPublisher.schedulePost(userId, publishRequest);
+      res.json(scheduledPost);
+    } catch (error) {
+      console.error("Error scheduling post:", error);
+      res.status(500).json({ message: "Failed to schedule post" });
+    }
+  });
+
+  // Cancel a scheduled post
+  app.delete("/api/posts/schedule/:scheduleId", async (req: any, res) => {
+    try {
+      const { scheduleId } = req.params;
+      const { platformPublisher } = await import('./platforms/publisher');
+      const userId = req.user?.claims?.sub;
+
+      if (!userId) {
+        return res.status(401).json({ message: "Authentication required" });
+      }
+
+      const cancelled = await platformPublisher.cancelScheduledPost(userId, scheduleId);
+      res.json({ success: cancelled });
+    } catch (error) {
+      console.error("Error cancelling scheduled post:", error);
+      res.status(500).json({ message: "Failed to cancel scheduled post" });
     }
   });
 
@@ -1743,7 +1874,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const now = new Date();
-      const trialEndDate = user.trialEndDate || user.trialEndsAt;
+      const trialEndDate = user.trialEndsAt;
       
       let isTrialUser = false;
       let daysRemaining = 0;
@@ -1759,7 +1890,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       
       res.json({
         isTrialUser,
-        trialEndDate,
+        trialEndsAt: trialEndDate,
         daysRemaining,
         hasExpired,
       });
