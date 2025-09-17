@@ -123,7 +123,7 @@ router.post('/openai', async (req: Request, res: Response) => {
     try {
       // Create streaming chat completion
       const stream = await openai.chat.completions.create({
-        model: process.env.OPENAI_MODEL || 'gpt-5',
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini',
         messages,
         stream: true,
         temperature: 0.8, // Slightly higher for creativity
@@ -238,8 +238,8 @@ router.post('/gemini', async (req: Request, res: Response) => {
     
     // Initialize Gemini client
     const genAI = new GoogleGenerativeAI(apiKey);
-    const model = genAI.getGenerativeModel({
-      model: 'gemini-2.5-flash',
+    const model = genAI.getGenerativeModel({ 
+      model: 'gemini-2.0-flash-exp',
       generationConfig: {
         temperature: 0.8, // Slightly higher for creativity
         maxOutputTokens: 2000,
@@ -369,11 +369,11 @@ router.get('/health', async (req: Request, res: Response) => {
     services: {
       openai: {
         configured: openAIConfigured,
-        model: process.env.OPENAI_MODEL || 'gpt-5'
+        model: process.env.OPENAI_MODEL || 'gpt-4o-mini'
       },
       gemini: {
         configured: geminiConfigured,
-        model: 'gemini-2.5-flash'
+        model: 'gemini-2.0-flash-exp'
       }
     },
     features: {

@@ -64,19 +64,19 @@ ${options.includeEmojis ? "- Include appropriate emojis" : "- No emojis"}
 Format each post on a new line. Make each one unique and engaging.`;
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      const result = await model.generateContent({
+      const result = await (genAI.models as any).generateContent({
+        model: "gemini-1.5-pro",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.9, maxOutputTokens: 2048 }
       });
-
-      const text = result.response.text() || "";
-
+      
+      const text = result.text || "";
+      
       // Split by newlines and filter out empty lines
       const posts = text.split('\n')
         .filter((line: string) => line.trim().length > 0)
         .slice(0, 3);
-
+      
       return posts.length > 0 ? posts : [text];
     } catch (error) {
       console.error("Text generation error:", error);
@@ -182,14 +182,14 @@ Requirements:
 Return only the hashtags, one per line.`;
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      const result = await model.generateContent({
+      const result = await (genAI.models as any).generateContent({
+        model: "gemini-1.5-pro",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
       });
-
-      const text = result.response.text() || "";
-
+      
+      const text = result.text || "";
+      
       return text.split('\n')
         .filter((tag: string) => tag.trim().length > 0)
         .map((tag: string) => tag.trim().replace(/^#/, ''))
@@ -217,13 +217,13 @@ Requirements:
 Return only the improved version.`;
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-2.5-flash" });
-      const result = await model.generateContent({
+      const result = await (genAI.models as any).generateContent({
+        model: "gemini-1.5-pro",
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.8, maxOutputTokens: 1024 }
       });
-
-      return result.response.text().trim();
+      
+      return (result.text || "").trim();
     } catch (error) {
       console.error("Content improvement error:", error);
       return content; // Return original if improvement fails
