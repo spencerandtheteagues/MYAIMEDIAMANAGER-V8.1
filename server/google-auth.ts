@@ -194,17 +194,40 @@ function createUserSession(req: Request, user: User) {
 
 // Get the base URL for callbacks
 function getCallbackUrl(req: Request): string {
-  // In production, always use the apex domain for OAuth consistency
+  // Use explicit environment variable if set
+  if (process.env.OAUTH_CALLBACK_URL) {
+    return process.env.OAUTH_CALLBACK_URL;
+  }
+
+  // In production, detect the actual domain being used
   if (process.env.NODE_ENV === 'production') {
+    const host = req.get('host') || req.get('x-forwarded-host');
+
+    // Render deployment
+    if (host && host.includes('.onrender.com')) {
+      return `https://${host}/api/auth/google/callback`;
+    }
+
+    // Replit deployment
+    if (host && (host.includes('.replit.dev') || host.includes('.repl.co'))) {
+      return `https://${host}/api/auth/google/callback`;
+    }
+
+    // Custom domain fallback
     return 'https://myaimediamgr.com/api/auth/google/callback';
   }
-  
-  // In development, check for Replit domains first
+
+  // In development, check for platform-specific domains
   if (process.env.REPLIT_DOMAINS) {
     const firstDomain = process.env.REPLIT_DOMAINS.split(',')[0];
     return `https://${firstDomain}/api/auth/google/callback`;
   }
-  
+
+  // Check for Render environment variable
+  if (process.env.RENDER_EXTERNAL_URL) {
+    return `${process.env.RENDER_EXTERNAL_URL}/api/auth/google/callback`;
+  }
+
   // Local development
   return 'http://localhost:5000/api/auth/google/callback';
 }
@@ -289,14 +312,32 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
           userId: user.id,
           email: user.email,
           needsTrialSelection: user.needsTrialSelection,
+          trialPlan: user.trialPlan,
         });
+
         // Update existing user's Google info
-        await storage.updateUser(user.id, {
+        const updateData: any = {
           googleAvatar: profile.photos?.[0]?.value,
           profileImageUrl: user.profileImageUrl || profile.photos?.[0]?.value,
           emailVerified: true,
           lastLoginAt: new Date(),
-        });
+        };
+
+        // If user already has a trial plan selected, clear needsTrialSelection flag
+        if (user.trialPlan && user.needsTrialSelection) {
+          updateData.needsTrialSelection = false;
+          safeDebugLog('[OAuth Debug] Clearing needsTrialSelection for existing user with trial plan:', {
+            userId: user.id,
+            trialPlan: user.trialPlan,
+          });
+        }
+
+        await storage.updateUser(user.id, updateData);
+
+        // Update the user object to reflect the change
+        if (updateData.needsTrialSelection === false) {
+          user.needsTrialSelection = false;
+        }
       }
       
       safeDebugLog('[OAuth Debug] Strategy callback successful, returning user:', {

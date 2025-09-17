@@ -6,8 +6,34 @@
 import crypto from 'crypto';
 import { storage } from './storage';
 
-// OAuth 2.0 configuration
-const domain = process.env.REPLIT_DOMAINS?.split(',')[0] || 'localhost:5000';
+// OAuth 2.0 configuration - dynamic domain detection
+function getDomain(): string {
+  // Explicit override
+  if (process.env.X_REDIRECT_URI) {
+    return new URL(process.env.X_REDIRECT_URI).host;
+  }
+
+  // Production domain detection
+  if (process.env.NODE_ENV === 'production') {
+    // Render deployment
+    if (process.env.RENDER_EXTERNAL_URL) {
+      return new URL(process.env.RENDER_EXTERNAL_URL).host;
+    }
+
+    // Custom domain fallback
+    return 'myaimediamgr.com';
+  }
+
+  // Legacy Replit support
+  if (process.env.REPLIT_DOMAINS) {
+    return process.env.REPLIT_DOMAINS.split(',')[0];
+  }
+
+  // Local development
+  return 'localhost:5000';
+}
+
+const domain = getDomain();
 const protocol = domain.includes('localhost') ? 'http' : 'https';
 
 const X_OAUTH_CONFIG = {

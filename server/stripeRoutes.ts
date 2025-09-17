@@ -31,12 +31,45 @@ const requireAuth = async (req: any, res: any, next: any) => {
   next();
 };
 
-// Get the base URL for redirects
+// Get the base URL for redirects - supports multiple deployment platforms
 function getBaseUrl(req: any): string {
+  // Explicit override
+  if (process.env.APP_URL) {
+    return process.env.APP_URL;
+  }
+
+  // Production detection by host header
+  if (process.env.NODE_ENV === 'production') {
+    const host = req.get('host') || req.get('x-forwarded-host');
+
+    if (host) {
+      // Render deployment
+      if (host.includes('.onrender.com')) {
+        return `https://${host}`;
+      }
+
+      // Replit deployment (legacy support)
+      if (host.includes('.replit.dev') || host.includes('.repl.co')) {
+        return `https://${host}`;
+      }
+
+      // Custom domain
+      if (host.includes('myaimediamgr.com')) {
+        return `https://${host}`;
+      }
+    }
+
+    // Fallback to custom domain
+    return 'https://myaimediamgr.com';
+  }
+
+  // Legacy Replit support in development
   if (process.env.REPLIT_DOMAINS) {
     const firstDomain = process.env.REPLIT_DOMAINS.split(',')[0];
     return `https://${firstDomain}`;
   }
+
+  // Local development
   return `http://localhost:${process.env.PORT || 5000}`;
 }
 

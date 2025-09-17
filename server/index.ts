@@ -34,9 +34,37 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false,
 }));
 
-// CORS configuration
+// CORS configuration - Dynamic origin detection for different deployment platforms
+function getCorsOrigin(req: any): boolean | string | string[] {
+  // Allow specific environment variable override
+  if (process.env.CORS_ORIGINS) {
+    return process.env.CORS_ORIGINS.split(',').map(origin => origin.trim());
+  }
+
+  // For Render deployments
+  if (process.env.RENDER) {
+    const renderUrl = process.env.RENDER_EXTERNAL_URL;
+    if (renderUrl) {
+      return [renderUrl, 'https://myaimediamgr.com'];
+    }
+  }
+
+  // Legacy Replit support (if still needed)
+  if (process.env.REPLIT_DOMAINS) {
+    return process.env.REPLIT_DOMAINS.split(',').map(d => `https://${d}`);
+  }
+
+  // Production custom domain
+  if (process.env.NODE_ENV === 'production') {
+    return ['https://myaimediamgr.com', 'https://www.myaimediamgr.com'];
+  }
+
+  // Development - allow all origins
+  return true;
+}
+
 app.use(cors({
-  origin: process.env.REPLIT_DOMAINS ? process.env.REPLIT_DOMAINS.split(',').map(d => `https://${d}`) : true,
+  origin: getCorsOrigin,
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With'],

@@ -103,8 +103,10 @@ export default function Dashboard() {
   const isLoading = isLoadingDashboard || isLoadingPlatforms;
   const hasConnectedPlatforms = platforms.some(p => p.connected);
   
-  const referralLink = currentUser?.referralCode 
-    ? `https://myaimediamgr.com/auth?ref=${currentUser.referralCode}`
+  // Generate referral link using current domain
+  const baseUrl = window.location.origin;
+  const referralLink = currentUser?.referralCode
+    ? `${baseUrl}/auth?ref=${currentUser.referralCode}`
     : '';
     
   const handleCopyReferralLink = () => {
