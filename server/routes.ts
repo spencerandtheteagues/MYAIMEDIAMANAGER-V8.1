@@ -70,10 +70,8 @@ async function checkTrialSelection(req: any, res: any, next: Function) {
       if (user?.needsTrialSelection) {
         // Check if user actually needs trial selection or if they already have a trial/plan
         const hasExistingPlan = user.tier !== 'free' ||
-                               user.subscriptionStatus === 'trial' ||
                                user.subscriptionStatus === 'active' ||
-                               user.trialStartDate ||
-                               (user.credits && user.credits > 0);
+                               (user.subscriptionStatus === 'trial' && user.trialStartDate && user.trialPlan);
 
         if (hasExistingPlan) {
           // User already has a plan but flag wasn't cleared - fix it

@@ -26,13 +26,13 @@ async function findOrCreateUserFromGoogle(profile: any) {
       // Default values for a new user
       role: 'user',
       tier: 'free',
-      credits: 50, // Welcome credits
+      credits: 0, // No credits until trial selected
       accountStatus: 'active',
-      subscriptionStatus: 'trial',
+      subscriptionStatus: 'inactive', // No trial until they select one
       needsTrialSelection: true, // NEW USERS MUST SELECT A TRIAL
       emailVerified: true, // Google OAuth users are pre-verified
-      trialStartDate: new Date(),
-      trialEndDate: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7-day trial
+      trialStartDate: null, // No trial until they select one
+      trialEndDate: null, // No trial until they select one
     };
     user = await storage.createUser(newUser);
   } else {
