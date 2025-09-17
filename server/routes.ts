@@ -216,9 +216,36 @@ export async function registerRoutes(app: Express): Promise<Server> {
     if (req.path === '/health') {
       return next();
     }
-    
-    // Check for session-based authentication first
-    if (req.session?.userId) {
+
+    // Check for JWT authentication first (primary method)
+    const token = req.cookies?.mam_jwt;
+    if (token) {
+      try {
+        const { verifyJwt } = await import('./auth/jwt');
+        const jwtClaims = verifyJwt(token);
+        if (jwtClaims?.sub) {
+          // Get the user from storage and set it on req.user
+          const user = await storage.getUser(jwtClaims.sub);
+          if (user) {
+            req.user = {
+              id: user.id,
+              email: user.email,
+              username: user.username,
+              businessName: user.businessName,
+              role: user.role,
+              tier: user.tier,
+              isAdmin: user.isAdmin,
+              sub: jwtClaims.sub, // For JWT compatibility
+              claims: { sub: user.id } // For legacy compatibility
+            };
+          }
+        }
+      } catch (jwtError) {
+        console.error("JWT verification failed for AI chat routes:", jwtError);
+      }
+    }
+    // Check for session-based authentication as fallback
+    else if (req.session?.userId) {
       // Get the user from storage and set it on req.user
       try {
         const user = await storage.getUser(req.session.userId);
