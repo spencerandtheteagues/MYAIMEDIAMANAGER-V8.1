@@ -1770,18 +1770,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  // Admin endpoints  
-  app.get("/api/admin/users", async (req, res) => {
-    const userId = getUserId(req);
-    
-    // Check if user is admin
-    if (user?.role !== 'admin' && !user?.isAdmin) {
-      return res.status(401).json({ message: "Unauthorized" });
-    }
-    
-    const users = await storage.getAllUsers();
-    res.json(users);
-  });
+  // Note: Admin endpoints are handled in adminRoutes.ts
+  // This duplicate endpoint should be removed to avoid conflicts
 
   const httpServer = createServer(app);
   return httpServer;

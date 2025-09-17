@@ -21,13 +21,13 @@ export default function TrialSelection() {
   });
 
   // If user is authenticated and has already selected a trial, redirect to app
-  if (user && !user.needsTrialSelection) {
+  if (user && !user.needsTrialSelection && !isLoading) {
     setLocation("/");
     return null;
   }
 
-  // Show loading only briefly - allow unauthenticated users to see pricing
-  const shouldShowContent = !isLoading || error || !user;
+  // Always show content - don't block unauthenticated users
+  const shouldShowContent = true;
 
   const selectTrialMutation = useMutation({
     mutationFn: async (variant: string) => {
