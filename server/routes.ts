@@ -68,10 +68,28 @@ async function checkTrialSelection(req: any, res: any, next: Function) {
     try {
       const user = await storage.getUser(userId);
       if (user?.needsTrialSelection) {
-        return res.status(403).json({ 
-          message: "Trial selection required",
-          needsTrialSelection: true 
-        });
+        // Check if user actually needs trial selection or if they already have a trial/plan
+        const hasExistingPlan = user.tier !== 'free' ||
+                               user.subscriptionStatus === 'trial' ||
+                               user.subscriptionStatus === 'active' ||
+                               user.trialStartDate ||
+                               (user.credits && user.credits > 0);
+
+        if (hasExistingPlan) {
+          // User already has a plan but flag wasn't cleared - fix it
+          try {
+            await storage.updateUser(userId, { needsTrialSelection: false });
+            console.log(`Cleared needsTrialSelection flag for existing user ${userId}`);
+          } catch (updateError) {
+            console.error("Failed to clear needsTrialSelection flag:", updateError);
+          }
+        } else {
+          // User genuinely needs to select a trial
+          return res.status(403).json({
+            message: "Trial selection required",
+            needsTrialSelection: true
+          });
+        }
       }
     } catch (error) {
       console.error("Error checking trial selection:", error);
