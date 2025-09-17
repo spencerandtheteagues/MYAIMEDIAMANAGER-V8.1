@@ -237,9 +237,7 @@ if (process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET) {
   passport.use(new GoogleStrategy({
     clientID: process.env.GOOGLE_CLIENT_ID,
     clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-    callbackURL: process.env.NODE_ENV === 'production' 
-      ? 'https://myaimediamgr.com/api/auth/google/callback'
-      : '/api/auth/google/callback',
+    callbackURL: '/api/auth/google/callback', // Use relative URL to work with any domain
     scope: ['openid', 'email', 'profile'],
     state: true, // Enable state parameter for CSRF protection
     passReqToCallback: true,

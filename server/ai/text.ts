@@ -14,9 +14,9 @@ export async function generateText(opts:{prompt:string; system?:string; temperat
         // Vertex support would go here
         throw new Error("Vertex AI not yet implemented");
       } else {
-        const model = genai.getGenerativeModel({ 
-          model: MODELS.text, 
-          systemInstruction: opts.system 
+        const model = genai.getGenerativeModel({
+          model: MODELS.text, // gemini-2.5-flash
+          systemInstruction: opts.system
         });
         const r = await model.generateContent({ 
           contents:[{ role:"user", parts:[{ text: opts.prompt }]}], 
