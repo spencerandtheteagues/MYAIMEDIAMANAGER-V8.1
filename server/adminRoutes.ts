@@ -418,20 +418,20 @@ router.delete("/users/:id", async (req, res) => {
     }
     
     if (permanent === "true") {
-      // Permanently delete user and all data
-      const deleted = await storage.deleteUser(id);
-      if (!deleted) {
-        return res.status(500).json({ message: "Failed to delete user" });
-      }
-      
-      // Log admin action
+      // Log admin action BEFORE deleting user to avoid foreign key constraint violation
       await storage.logAdminAction({
         adminUserId: adminId || null,
         targetUserId: id,
         action: "permanent_delete",
         details: { permanent: true },
       });
-      
+
+      // Permanently delete user and all data
+      const deleted = await storage.deleteUser(id);
+      if (!deleted) {
+        return res.status(500).json({ message: "Failed to delete user" });
+      }
+
       res.json({ message: "User permanently deleted" });
     } else {
       // Mark as deleted instead of actually deleting

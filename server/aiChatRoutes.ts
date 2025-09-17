@@ -86,9 +86,12 @@ router.post('/openai', async (req: Request, res: Response) => {
       });
     }
     
-    // Check if user has sufficient credits (1 credit per prompt)
-    if ((user.credits ?? 0) < requiredCredits) {
-      return res.status(402).json({ 
+    // Admin users have unlimited credits - skip credit checks
+    const isAdmin = user.isAdmin || user.role === 'admin';
+
+    // Check if user has sufficient credits (1 credit per prompt) - skip for admins
+    if (!isAdmin && (user.credits ?? 0) < requiredCredits) {
+      return res.status(402).json({
         error: 'Insufficient credits',
         message: 'You need at least 1 credit to use the AI Brainstorm feature. Please upgrade your plan or purchase additional credits.',
         required: requiredCredits,
@@ -146,8 +149,8 @@ router.post('/openai', async (req: Request, res: Response) => {
       // Send done signal
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       
-      // Deduct credits after successful completion
-      if (userId && user) {
+      // Deduct credits after successful completion (skip for admin users)
+      if (userId && user && !isAdmin) {
         try {
           await storage.updateUser(userId, {
             credits: (user.credits ?? 0) - requiredCredits,
@@ -158,6 +161,8 @@ router.post('/openai', async (req: Request, res: Response) => {
           console.error('Failed to deduct credits:', creditError);
           // Don't fail the request if credit deduction fails, but log it
         }
+      } else if (isAdmin) {
+        console.log(`Skipped credit deduction for admin user ${userId}`);
       }
       
       res.end();
@@ -221,9 +226,12 @@ router.post('/gemini', async (req: Request, res: Response) => {
       });
     }
     
-    // Check if user has sufficient credits (1 credit per prompt)
-    if ((user.credits ?? 0) < requiredCredits) {
-      return res.status(402).json({ 
+    // Admin users have unlimited credits - skip credit checks
+    const isAdmin = user.isAdmin || user.role === 'admin';
+
+    // Check if user has sufficient credits (1 credit per prompt) - skip for admins
+    if (!isAdmin && (user.credits ?? 0) < requiredCredits) {
+      return res.status(402).json({
         error: 'Insufficient credits',
         message: 'You need at least 1 credit to use the AI Brainstorm feature. Please upgrade your plan or purchase additional credits.',
         required: requiredCredits,
@@ -299,8 +307,8 @@ router.post('/gemini', async (req: Request, res: Response) => {
       // Send done signal
       res.write(`data: ${JSON.stringify({ done: true })}\n\n`);
       
-      // Deduct credits after successful completion
-      if (userId && user) {
+      // Deduct credits after successful completion (skip for admin users)
+      if (userId && user && !isAdmin) {
         try {
           await storage.updateUser(userId, {
             credits: (user.credits ?? 0) - requiredCredits,
@@ -311,6 +319,8 @@ router.post('/gemini', async (req: Request, res: Response) => {
           console.error('Failed to deduct credits:', creditError);
           // Don't fail the request if credit deduction fails, but log it
         }
+      } else if (isAdmin) {
+        console.log(`Skipped credit deduction for admin user ${userId}`);
       }
       
       res.end();

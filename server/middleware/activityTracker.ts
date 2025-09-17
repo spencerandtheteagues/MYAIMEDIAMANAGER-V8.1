@@ -26,9 +26,13 @@ export async function trackUserActivity(req: Request, res: Response, next: NextF
 
     // Get user ID from session or request
     let userId: string | undefined;
-    
-    // Check session-based auth first
-    if (req.session?.userId) {
+
+    // Check JWT auth first (primary authentication method)
+    if ((req as any).user?.sub) {
+      userId = (req as any).user.sub;
+    }
+    // Check session-based auth
+    else if (req.session?.userId) {
       userId = req.session.userId;
     }
     // Check if user object has id directly (from session auth middleware)
