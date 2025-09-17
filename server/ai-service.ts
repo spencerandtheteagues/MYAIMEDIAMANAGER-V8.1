@@ -64,13 +64,13 @@ ${options.includeEmojis ? "- Include appropriate emojis" : "- No emojis"}
 Format each post on a new line. Make each one unique and engaging.`;
 
     try {
-      const result = await (genAI.models as any).generateContent({
-        model: "gemini-1.5-pro",
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.9, maxOutputTokens: 2048 }
       });
-      
-      const text = result.text || "";
+
+      const text = result.response.text() || "";
       
       // Split by newlines and filter out empty lines
       const posts = text.split('\n')
@@ -182,13 +182,13 @@ Requirements:
 Return only the hashtags, one per line.`;
 
     try {
-      const result = await (genAI.models as any).generateContent({
-        model: "gemini-1.5-pro",
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.7, maxOutputTokens: 500 }
       });
-      
-      const text = result.text || "";
+
+      const text = result.response.text() || "";
       
       return text.split('\n')
         .filter((tag: string) => tag.trim().length > 0)
@@ -217,13 +217,13 @@ Requirements:
 Return only the improved version.`;
 
     try {
-      const result = await (genAI.models as any).generateContent({
-        model: "gemini-1.5-pro",
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
         generationConfig: { temperature: 0.8, maxOutputTokens: 1024 }
       });
-      
-      return (result.text || "").trim();
+
+      return result.response.text().trim();
     } catch (error) {
       console.error("Content improvement error:", error);
       return content; // Return original if improvement fails

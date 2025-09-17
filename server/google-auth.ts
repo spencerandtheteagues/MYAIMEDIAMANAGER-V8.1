@@ -37,10 +37,17 @@ async function findOrCreateUserFromGoogle(profile: any) {
     user = await storage.createUser(newUser);
   } else {
     // User exists, update their avatar and last login time
-    user = await storage.updateUser(user.id, { 
+    const updateData: any = {
       googleAvatar: profile.photos?.[0]?.value,
       lastLoginAt: new Date()
-    });
+    };
+
+    // If user already has a trial plan selected, clear needsTrialSelection flag
+    if (user.trialPlan && user.needsTrialSelection) {
+      updateData.needsTrialSelection = false;
+    }
+
+    user = await storage.updateUser(user.id, updateData);
   }
 
   return user;
