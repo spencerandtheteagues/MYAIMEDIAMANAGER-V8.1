@@ -13,7 +13,11 @@ const videoOperations = new Map<string, { videoUrl?: string; status: string; err
 
 // Helper function to get user ID from request regardless of auth method
 function getUserId(req: any): string | null {
-  // Check session-based auth first
+  // Check JWT auth first (primary authentication method)
+  if (req.user?.sub) {
+    return req.user.sub;
+  }
+  // Check session-based auth
   if (req.session?.userId) {
     return req.session.userId;
   }
@@ -21,7 +25,7 @@ function getUserId(req: any): string | null {
   if (req.user?.id) {
     return req.user.id;
   }
-  // Check Replit auth claims
+  // Check Replit auth claims (legacy)
   if (req.user?.claims?.sub) {
     return req.user.claims.sub;
   }
