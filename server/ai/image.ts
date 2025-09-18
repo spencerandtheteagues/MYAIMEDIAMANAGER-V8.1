@@ -46,29 +46,43 @@ function buildEnhancedPrompt(originalPrompt: string, businessContext?: any): str
     travel: "National Geographic travel, wanderlust inspiring, destination photography, cultural immersion"
   };
 
-  // Detect industry from prompt content
-  const detectIndustry = (prompt: string): string => {
+  // Detect industry from prompt content - only apply if clearly industry-related
+  const detectIndustry = (prompt: string): string | null => {
     const lowerPrompt = prompt.toLowerCase();
+
+    // Check for explicit industry mentions - be more specific to avoid false positives
     for (const [industry, style] of Object.entries(industryStyles)) {
-      if (lowerPrompt.includes(industry) ||
-          (industry === 'tech' && (lowerPrompt.includes('software') || lowerPrompt.includes('app') || lowerPrompt.includes('digital'))) ||
-          (industry === 'business' && (lowerPrompt.includes('corporate') || lowerPrompt.includes('office') || lowerPrompt.includes('professional'))) ||
-          (industry === 'food' && (lowerPrompt.includes('restaurant') || lowerPrompt.includes('cooking') || lowerPrompt.includes('culinary'))) ||
-          (industry === 'fitness' && (lowerPrompt.includes('gym') || lowerPrompt.includes('workout') || lowerPrompt.includes('exercise'))) ||
-          (industry === 'beauty' && (lowerPrompt.includes('skincare') || lowerPrompt.includes('cosmetic') || lowerPrompt.includes('makeup'))) ||
-          (industry === 'real_estate' && (lowerPrompt.includes('property') || lowerPrompt.includes('home') || lowerPrompt.includes('house'))) ||
-          (industry === 'automotive' && (lowerPrompt.includes('car') || lowerPrompt.includes('vehicle') || lowerPrompt.includes('automotive'))) ||
-          (industry === 'healthcare' && (lowerPrompt.includes('medical') || lowerPrompt.includes('health') || lowerPrompt.includes('doctor'))) ||
-          (industry === 'finance' && (lowerPrompt.includes('bank') || lowerPrompt.includes('investment') || lowerPrompt.includes('financial'))) ||
-          (industry === 'travel' && (lowerPrompt.includes('vacation') || lowerPrompt.includes('destination') || lowerPrompt.includes('tourism')))) {
+      if (industry === 'tech' && (lowerPrompt.includes('software') || lowerPrompt.includes('app development') || lowerPrompt.includes('digital product') || lowerPrompt.includes('startup') || lowerPrompt.includes('silicon valley'))) {
+        return industry;
+      } else if (industry === 'business' && (lowerPrompt.includes('corporate') || lowerPrompt.includes('office environment') || lowerPrompt.includes('executive') || lowerPrompt.includes('boardroom') || lowerPrompt.includes('business meeting'))) {
+        return industry;
+      } else if (industry === 'food' && (lowerPrompt.includes('restaurant') || lowerPrompt.includes('cooking') || lowerPrompt.includes('culinary') || lowerPrompt.includes('chef') || lowerPrompt.includes('dining'))) {
+        return industry;
+      } else if (industry === 'fitness' && (lowerPrompt.includes('gym') || lowerPrompt.includes('workout') || lowerPrompt.includes('exercise') || lowerPrompt.includes('training') || lowerPrompt.includes('athletic'))) {
+        return industry;
+      } else if (industry === 'beauty' && (lowerPrompt.includes('skincare') || lowerPrompt.includes('cosmetic') || lowerPrompt.includes('makeup') || lowerPrompt.includes('beauty product'))) {
+        return industry;
+      } else if (industry === 'real_estate' && (lowerPrompt.includes('property') || lowerPrompt.includes('home for sale') || lowerPrompt.includes('house listing') || lowerPrompt.includes('real estate'))) {
+        return industry;
+      } else if (industry === 'automotive' && (lowerPrompt.includes('car dealership') || lowerPrompt.includes('vehicle showroom') || lowerPrompt.includes('automotive service'))) {
+        return industry;
+      } else if (industry === 'healthcare' && (lowerPrompt.includes('medical') || lowerPrompt.includes('health clinic') || lowerPrompt.includes('doctor') || lowerPrompt.includes('hospital'))) {
+        return industry;
+      } else if (industry === 'finance' && (lowerPrompt.includes('bank') || lowerPrompt.includes('investment') || lowerPrompt.includes('financial advisor'))) {
+        return industry;
+      } else if (industry === 'travel' && (lowerPrompt.includes('vacation') || lowerPrompt.includes('destination') || lowerPrompt.includes('tourism') || lowerPrompt.includes('travel agency'))) {
+        return industry;
+      } else if (lowerPrompt.includes(industry)) {
         return industry;
       }
     }
-    return 'business'; // Default to business style
+    return null; // No industry detected - use basic quality enhancement only
   };
 
   const detectedIndustry = detectIndustry(originalPrompt);
-  qualityEnhancement += `, ${industryStyles[detectedIndustry as keyof typeof industryStyles]}`;
+  if (detectedIndustry) {
+    qualityEnhancement += `, ${industryStyles[detectedIndustry as keyof typeof industryStyles]}`;
+  }
 
   // Add context-aware enhancements based on business context
   if (businessContext) {
@@ -181,6 +195,9 @@ async function generateWithDALLE3(prompt: string, aspectRatio: string): Promise<
   const size = sizeMap[aspectRatio] || "1024x1024";
 
   try {
+    console.log(`DALL-E 3 Request - Size: ${size}, Prompt length: ${prompt.length}`);
+    console.log(`DALL-E 3 Prompt: ${prompt.substring(0, 200)}...`);
+
     const response = await fetch("https://api.openai.com/v1/images/generations", {
       method: 'POST',
       headers: {
@@ -189,7 +206,7 @@ async function generateWithDALLE3(prompt: string, aspectRatio: string): Promise<
       },
       body: JSON.stringify({
         model: "dall-e-3",
-        prompt: prompt,
+        prompt: prompt.length > 4000 ? prompt.substring(0, 4000) : prompt, // DALL-E 3 has 4000 char limit
         n: 1,
         size: size,
         quality: "hd",
@@ -197,9 +214,17 @@ async function generateWithDALLE3(prompt: string, aspectRatio: string): Promise<
       })
     });
 
+    console.log(`DALL-E 3 Response status: ${response.status}`);
+
     if (!response.ok) {
       const errorData = await response.json().catch(() => ({}));
-      throw new Error(`DALL-E 3 API error: ${response.status} - ${errorData.error?.message || 'Unknown error'}`);
+      console.error('DALL-E 3 Error Details:', {
+        status: response.status,
+        statusText: response.statusText,
+        error: errorData,
+        promptLength: prompt.length
+      });
+      throw new Error(`DALL-E 3 API error: ${response.status} - ${errorData.error?.message || response.statusText || 'Unknown error'}`);
     }
 
     const result = await response.json();
