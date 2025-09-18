@@ -4,7 +4,7 @@ import fs from "node:fs";
 const base = process.env.E2E_BASE_URL || "http://localhost:5000";
 const headers = { "Content-Type": "application/json" };
 
-async function createUser(email, password, username, businessName, tier = 'trial') {
+async function createUser(email, password, username, businessName, tier = 'free') {
   console.log(`Creating user: ${email} (${tier})`);
   
   try {
@@ -61,7 +61,7 @@ async function createUser(email, password, username, businessName, tier = 'trial
       password: 'Test123!@#',
       username: 'test-trial',
       businessName: 'Test Trial Business',
-      tier: 'trial'
+      tier: 'free'
     },
     {
       email: 'test-pro@myaimediamgr.com',

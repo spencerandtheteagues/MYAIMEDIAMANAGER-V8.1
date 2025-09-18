@@ -4,7 +4,7 @@
 
 -- Check Constraints for Valid Enums
 ALTER TABLE users ADD CONSTRAINT chk_user_role CHECK (role IN ('admin', 'user'));
-ALTER TABLE users ADD CONSTRAINT chk_user_tier CHECK (tier IN ('free', 'starter', 'professional', 'business', 'enterprise', 'pay_as_you_go'));
+ALTER TABLE users ADD CONSTRAINT chk_user_tier CHECK (tier IN ('lite', 'free', 'pro_trial', 'trial', 'starter', 'pro', 'professional', 'business'));
 ALTER TABLE users ADD CONSTRAINT chk_account_status CHECK (account_status IN ('active', 'frozen', 'suspended', 'deleted'));
 ALTER TABLE users ADD CONSTRAINT chk_subscription_status CHECK (subscription_status IN ('trial', 'active', 'cancelled', 'expired', 'paused'));
 ALTER TABLE users ADD CONSTRAINT chk_trial_variant CHECK (trial_variant IN ('nocard7', 'card14'));

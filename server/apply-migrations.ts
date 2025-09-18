@@ -161,6 +161,12 @@ async function main() {
     console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     await runMigration("0003_performance_indexes.sql");
 
+    // Migration 1.5: Clean up invalid tier values
+    console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    console.log("Migration 1.5: Data Cleanup - Fix Invalid Tier Values");
+    console.log("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
+    await runMigration("0003a_cleanup_tier_values.sql");
+
     // Migration 2: Data Integrity Constraints
     console.log("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━");
     console.log("Migration 2: Data Integrity Constraints (30+ constraints)");
@@ -202,5 +208,10 @@ async function main() {
   }
 }
 
-// Run migrations
-main().catch(console.error);
+// Export main function for server integration
+export { main };
+
+// Run migrations if this file is executed directly
+if (import.meta.url === `file://${process.argv[1]}`) {
+  main().catch(console.error);
+}

@@ -50,7 +50,7 @@ trialRouter.post("/select", requireAuth, async (req:any,res:any)=>{
     trialImagesRemaining: v.images,
     trialVideosRemaining: v.videos,
     needsTrialSelection: false, // Clear the flag
-    tier: "free_trial", // Set proper tier
+    tier: "free", // Set to free tier (trial users are still on free tier)
     credits: v.credits || 50, // Set initial credits
   });
   
