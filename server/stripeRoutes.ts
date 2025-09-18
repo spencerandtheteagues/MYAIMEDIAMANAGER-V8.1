@@ -50,7 +50,7 @@ const PLAN_PRICES = {
   },
   professional: {
     price: 4900, // $49
-    name: "Professional Plan", 
+    name: "Professional Plan",
     description: "500 credits per month",
     credits: 500
   },
@@ -59,15 +59,29 @@ const PLAN_PRICES = {
     name: "Business Plan",
     description: "2000 credits per month",
     credits: 2000
+  },
+  enterprise: {
+    price: 49900, // $499
+    name: "Enterprise Plan",
+    description: "5000 credits per month + priority support",
+    credits: 5000
+  },
+  pay_as_you_go: {
+    price: 0, // Variable pricing
+    name: "Pay As You Go",
+    description: "Pay only for what you use",
+    credits: 0 // Credits purchased separately
   }
 };
 
 // Helper function to get tier priority for comparison
 function getTierPriority(tier?: string) {
   switch (tier) {
-    case "business": return 4;
-    case "professional": return 3;
-    case "starter": return 2;
+    case "enterprise": return 6;
+    case "business": return 5;
+    case "professional": return 4;
+    case "starter": return 3;
+    case "pay_as_you_go": return 2;
     case "free": return 1;
     default: return 0;
   }

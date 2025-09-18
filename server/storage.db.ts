@@ -1,5 +1,5 @@
 import { db } from "./db";
-import { 
+import {
   users, platforms, campaigns, posts, aiSuggestions, analytics,
   creditTransactions, subscriptionPlans, adminActions, notifications, contentLibrary, brandProfiles, contentFeedback, referrals,
   type User, type InsertUser, type UpsertUser,
@@ -19,6 +19,7 @@ import {
 } from "@shared/schema";
 import { eq, and, gte, lte, sql, desc, asc, isNull, ne, or } from "drizzle-orm";
 import type { IStorage } from "./storage";
+import * as crypto from "crypto";
 
 export class DbStorage implements IStorage {
   // Users
@@ -748,6 +749,261 @@ export class DbStorage implements IStorage {
       completedReferrals: completed.length,
       creditsEarned,
       pendingReferrals: pending.length,
+    };
+  }
+
+  // Enhanced Admin Methods Implementation
+  async getUserLastActivity(userId: string): Promise<Date | null> {
+    const user = await this.getUser(userId);
+    return user?.lastActivityAt || user?.lastLoginAt || null;
+  }
+
+  async getUserLoginHistory(userId: string, limit: number): Promise<Array<{ timestamp: Date; ip?: string; userAgent?: string }>> {
+    // This would require a separate login_history table in production
+    // For now, return empty array as placeholder
+    return [];
+  }
+
+  async getUserMessages(userId: string, unreadOnly: boolean): Promise<Notification[]> {
+    const conditions = [eq(notifications.userId, userId)];
+    if (unreadOnly) {
+      conditions.push(eq(notifications.read, false));
+    }
+
+    return await db.select().from(notifications)
+      .where(and(...conditions))
+      .orderBy(desc(notifications.createdAt));
+  }
+
+  async createUrgentMessage(data: {
+    userId: string;
+    title: string;
+    message: string;
+    priority: string;
+    requiresPopup?: boolean;
+    requiresAcknowledgment?: boolean;
+    expiresAt?: Date;
+    adminId?: string;
+  }): Promise<Notification> {
+    const result = await db.insert(notifications)
+      .values({
+        userId: data.userId,
+        fromUserId: data.adminId || null,
+        type: "urgent_message",
+        title: data.title,
+        message: data.message,
+        actionUrl: null,
+        read: false,
+        requiresPopup: data.requiresPopup || false,
+        deliveredAt: null
+      })
+      .returning();
+    return result[0];
+  }
+
+  async createImpersonationSession(data: {
+    adminId: string;
+    userId: string;
+    reason: string;
+    expiresAt: Date;
+  }): Promise<{ id: string; token: string; }> {
+    // This would require a separate impersonation_sessions table
+    // For now, return mock data
+    const id = crypto.randomUUID();
+    const token = crypto.randomUUID();
+
+    // Log the impersonation attempt
+    await this.logAdminAction({
+      adminUserId: data.adminId,
+      targetUserId: data.userId,
+      action: "impersonate_user",
+      details: { reason: data.reason, expiresAt: data.expiresAt }
+    });
+
+    return { id, token };
+  }
+
+  async getOnlineUserCount(): Promise<number> {
+    const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(or(
+        gte(users.lastActivityAt, fiveMinutesAgo),
+        gte(users.lastLoginAt, fiveMinutesAgo)
+      ));
+    return result[0]?.count || 0;
+  }
+
+  async getSignupsCount(hours: number): Promise<number> {
+    const cutoffTime = new Date(Date.now() - hours * 60 * 60 * 1000);
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(gte(users.createdAt, cutoffTime));
+    return result[0]?.count || 0;
+  }
+
+  async getActiveTrialsCount(): Promise<number> {
+    const now = new Date();
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(and(
+        eq(users.tier, 'free'),
+        eq(users.isPaid, false),
+        or(
+          gte(users.trialEndDate, now),
+          gte(users.trialEndsAt, now)
+        )
+      ));
+    return result[0]?.count || 0;
+  }
+
+  async getExpiredTrialsCount(): Promise<number> {
+    const now = new Date();
+    const result = await db.select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(and(
+        eq(users.tier, 'free'),
+        eq(users.isPaid, false),
+        or(
+          and(
+            lte(users.trialEndDate, now),
+            ne(users.trialEndDate, null)
+          ),
+          and(
+            lte(users.trialEndsAt, now),
+            ne(users.trialEndsAt, null)
+          )
+        )
+      ));
+    return result[0]?.count || 0;
+  }
+
+  async getTotalRevenue(): Promise<number> {
+    const result = await db.select({
+      total: sql<number>`COALESCE(SUM(amount * 0.1), 0)::float`
+    })
+      .from(creditTransactions)
+      .where(and(
+        eq(creditTransactions.type, "purchase"),
+        gte(creditTransactions.amount, 0)
+      ));
+    return result[0]?.total || 0;
+  }
+
+  async getMonthlyRevenue(): Promise<number> {
+    const now = new Date();
+    const firstOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+    const result = await db.select({
+      total: sql<number>`COALESCE(SUM(amount * 0.1), 0)::float`
+    })
+      .from(creditTransactions)
+      .where(and(
+        eq(creditTransactions.type, "purchase"),
+        gte(creditTransactions.amount, 0),
+        gte(creditTransactions.createdAt, firstOfMonth)
+      ));
+    return result[0]?.total || 0;
+  }
+
+  async getAverageRevenuePerUser(): Promise<number> {
+    const totalRevenue = await this.getTotalRevenue();
+    const paidUsersResult = await db.select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.isPaid, true));
+    const paidUsers = paidUsersResult[0]?.count || 0;
+    return paidUsers > 0 ? totalRevenue / paidUsers : 0;
+  }
+
+  async getChurnRate(): Promise<number> {
+    const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+    const totalPaidResult = await db.select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(eq(users.isPaid, true));
+    const totalPaidUsers = totalPaidResult[0]?.count || 0;
+
+    const churnedResult = await db.select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(and(
+        eq(users.subscriptionStatus, "cancelled"),
+        gte(users.updatedAt, thirtyDaysAgo)
+      ));
+    const churned = churnedResult[0]?.count || 0;
+
+    return totalPaidUsers > 0 ? (churned / totalPaidUsers) * 100 : 0;
+  }
+
+  async getSystemAlerts(): Promise<Array<{ id: string; type: string; message: string; severity: string; timestamp: Date }>> {
+    const alerts = [];
+
+    const expiredTrials = await this.getExpiredTrialsCount();
+    if (expiredTrials > 10) {
+      alerts.push({
+        id: "expired-trials-high",
+        type: "user_management",
+        message: `${expiredTrials} users have expired trials`,
+        severity: "warning",
+        timestamp: new Date()
+      });
+    }
+
+    const lowCreditUsersResult = await db.select({ count: sql<number>`count(*)::int` })
+      .from(users)
+      .where(and(
+        lte(users.credits, 10),
+        eq(users.isPaid, false)
+      ));
+    const lowCreditUsers = lowCreditUsersResult[0]?.count || 0;
+
+    if (lowCreditUsers > 5) {
+      alerts.push({
+        id: "low-credit-users",
+        type: "billing",
+        message: `${lowCreditUsers} users have less than 10 credits`,
+        severity: "info",
+        timestamp: new Date()
+      });
+    }
+
+    return alerts;
+  }
+
+  async getSubscriptionHistory(userId: string): Promise<Array<{ date: Date; tier: string; action: string }>> {
+    // This would require a separate subscription_history table
+    // For now, return empty array
+    return [];
+  }
+
+  async getStripeInvoices(customerId: string): Promise<Array<any>> {
+    // Would integrate with Stripe API
+    return [];
+  }
+
+  async getPaymentMethods(customerId: string): Promise<Array<any>> {
+    // Would integrate with Stripe API
+    return [];
+  }
+
+  async getUserUsageStats(userId: string): Promise<{
+    postsGenerated: number;
+    creditsUsed: number;
+    campaignsCreated: number;
+    platformsConnected: number;
+    avgEngagement: number;
+  }> {
+    const [postsResult, campaignsResult, platformsResult, userResult] = await Promise.all([
+      db.select({ count: sql<number>`count(*)::int` }).from(posts).where(eq(posts.userId, userId)),
+      db.select({ count: sql<number>`count(*)::int` }).from(campaigns).where(eq(campaigns.userId, userId)),
+      db.select({ count: sql<number>`count(*)::int` }).from(platforms).where(eq(platforms.userId, userId)),
+      this.getUser(userId)
+    ]);
+
+    return {
+      postsGenerated: postsResult[0]?.count || 0,
+      creditsUsed: userResult?.totalCreditsUsed || 0,
+      campaignsCreated: campaignsResult[0]?.count || 0,
+      platformsConnected: platformsResult[0]?.count || 0,
+      avgEngagement: 0 // Would calculate from analytics data
     };
   }
 }

@@ -44,30 +44,103 @@ export class AIService {
       long: "200-280 characters"
     };
 
-    const platformGuides: Record<string, string> = {
-      "Instagram": "engaging, visual-focused, lifestyle-oriented",
-      "Facebook": "conversational, community-focused, shareable",
-      "X.com": "concise, trendy, hashtag-heavy, under 280 chars",
-      "TikTok": "fun, trendy, Gen-Z focused, challenge-oriented",
-      "LinkedIn": "professional, thought-leadership, industry-focused"
+    // Enhanced platform-specific optimization with algorithm knowledge
+    const platformGuides: Record<string, any> = {
+      "Instagram": {
+        style: "visual storytelling, aesthetic-driven, community-focused",
+        algorithm: "Prioritizes: Saves > Comments > Shares > Likes, first 30-min engagement crucial",
+        hooks: ["Save this for later", "You need to see this", "Wait for it...", "POV:"],
+        bestPractices: "Use all 30 hashtags, post at peak times, respond within 2 hours"
+      },
+      "Facebook": {
+        style: "conversational, shareable, community-driven",
+        algorithm: "Prioritizes: meaningful interactions, native video, Groups engagement",
+        hooks: ["Can you relate?", "This made my day", "Who else...", "Thoughts?"],
+        bestPractices: "Spark discussions, optimize for shares, use Facebook-specific features"
+      },
+      "X.com": {
+        style: "concise, trendy, real-time, news-jacking potential",
+        algorithm: "Prioritizes: Reply threads, quote tweets, trending topics",
+        hooks: ["Thread:", "Hot take:", "Breaking:", "Unpopular opinion:"],
+        bestPractices: "Thread strategically, engage with replies, use trending hashtags"
+      },
+      "TikTok": {
+        style: "entertaining, trend-based, authentic, Gen-Z focused",
+        algorithm: "Prioritizes: Watch time %, completion rate, shares, replays",
+        hooks: ["Wait til the end", "POV", "Story time", "Day 1 of"],
+        bestPractices: "Hook in 3 seconds, use trending sounds, post 3-5x daily"
+      },
+      "LinkedIn": {
+        style: "professional insights, thought leadership, value-driven",
+        algorithm: "Prioritizes: Dwell time, professional relevance, employee advocacy",
+        hooks: ["After 10 years in [industry]", "Controversial career advice:", "I learned"],
+        bestPractices: "Post Tuesday-Thursday mornings, use native video, provide value"
+      }
     };
 
-    const prompt = `Generate 3 unique social media posts about "${options.topic}" for ${options.platform}.
+    const platform = platformGuides[options.platform] || platformGuides["Instagram"];
 
-Requirements:
-- Tone: ${options.tone}
+    // Professional-grade system prompt with expertise
+    const systemPrompt = `You are an elite social media strategist with:
+    - 10+ years creating viral content with 10M+ reach track record
+    - Deep understanding of ${options.platform} algorithm: ${platform.algorithm}
+    - Expertise in conversion-focused copywriting and brand voice consistency
+    - Mastery of psychological engagement triggers (curiosity, FOMO, aspiration, belonging)
+    - Data from analyzing 10,000+ successful posts
+
+    Your content MUST:
+    1. Hook readers within first 3 words using proven ${options.platform} hooks
+    2. Include emotional triggers that drive engagement
+    3. Use pattern interrupts every 2-3 lines to maintain attention
+    4. End with clear, actionable CTAs that convert
+    5. Maintain readability at 5th-8th grade level
+    6. Follow ${options.platform} best practices: ${platform.bestPractices}`;
+
+    // Enhanced user prompt with formulas for variety
+    const formulas = [
+      "Hook Formula: Surprising fact → Problem it reveals → Solution → Social proof → CTA",
+      "Problem-Agitate-Solution: Identify problem → Agitate pain → Present solution → Benefits → CTA",
+      "Before-After-Bridge: Before state → After state → Bridge (how to get there) → Proof → CTA"
+    ];
+
+    const selectedFormula = formulas[Math.floor(Math.random() * formulas.length)];
+    const selectedHooks = platform.hooks.slice(0, 3).join(", ");
+
+    const prompt = `Generate 3 unique ${options.platform} posts about "${options.topic}".
+
+Platform Optimization:
+- Style: ${platform.style}
+- Best hooks to use: ${selectedHooks}
+- Algorithm focus: ${platform.algorithm}
+
+Content Requirements:
+- Tone: ${options.tone} (but optimized for virality)
 - Length: ${lengthGuide[options.length || "medium"]}
-- Platform style: ${platformGuides[options.platform] || "general social media"}
-${options.includeHashtags ? "- Include 3-5 relevant hashtags" : "- No hashtags"}
-${options.includeEmojis ? "- Include appropriate emojis" : "- No emojis"}
+- Structure: Use this formula - ${selectedFormula}
+${options.includeHashtags ? "- Include 3-5 niche, searchable hashtags (no generic tags)" : "- No hashtags"}
+${options.includeEmojis ? "- Include strategic emojis for visual breaks and emotion" : "- No emojis"}
 
-Format each post on a new line. Make each one unique and engaging.`;
+Psychological Triggers to Include:
+- Curiosity gaps that demand resolution
+- Social proof (numbers, testimonials, authority)
+- Urgency or scarcity elements
+- Transformation or achievement stories
+
+Format: Write each post on a new line. Each must use a different hook and angle while maintaining consistent quality.`;
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-pro",
+        systemInstruction: systemPrompt
+      });
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.9, maxOutputTokens: 2048 }
+        generationConfig: {
+          temperature: 0.8,
+          maxOutputTokens: 2048,
+          topK: 40,
+          topP: 0.95
+        }
       });
 
       const text = result.response.text() || "";
@@ -171,15 +244,29 @@ Format each post on a new line. Make each one unique and engaging.`;
       throw new Error("AI service not configured. Please set GEMINI_API_KEY.");
     }
 
-    const prompt = `Generate 5 relevant hashtags for this ${platform} post: "${content}"
-    
+    const hashtagStrategies: Record<string, string> = {
+      "Instagram": "Mix of 5 high-volume (100k-1M posts), 5 medium (10k-100k), 5 niche (<10k) hashtags for maximum reach",
+      "Facebook": "2-3 branded hashtags only, focus on community tags",
+      "X.com": "1-2 trending hashtags maximum, focus on conversation",
+      "TikTok": "Mix trending challenges, niche community tags, and branded hashtags",
+      "LinkedIn": "3-5 professional industry hashtags, avoid overuse"
+    };
+
+    const prompt = `You are a hashtag research specialist with expertise in ${platform} growth.
+
+Generate strategic hashtags for this post: "${content}"
+
+Platform Strategy: ${hashtagStrategies[platform] || hashtagStrategies["Instagram"]}
+
 Requirements:
-- Relevant to the content
-- Mix of popular and niche tags
-- Platform-appropriate (${platform})
+- Research-based selection (consider search volume and competition)
+- Mix of head, middle, and long-tail keywords
+- Platform-specific optimization
+- Industry-relevant and searchable
 - No # symbol, just the words
-    
-Return only the hashtags, one per line.`;
+- Avoid banned or shadowban-risk hashtags
+
+Return exactly 5 strategic hashtags, one per line.`;
 
     try {
       const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
@@ -205,22 +292,49 @@ Return only the hashtags, one per line.`;
       throw new Error("AI service not configured. Please set GEMINI_API_KEY.");
     }
 
-    const prompt = `Improve this ${platform} post while keeping the core message:
+    const improvementStrategies: Record<string, string> = {
+      "Instagram": "Add visual language, storytelling elements, save-worthy value, clear CTA",
+      "Facebook": "Increase shareability, add discussion starters, community focus",
+      "X.com": "Tighten copy, add wit/personality, optimize for retweets",
+      "TikTok": "Add trend references, Gen-Z language, entertainment value",
+      "LinkedIn": "Add data/insights, professional credibility, thought leadership"
+    };
+
+    const systemPrompt = `You are a world-class copy editor specializing in viral social media content.
+Your improvements consistently increase engagement by 50-200%.`;
+
+    const prompt = `Transform this ${platform} post into high-performing content:
 "${content}"
 
-Requirements:
-- Make it more engaging and compelling
-- Optimize for ${platform} best practices
-- Keep similar length
-- Maintain the original tone and intent
+Improvement Focus: ${improvementStrategies[platform] || improvementStrategies["Instagram"]}
 
-Return only the improved version.`;
+Enhancement Checklist:
+□ Stronger hook (first 3 words must grab attention)
+□ Emotional triggers (curiosity, FOMO, aspiration, or belonging)
+□ Pattern interrupts (break reading monotony every 2-3 lines)
+□ Social proof or authority markers
+□ Clear value proposition
+□ Compelling CTA
+□ Platform-specific optimization
+□ Improved readability (5th-8th grade level)
+
+Maintain: Core message, approximate length, brand voice
+
+Return only the enhanced version (no explanations).`;
 
     try {
-      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      const model = genAI.getGenerativeModel({
+        model: "gemini-1.5-pro",
+        systemInstruction: systemPrompt
+      });
       const result = await model.generateContent({
         contents: [{ role: "user", parts: [{ text: prompt }] }],
-        generationConfig: { temperature: 0.8, maxOutputTokens: 1024 }
+        generationConfig: {
+          temperature: 0.7,
+          maxOutputTokens: 1024,
+          topK: 30,
+          topP: 0.9
+        }
       });
 
       return result.response.text().trim();

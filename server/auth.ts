@@ -5,6 +5,35 @@ import { z } from "zod";
 import type { User } from "@shared/schema";
 import { signJwt } from "./auth/jwt";
 
+// Rate limiting for security
+const loginAttempts = new Map<string, { count: number; lastAttempt: Date }>();
+const MAX_LOGIN_ATTEMPTS = 5;
+const LOCKOUT_DURATION = 15 * 60 * 1000; // 15 minutes
+
+function checkRateLimit(ip: string): boolean {
+  const attempts = loginAttempts.get(ip);
+  if (!attempts) return true;
+
+  if (Date.now() - attempts.lastAttempt.getTime() > LOCKOUT_DURATION) {
+    loginAttempts.delete(ip);
+    return true;
+  }
+
+  return attempts.count < MAX_LOGIN_ATTEMPTS;
+}
+
+function recordLoginAttempt(ip: string, success: boolean) {
+  const attempts = loginAttempts.get(ip) || { count: 0, lastAttempt: new Date() };
+
+  if (success) {
+    loginAttempts.delete(ip);
+  } else {
+    attempts.count++;
+    attempts.lastAttempt = new Date();
+    loginAttempts.set(ip, attempts);
+  }
+}
+
 // Helper function to generate unique referral code
 function generateReferralCode(): string {
   const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
@@ -211,6 +240,14 @@ router.post("/signup", async (req: Request, res: Response) => {
 // Login endpoint
 router.post("/login", async (req: Request, res: Response) => {
   try {
+    // Rate limiting check
+    const clientIP = req.ip || req.connection.remoteAddress || 'unknown';
+    if (!checkRateLimit(clientIP)) {
+      return res.status(429).json({
+        message: "Too many login attempts. Please try again in 15 minutes."
+      });
+    }
+
     const data = loginSchema.parse(req.body);
     console.log('Login attempt for email:', data.email);
     
@@ -218,6 +255,7 @@ router.post("/login", async (req: Request, res: Response) => {
     const user = await storage.getUserByEmail(data.email);
     if (!user) {
       console.log('User not found:', data.email);
+      recordLoginAttempt(clientIP, false);
       return res.status(401).json({ message: "Invalid email or password" });
     }
     
@@ -233,6 +271,7 @@ router.post("/login", async (req: Request, res: Response) => {
     const isValid = await bcrypt.compare(data.password, user.password);
     console.log('Password comparison result:', isValid);
     if (!isValid) {
+      recordLoginAttempt(clientIP, false);
       return res.status(401).json({ message: "Invalid email or password" });
     }
     
@@ -254,6 +293,9 @@ router.post("/login", async (req: Request, res: Response) => {
     
     // Update last login
     await storage.updateUser(user.id, { lastLoginAt: new Date() });
+
+    // Record successful login
+    recordLoginAttempt(clientIP, true);
 
     // Create JWT token for authenticated user
     createUserJWT(res, user);
@@ -278,6 +320,113 @@ router.post("/login", async (req: Request, res: Response) => {
     }
     console.error("Login error:", error);
     res.status(500).json({ message: "Failed to login" });
+  }
+});
+
+// Email verification endpoint
+const verifyEmailSchema = z.object({
+  email: z.string().email(),
+  code: z.string().length(6),
+});
+
+router.post("/verify-email", async (req: Request, res: Response) => {
+  try {
+    const data = verifyEmailSchema.parse(req.body);
+
+    const user = await storage.getUserByEmail(data.email);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({ message: "Email already verified" });
+    }
+
+    if (!user.emailVerificationCode || !user.emailVerificationExpiry) {
+      return res.status(400).json({ message: "No verification code found. Please request a new one." });
+    }
+
+    // Check if verification code expired
+    if (new Date() > user.emailVerificationExpiry) {
+      return res.status(400).json({ message: "Verification code expired. Please request a new one." });
+    }
+
+    // Check too many attempts
+    if ((user.emailVerificationAttempts || 0) >= 5) {
+      return res.status(429).json({ message: "Too many verification attempts. Please request a new code." });
+    }
+
+    // Verify the code
+    const { hashVerificationCode } = await import('./emailService');
+    const hashedProvidedCode = await hashVerificationCode(data.code);
+
+    if (hashedProvidedCode !== user.emailVerificationCode) {
+      // Increment attempts
+      await storage.updateUser(user.id, {
+        emailVerificationAttempts: (user.emailVerificationAttempts || 0) + 1
+      });
+      return res.status(400).json({ message: "Invalid verification code" });
+    }
+
+    // Mark email as verified and clear verification data
+    await storage.updateUser(user.id, {
+      emailVerified: true,
+      emailVerificationCode: null,
+      emailVerificationExpiry: null,
+      emailVerificationAttempts: 0,
+    });
+
+    res.json({
+      message: "Email verified successfully! You can now select your trial.",
+      needsTrialSelection: user.needsTrialSelection
+    });
+  } catch (error) {
+    if (error instanceof z.ZodError) {
+      return res.status(400).json({
+        message: "Validation error",
+        errors: error.errors
+      });
+    }
+    console.error("Email verification error:", error);
+    res.status(500).json({ message: "Failed to verify email" });
+  }
+});
+
+// Resend verification email endpoint
+router.post("/resend-verification", async (req: Request, res: Response) => {
+  try {
+    const { email } = req.body;
+    if (!email) {
+      return res.status(400).json({ message: "Email is required" });
+    }
+
+    const user = await storage.getUserByEmail(email);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.emailVerified) {
+      return res.status(400).json({ message: "Email already verified" });
+    }
+
+    // Generate new verification code
+    const { generateVerificationCode, hashVerificationCode, sendVerificationEmail } = await import('./emailService');
+    const verificationCode = generateVerificationCode();
+    const hashedCode = await hashVerificationCode(verificationCode);
+    const verificationExpiry = new Date(Date.now() + 10 * 60 * 1000); // 10 minutes
+
+    await storage.updateUser(user.id, {
+      emailVerificationCode: hashedCode,
+      emailVerificationExpiry: verificationExpiry,
+      emailVerificationAttempts: 0,
+    });
+
+    await sendVerificationEmail(email, verificationCode);
+
+    res.json({ message: "Verification email sent" });
+  } catch (error) {
+    console.error("Resend verification error:", error);
+    res.status(500).json({ message: "Failed to resend verification email" });
   }
 });
 
@@ -324,6 +473,49 @@ router.get("/me", async (req: Request, res: Response) => {
   } catch (error) {
     console.error("Get user error:", error);
     res.status(500).json({ message: "Failed to get user" });
+  }
+});
+
+// JWT Token refresh endpoint
+router.post("/refresh", async (req: Request, res: Response) => {
+  try {
+    const userId = (req as any).user?.sub;
+    if (!userId) {
+      return res.status(401).json({ message: "Not authenticated" });
+    }
+
+    // Get updated user data
+    const user = await storage.getUser(userId);
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+
+    if (user.accountStatus !== "active") {
+      return res.status(403).json({
+        message: `Account is ${user.accountStatus}. Please contact support.`
+      });
+    }
+
+    // Create new JWT token with fresh data
+    createUserJWT(res, user);
+
+    res.json({
+      message: "Token refreshed successfully",
+      user: {
+        id: user.id,
+        email: user.email,
+        username: user.username,
+        businessName: user.businessName,
+        tier: user.tier,
+        credits: user.credits,
+        isAdmin: user.isAdmin,
+        emailVerified: user.emailVerified,
+        referralCode: user.referralCode,
+      }
+    });
+  } catch (error) {
+    console.error("Token refresh error:", error);
+    res.status(500).json({ message: "Failed to refresh token" });
   }
 });
 

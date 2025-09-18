@@ -28,7 +28,47 @@ function buildEnhancedPrompt(originalPrompt: string, businessContext?: any): str
   let enhancedPrompt = originalPrompt;
 
   // Professional quality baseline
-  let qualityEnhancement = "professional photography, high-resolution, crisp details, award-winning composition";
+  let qualityEnhancement = "award-winning photography, National Geographic quality, Annie Leibovitz style, Phase One camera, Hasselblad H6D-400c quality";
+
+  // Industry-specific visual styles
+  const industryStyles = {
+    fashion: "Vogue editorial, high fashion, runway quality, Milan Fashion Week aesthetic, haute couture elegance",
+    food: "Bon Appétit styling, food porn aesthetic, Michelin star presentation, overhead flat lay, culinary artistry",
+    tech: "Apple minimalism, futuristic clean, The Verge style, product hero shot, silicon valley aesthetic",
+    fitness: "Men's Health cover quality, athletic dynamism, transformation showcase, gym photography",
+    beauty: "Sephora campaign quality, skincare glow, beauty shot perfection, cosmetic commercial grade",
+    real_estate: "Architectural Digest quality, luxury staging, golden hour lighting, interior design magazine",
+    automotive: "Top Gear cinematography, car commercial quality, dynamic angles, automotive perfection",
+    business: "Forbes magazine quality, corporate leadership, professional headshot, executive presence",
+    healthcare: "medical professional, clean clinical aesthetic, trustworthy healthcare, wellness focused",
+    education: "academic excellence, learning environment, knowledge sharing, educational innovation",
+    finance: "Wall Street Journal quality, financial success, wealth management, investment focused",
+    travel: "National Geographic travel, wanderlust inspiring, destination photography, cultural immersion"
+  };
+
+  // Detect industry from prompt content
+  const detectIndustry = (prompt: string): string => {
+    const lowerPrompt = prompt.toLowerCase();
+    for (const [industry, style] of Object.entries(industryStyles)) {
+      if (lowerPrompt.includes(industry) ||
+          (industry === 'tech' && (lowerPrompt.includes('software') || lowerPrompt.includes('app') || lowerPrompt.includes('digital'))) ||
+          (industry === 'business' && (lowerPrompt.includes('corporate') || lowerPrompt.includes('office') || lowerPrompt.includes('professional'))) ||
+          (industry === 'food' && (lowerPrompt.includes('restaurant') || lowerPrompt.includes('cooking') || lowerPrompt.includes('culinary'))) ||
+          (industry === 'fitness' && (lowerPrompt.includes('gym') || lowerPrompt.includes('workout') || lowerPrompt.includes('exercise'))) ||
+          (industry === 'beauty' && (lowerPrompt.includes('skincare') || lowerPrompt.includes('cosmetic') || lowerPrompt.includes('makeup'))) ||
+          (industry === 'real_estate' && (lowerPrompt.includes('property') || lowerPrompt.includes('home') || lowerPrompt.includes('house'))) ||
+          (industry === 'automotive' && (lowerPrompt.includes('car') || lowerPrompt.includes('vehicle') || lowerPrompt.includes('automotive'))) ||
+          (industry === 'healthcare' && (lowerPrompt.includes('medical') || lowerPrompt.includes('health') || lowerPrompt.includes('doctor'))) ||
+          (industry === 'finance' && (lowerPrompt.includes('bank') || lowerPrompt.includes('investment') || lowerPrompt.includes('financial'))) ||
+          (industry === 'travel' && (lowerPrompt.includes('vacation') || lowerPrompt.includes('destination') || lowerPrompt.includes('tourism')))) {
+        return industry;
+      }
+    }
+    return 'business'; // Default to business style
+  };
+
+  const detectedIndustry = detectIndustry(originalPrompt);
+  qualityEnhancement += `, ${industryStyles[detectedIndustry as keyof typeof industryStyles]}`;
 
   // Add context-aware enhancements based on business context
   if (businessContext) {

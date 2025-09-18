@@ -55,11 +55,22 @@ export function createCampaignRoutes(storage: IStorage) {
     const morningHour = 10;
     const afternoonHour = 16;
     
-    const postTypeRotation: PostType[] = [
-      'promo', 'tutorial', 'testimonial', 'promo', 
-      'faq', 'announcement', 'promo',
-      'testimonial', 'tutorial', 'promo',
-      'seasonal', 'faq', 'promo', 'event'
+    // 14 unique content formulas for maximum variety
+    const contentFormulas = [
+      { type: 'hook', formula: 'Did you know that [surprising stat]? Here\'s how [solution]...', tone: 'curious' },
+      { type: 'problem_agitate', formula: 'Struggling with [problem]? You\'re not alone. [Agitate]. But there\'s hope...', tone: 'empathetic' },
+      { type: 'transformation', formula: 'From [before state] to [after state] in just [timeframe]. Here\'s the secret...', tone: 'inspiring' },
+      { type: 'social_proof', formula: '[Number] businesses already [achievement]. Join them by...', tone: 'confident' },
+      { type: 'myth_buster', formula: 'MYTH: [common belief]. TRUTH: [reality]. Here\'s what really works...', tone: 'authoritative' },
+      { type: 'behind_scenes', formula: 'Ever wondered how we [process]? Take a peek behind the curtain...', tone: 'personal' },
+      { type: 'customer_story', formula: 'Meet [customer type] who [achievement] using [product]. Their secret?', tone: 'storytelling' },
+      { type: 'quick_win', formula: '5-minute hack: [Quick solution] that delivers [benefit] instantly', tone: 'actionable' },
+      { type: 'comparison', formula: 'Old way: [traditional]. New way: [your solution]. The difference is...', tone: 'educational' },
+      { type: 'urgency', formula: 'Only [number] days left to [benefit]. Don\'t miss out on...', tone: 'urgent' },
+      { type: 'education', formula: 'The complete guide to [topic]: Everything you need to know about...', tone: 'expert' },
+      { type: 'controversy', formula: 'Unpopular opinion: [controversial take]. Here\'s why I\'m right...', tone: 'bold' },
+      { type: 'prediction', formula: 'By [year], [industry] will [change]. Prepare now by...', tone: 'visionary' },
+      { type: 'checklist', formula: '✓ [item 1] ✓ [item 2] ✓ [item 3]. Which one are you missing?', tone: 'systematic' }
     ];
     
     const platforms: Platform[] = ['instagram', 'facebook', 'x'];
@@ -74,23 +85,24 @@ export function createCampaignRoutes(storage: IStorage) {
           scheduledDate.setDate(startDate.getDate() + day);
           scheduledDate.setHours(slot === 0 ? morningHour : afternoonHour, 0, 0, 0);
           
-          const postType = postTypeRotation[postIndex % postTypeRotation.length];
+          const formula = contentFormulas[postIndex % contentFormulas.length];
           const platform = platforms[postIndex % platforms.length];
-          
-          // Generate content
+
+          // Generate content using the specific formula
           let content = '';
           let hashtags: string[] = [];
-          
+
           try {
             const result = await generateHighQualityPost({
               platform,
-              postType,
+              postType: formula.type as any,
               brand: brandProfile,
               campaignTheme: params.prompt,
               product: params.productName,
-              desiredTone: brandProfile.voice,
+              desiredTone: formula.tone as any,
               callToAction: params.callToAction,
-              priorCaptions
+              priorCaptions,
+              formula: formula.formula // Add formula to guide generation
             });
             
             if (result.ok) {

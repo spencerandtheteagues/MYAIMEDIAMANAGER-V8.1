@@ -14,6 +14,7 @@ interface GenOpts {
   desiredTone?: string;
   callToAction?: string;
   priorCaptions?: string[];
+  formula?: string; // Content formula to guide generation
 }
 
 interface Score {
@@ -38,7 +39,7 @@ export async function generateHighQualityPost(opts: GenOpts): Promise<{
   reasons: string[];
   coaching: string[];
 }> {
-  // 1) Build structured prompt
+  // 1) Build structured prompt with formula
   const { system, user, constraints } = buildPrompt({
     platform: opts.platform,
     postType: opts.postType,
@@ -46,7 +47,9 @@ export async function generateHighQualityPost(opts: GenOpts): Promise<{
     campaignTheme: opts.campaignTheme,
     product: opts.product,
     desiredTone: opts.desiredTone as any,
-    callToAction: opts.callToAction
+    callToAction: opts.callToAction,
+    useEnhanced: true,
+    priorCaptions: opts.priorCaptions
   });
 
   // 2) Generate N candidates with mild diversity
