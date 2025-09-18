@@ -21,4 +21,4 @@ SET tier = CASE
     WHEN tier = 'pay_as_you_go' THEN 'starter'
     ELSE 'free'
 END
-WHERE tier NOT IN ('lite', 'free', 'pro_trial', 'trial', 'starter', 'pro', 'professional', 'business')
+WHERE tier NOT IN ('lite', 'free', 'pro_trial', 'trial', 'starter', 'pro', 'professional', 'business');
