@@ -26,79 +26,82 @@ function parseAspectRatio(ratio: string): { width: number; height: number } {
 
 // Enhanced prompt builder for professional media generation
 function buildEnhancedPrompt(originalPrompt: string, businessContext?: any): string {
+  // Start with the original prompt as the foundation - this should never be modified
   let enhancedPrompt = originalPrompt;
 
-  // Professional quality baseline
-  let qualityEnhancement = "award-winning photography, National Geographic quality, Annie Leibovitz style, Phase One camera, Hasselblad H6D-400c quality";
+  // Only add enhancements that improve quality without changing the core subject/content
+  let qualityEnhancement = "";
 
-  // Industry-specific visual styles
+  // Check if this is clearly a business/professional context request
+  const isBusinessRequest = businessContext && (
+    businessContext.visualStyle === 'Professional' ||
+    businessContext.mood === 'Professional' ||
+    businessContext.environment === 'Office' ||
+    businessContext.environment === 'Studio'
+  );
+
+  // Industry-specific STYLE enhancements (not content changes)
   const industryStyles = {
-    fashion: "Vogue editorial, high fashion, runway quality, Milan Fashion Week aesthetic, haute couture elegance",
-    food: "Bon Appétit styling, food porn aesthetic, Michelin star presentation, overhead flat lay, culinary artistry",
-    tech: "Apple minimalism, futuristic clean, The Verge style, product hero shot, silicon valley aesthetic",
-    fitness: "Men's Health cover quality, athletic dynamism, transformation showcase, gym photography",
-    beauty: "Sephora campaign quality, skincare glow, beauty shot perfection, cosmetic commercial grade",
-    real_estate: "Architectural Digest quality, luxury staging, golden hour lighting, interior design magazine",
-    automotive: "Top Gear cinematography, car commercial quality, dynamic angles, automotive perfection",
-    business: "Forbes magazine quality, corporate leadership, professional headshot, executive presence",
-    healthcare: "medical professional, clean clinical aesthetic, trustworthy healthcare, wellness focused",
-    education: "academic excellence, learning environment, knowledge sharing, educational innovation",
-    finance: "Wall Street Journal quality, financial success, wealth management, investment focused",
-    travel: "National Geographic travel, wanderlust inspiring, destination photography, cultural immersion"
+    fashion: "high fashion photography style, editorial quality lighting, professional modeling pose",
+    food: "food photography styling, appetizing presentation, professional culinary photography",
+    tech: "clean modern aesthetic, minimalist design, professional product photography",
+    fitness: "dynamic athletic photography, energetic composition, sports photography style",
+    beauty: "beauty photography lighting, flawless skin rendering, cosmetic advertising quality",
+    real_estate: "architectural photography style, professional interior design lighting",
+    automotive: "automotive photography style, dynamic vehicle composition, commercial car photography",
+    business: "professional corporate photography style, executive portrait quality, business headshot lighting",
+    healthcare: "clean medical photography style, professional healthcare aesthetic",
+    education: "educational photography style, academic environment lighting",
+    finance: "corporate finance photography style, professional business aesthetic",
+    travel: "travel photography style, destination photography quality, wanderlust aesthetic"
   };
 
-  // Detect industry from prompt content - only apply if clearly industry-related
-  const detectIndustry = (prompt: string): string | null => {
+  // Detect industry ONLY from explicit context or very clear prompt indicators
+  const detectIndustryFromPrompt = (prompt: string): string | null => {
     const lowerPrompt = prompt.toLowerCase();
 
-    // Check for explicit industry mentions - be more specific to avoid false positives
-    for (const [industry, style] of Object.entries(industryStyles)) {
-      if (industry === 'tech' && (lowerPrompt.includes('software') || lowerPrompt.includes('app development') || lowerPrompt.includes('digital product') || lowerPrompt.includes('startup') || lowerPrompt.includes('silicon valley'))) {
-        return industry;
-      } else if (industry === 'business' && (lowerPrompt.includes('corporate') || lowerPrompt.includes('office environment') || lowerPrompt.includes('executive') || lowerPrompt.includes('boardroom') || lowerPrompt.includes('business meeting'))) {
-        return industry;
-      } else if (industry === 'food' && (lowerPrompt.includes('restaurant') || lowerPrompt.includes('cooking') || lowerPrompt.includes('culinary') || lowerPrompt.includes('chef') || lowerPrompt.includes('dining'))) {
-        return industry;
-      } else if (industry === 'fitness' && (lowerPrompt.includes('gym') || lowerPrompt.includes('workout') || lowerPrompt.includes('exercise') || lowerPrompt.includes('training') || lowerPrompt.includes('athletic'))) {
-        return industry;
-      } else if (industry === 'beauty' && (lowerPrompt.includes('skincare') || lowerPrompt.includes('cosmetic') || lowerPrompt.includes('makeup') || lowerPrompt.includes('beauty product'))) {
-        return industry;
-      } else if (industry === 'real_estate' && (lowerPrompt.includes('property') || lowerPrompt.includes('home for sale') || lowerPrompt.includes('house listing') || lowerPrompt.includes('real estate'))) {
-        return industry;
-      } else if (industry === 'automotive' && (lowerPrompt.includes('car dealership') || lowerPrompt.includes('vehicle showroom') || lowerPrompt.includes('automotive service'))) {
-        return industry;
-      } else if (industry === 'healthcare' && (lowerPrompt.includes('medical') || lowerPrompt.includes('health clinic') || lowerPrompt.includes('doctor') || lowerPrompt.includes('hospital'))) {
-        return industry;
-      } else if (industry === 'finance' && (lowerPrompt.includes('bank') || lowerPrompt.includes('investment') || lowerPrompt.includes('financial advisor'))) {
-        return industry;
-      } else if (industry === 'travel' && (lowerPrompt.includes('vacation') || lowerPrompt.includes('destination') || lowerPrompt.includes('tourism') || lowerPrompt.includes('travel agency'))) {
-        return industry;
-      } else if (lowerPrompt.includes(industry)) {
-        return industry;
-      }
+    // Only detect if the prompt explicitly mentions business/professional contexts
+    if (lowerPrompt.includes('corporate headshot') || lowerPrompt.includes('business portrait') || lowerPrompt.includes('executive photo')) {
+      return 'business';
+    } else if (lowerPrompt.includes('product photography') || lowerPrompt.includes('commercial photo')) {
+      return 'business';
+    } else if (lowerPrompt.includes('food photography') || lowerPrompt.includes('restaurant menu')) {
+      return 'food';
+    } else if (lowerPrompt.includes('fashion shoot') || lowerPrompt.includes('fashion photography')) {
+      return 'fashion';
     }
-    return null; // No industry detected - use basic quality enhancement only
+
+    return null; // No clear industry context - let the original prompt drive everything
   };
 
-  const detectedIndustry = detectIndustry(originalPrompt);
-  if (detectedIndustry) {
-    qualityEnhancement += `, ${industryStyles[detectedIndustry as keyof typeof industryStyles]}`;
+  // Detect industry from prompt content (very conservative)
+  const promptIndustry = detectIndustryFromPrompt(originalPrompt);
+
+  // Apply industry styling only if detected from prompt OR if business context strongly indicates it
+  if (promptIndustry) {
+    qualityEnhancement = industryStyles[promptIndustry as keyof typeof industryStyles];
+  } else if (isBusinessRequest && originalPrompt.toLowerCase().includes('person')) {
+    // Only apply business styling if it's clearly a person-focused business request
+    qualityEnhancement = "professional photography style, business quality lighting, corporate aesthetic";
+  } else {
+    // Default to general quality enhancement that works for any subject
+    qualityEnhancement = "high quality photography, professional lighting, award-winning composition";
   }
 
-  // Add context-aware enhancements based on business context
+  // Add context-aware STYLE enhancements based on business context (never change content)
   if (businessContext) {
     const { visualStyle, colorScheme, environment, lighting, mood, composition, cameraAngle } = businessContext;
 
-    // Visual style enhancement
+    // Visual style enhancement - STYLE ONLY
     if (visualStyle === 'Photo-Realistic' || visualStyle === 'photo-realistic') {
-      qualityEnhancement = "ultra-realistic photography, photorealistic, hyperdetailed, professional studio lighting, cinematic quality, 8K resolution";
+      qualityEnhancement += ", ultra-realistic photography, photorealistic, hyperdetailed, professional studio lighting, cinematic quality, 8K resolution";
     } else if (visualStyle === 'artistic') {
-      qualityEnhancement = "artistic masterpiece, vibrant colors, creative composition, fine art quality";
+      qualityEnhancement += ", artistic masterpiece, vibrant colors, creative composition, fine art quality";
     } else if (visualStyle === 'modern') {
-      qualityEnhancement = "modern design aesthetic, clean lines, contemporary style, minimalist elegance";
+      qualityEnhancement += ", modern design aesthetic, clean lines, contemporary style, minimalist elegance";
     }
 
-    // Camera angle enhancement
+    // Camera angle enhancement - TECHNICAL ONLY
     const cameraEnhancements = {
       'Eye Level': 'shot at eye level, natural perspective, balanced composition',
       'Low Angle': 'dramatic low angle shot, powerful perspective, cinematic drama',
@@ -111,47 +114,49 @@ function buildEnhancedPrompt(originalPrompt: string, businessContext?: any): str
       qualityEnhancement += `, ${cameraEnhancements[cameraAngle]}`;
     }
 
-    // Environment enhancement
+    // Environment enhancement - ONLY if original prompt doesn't specify a setting
     const environmentEnhancements = {
-      'Studio': 'professional studio setting, controlled lighting, seamless backdrop, commercial quality',
-      'Office': 'modern office environment, professional workspace, corporate aesthetic, clean organized space',
-      'Outdoor': 'natural outdoor setting, environmental lighting, authentic location, scenic backdrop',
-      'Home': 'comfortable home environment, warm inviting atmosphere, personal touch, lifestyle setting'
+      'Studio': 'professional studio setting, controlled lighting, seamless backdrop',
+      'Office': 'modern office environment, professional workspace aesthetic',
+      'Outdoor': 'natural outdoor setting, environmental lighting, authentic location',
+      'Home': 'comfortable home environment, warm inviting atmosphere'
     };
 
-    if (environment && environmentEnhancements[environment]) {
+    // Only add environment if the original prompt doesn't already specify a location
+    const hasLocation = /\b(in|at|on|inside|outside|studio|office|home|outdoors?|indoors?|room|building)\b/i.test(originalPrompt);
+    if (environment && environmentEnhancements[environment] && !hasLocation) {
       qualityEnhancement += `, ${environmentEnhancements[environment]}`;
     }
 
-    // Lighting enhancement
+    // Lighting enhancement - TECHNICAL STYLE ONLY
     const lightingEnhancements = {
-      'Natural Light': 'beautiful natural lighting, soft diffused light, golden hour quality, organic illumination',
-      'Studio Lighting': 'professional studio lighting setup, perfect exposure, dramatic lighting, controlled shadows',
-      'Dramatic': 'dramatic chiaroscuro lighting, high contrast, moody atmosphere, cinematic shadows',
-      'Soft': 'soft gentle lighting, even illumination, flattering glow, ethereal ambiance'
+      'Natural Light': 'beautiful natural lighting, soft diffused light, golden hour quality',
+      'Studio Lighting': 'professional studio lighting setup, perfect exposure, controlled shadows',
+      'Dramatic': 'dramatic chiaroscuro lighting, high contrast, moody atmosphere',
+      'Soft': 'soft gentle lighting, even illumination, flattering glow'
     };
 
     if (lighting && lightingEnhancements[lighting]) {
       qualityEnhancement += `, ${lightingEnhancements[lighting]}`;
     }
 
-    // Mood enhancement
+    // Mood enhancement - ATMOSPHERE ONLY (never change the subject)
     const moodEnhancements = {
-      'Bright & Cheerful': 'bright cheerful atmosphere, positive energy, uplifting mood, vibrant optimism',
-      'Professional': 'professional authoritative mood, business confidence, corporate excellence, trustworthy presence',
-      'Creative': 'creative innovative spirit, artistic inspiration, imaginative flair, original thinking',
-      'Calm': 'serene peaceful atmosphere, tranquil mood, relaxing ambiance, harmonious balance'
+      'Bright & Cheerful': 'bright cheerful atmosphere, positive energy, uplifting mood',
+      'Professional': 'professional authoritative mood, business confidence, trustworthy presence',
+      'Creative': 'creative innovative spirit, artistic inspiration, imaginative flair',
+      'Calm': 'serene peaceful atmosphere, tranquil mood, relaxing ambiance'
     };
 
     if (mood && moodEnhancements[mood]) {
       qualityEnhancement += `, ${moodEnhancements[mood]}`;
     }
 
-    // Composition enhancement
+    // Composition enhancement - TECHNICAL ONLY
     const compositionEnhancements = {
-      'Rule of Thirds': 'perfect rule of thirds composition, balanced visual weight, dynamic arrangement',
-      'Centered': 'perfectly centered composition, symmetrical balance, focal point emphasis',
-      'Leading Lines': 'strong leading lines composition, visual flow, directional emphasis',
+      'Rule of Thirds': 'perfect rule of thirds composition, balanced visual weight',
+      'Centered': 'perfectly centered composition, symmetrical balance',
+      'Leading Lines': 'strong leading lines composition, visual flow',
       'Framing': 'natural framing elements, layered composition, depth and dimension'
     };
 
@@ -159,14 +164,16 @@ function buildEnhancedPrompt(originalPrompt: string, businessContext?: any): str
       qualityEnhancement += `, ${compositionEnhancements[composition]}`;
     }
 
-    // Color scheme enhancement
+    // Color scheme enhancement - STYLE ONLY
     if (colorScheme) {
       qualityEnhancement += `, rich ${colorScheme} color palette, harmonious color grading, professional color correction`;
     }
   }
 
-  // Combine original prompt with enhancements
-  enhancedPrompt = `${originalPrompt}, ${qualityEnhancement}`;
+  // Combine original prompt with enhancements - PROMPT ALWAYS COMES FIRST
+  enhancedPrompt = qualityEnhancement
+    ? `${originalPrompt}, ${qualityEnhancement}`
+    : originalPrompt;
 
   // Remove potential duplicates and clean up
   enhancedPrompt = enhancedPrompt
