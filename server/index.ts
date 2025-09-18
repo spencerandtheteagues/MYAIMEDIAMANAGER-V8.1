@@ -111,6 +111,18 @@ app.use((req, res, next) => {
 });
 
 (async () => {
+  // Apply database migrations if in production
+  if (process.env.NODE_ENV === 'production') {
+    try {
+      console.log('🔄 Applying database migrations...');
+      const { main: applyMigrations } = await import('./apply-migrations.js');
+      await applyMigrations();
+      console.log('✅ Database migrations completed successfully');
+    } catch (error) {
+      console.error('⚠️ Database migrations failed, continuing with server startup:', error);
+    }
+  }
+
   const server = await registerRoutes(app);
 
   app.use((err: any, _req: Request, res: Response, _next: NextFunction) => {
