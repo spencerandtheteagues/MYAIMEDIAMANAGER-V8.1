@@ -101,7 +101,12 @@ function getUserId(req: any): string | null {
  */
 async function checkUserAccess(user: any, requestPath: string) {
   const now = new Date();
-  
+
+  // 0. Admin users bypass all restrictions
+  if (user.role === 'admin') {
+    return { allowed: true };
+  }
+
   // 1. Check trial expiration for trial users
   const trialTiers = ['free_trial', 'nocard7', 'card7', 'free'];
   const isOnTrial = trialTiers.includes(user.tier);

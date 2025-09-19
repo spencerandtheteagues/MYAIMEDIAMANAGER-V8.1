@@ -82,6 +82,7 @@ export default function CreateContent() {
   const [videoScenes, setVideoScenes] = useState("");
   const [videoScript, setVideoScript] = useState("");
   const [videoModel, setVideoModel] = useState("gemini"); // Gemini Veo 3
+  const [videoModelSpeed, setVideoModelSpeed] = useState("fast"); // "fast" or "standard"
   
   // Preview states
   const [generatedImage, setGeneratedImage] = useState<string | null>(null);
@@ -142,7 +143,19 @@ export default function CreateContent() {
   };
   
   const videoEligibility = checkVideoEligibility();
-  
+
+  // Check if user can access standard Veo3 (not just fast)
+  const canUseStandardVeo3 = () => {
+    if (!user) return false;
+
+    // Admin users can use any model
+    if (user.role === 'admin') return true;
+
+    // Pro, business, and professional tiers can use standard Veo3
+    const allowedTiers = ['professional', 'business', 'pro'];
+    return allowedTiers.includes(user.tier);
+  };
+
   // Update content type when URL param changes
   useEffect(() => {
     if (typeParam && ['text', 'text-image', 'text-video'].includes(typeParam)) {
@@ -369,7 +382,7 @@ export default function CreateContent() {
       const startResponse = await apiRequest("POST", "/api/ai/video/start", {
         prompt: prompt.trim(),
         aspectRatio,
-        fast: true, // Use Veo 3 Fast for quicker generation
+        fast: videoModelSpeed === "fast", // Use selected model speed
         model: videoModel, // Add model selection (gemini for Veo 3)
         // Send all context fields for caption generation
         businessName,
@@ -1482,9 +1495,32 @@ export default function CreateContent() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="gemini">Gemini Veo 3 Fast (8 seconds)</SelectItem>
+                          <SelectItem value="gemini">Gemini Veo 3 (8 seconds)</SelectItem>
                         </SelectContent>
                       </Select>
+                    </div>
+
+                    <div>
+                      <Label htmlFor="videoModelSpeed">
+                        <Zap className="w-4 h-4 inline mr-1" />
+                        Model Speed
+                      </Label>
+                      <Select value={videoModelSpeed} onValueChange={setVideoModelSpeed}>
+                        <SelectTrigger className="mt-1">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="fast">Veo 3 Fast (Faster generation)</SelectItem>
+                          {canUseStandardVeo3() && (
+                            <SelectItem value="standard">Veo 3 Standard (Higher quality)</SelectItem>
+                          )}
+                        </SelectContent>
+                      </Select>
+                      {!canUseStandardVeo3() && (
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Upgrade to Pro, Business, or Professional for Veo 3 Standard access
+                        </p>
+                      )}
                     </div>
                     
                     <div>
