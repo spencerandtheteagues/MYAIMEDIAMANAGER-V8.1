@@ -203,21 +203,8 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
 
   useEffect(() => {
     console.log('Theme changing to:', theme);
-    // Remove any existing theme attributes first
-    const html = document.documentElement;
-    html.removeAttribute('data-theme');
-
-    // Force a repaint by triggering a reflow
-    html.offsetHeight;
-
-    // Set the new theme
-    html.setAttribute('data-theme', theme);
+    document.documentElement.setAttribute('data-theme', theme);
     localStorage.setItem('app-theme', theme);
-
-    // Force CSS recalculation
-    html.style.display = 'none';
-    html.offsetHeight; // Trigger reflow
-    html.style.display = '';
   }, [theme]);
 
   return (

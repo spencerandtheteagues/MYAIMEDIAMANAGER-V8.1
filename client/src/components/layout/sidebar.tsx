@@ -105,7 +105,7 @@ export default function Sidebar({ onNavigate }: SidebarProps = {}) {
       {/* Thick purple border under navigation */}
       <div className="border-b-4 border-primary/50"></div>
 
-      <div className="p-4 border-t border-border">
+      <div className="p-4">
         <div className="flex items-center space-x-3">
           <UserAvatar user={user} />
           <div className="flex-1">

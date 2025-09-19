@@ -120,7 +120,7 @@ function Router() {
         
         <main className="flex-1 min-w-0 overflow-y-auto">
           <Header onMobileMenuClick={() => setIsMobileSidebarOpen(true)} />
-          <div className="p-4 sm:p-6 tech-grid min-h-screen">
+          <div className="p-4 sm:p-6">
             <TrialCountdown />
             <Switch>
             <Route path="/" component={Dashboard} />
