@@ -29,12 +29,22 @@ export function setStoredTheme(theme: Theme): void {
 }
 
 export function applyTheme(theme: Theme): void {
+  console.log('[Theme] Applying theme:', theme);
+
   // Apply theme to document root
   document.documentElement.setAttribute('data-theme', theme);
+
+  // Also apply to body for better compatibility
+  document.body.setAttribute('data-theme', theme);
 
   // Also update any theme-specific classes if needed
   document.documentElement.classList.remove('theme-neon-pink', 'theme-neon-blue', 'theme-professional');
   document.documentElement.classList.add(`theme-${theme}`);
+
+  // Force style recalculation
+  const rootComputedStyle = getComputedStyle(document.documentElement);
+  const primaryColor = rootComputedStyle.getPropertyValue('--primary');
+  console.log('[Theme] Applied theme, primary color:', primaryColor);
 }
 
 export function initializeTheme(): Theme {

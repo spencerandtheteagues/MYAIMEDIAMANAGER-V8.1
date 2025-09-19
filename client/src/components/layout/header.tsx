@@ -280,12 +280,7 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
-                  console.log('[Header] Current theme:', theme, '- Setting theme to neon-pink');
                   setTheme('neon-pink');
-                  // Force DOM update
-                  document.documentElement.setAttribute('data-theme', 'neon-pink');
-                  console.log('[Header] Applied data-theme attribute:', document.documentElement.getAttribute('data-theme'));
-                  // Force immediate visual feedback
                   toast({
                     title: "Theme Changed",
                     description: "Switched to Neon Pink theme",
@@ -301,12 +296,7 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
-                  console.log('[Header] Current theme:', theme, '- Setting theme to neon-blue');
                   setTheme('neon-blue');
-                  // Force DOM update
-                  document.documentElement.setAttribute('data-theme', 'neon-blue');
-                  console.log('[Header] Applied data-theme attribute:', document.documentElement.getAttribute('data-theme'));
-                  // Force immediate visual feedback
                   toast({
                     title: "Theme Changed",
                     description: "Switched to Neon Blue theme",
@@ -322,9 +312,7 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
-                  console.log('[Header] Setting theme to professional');
                   setTheme('professional');
-                  // Force immediate visual feedback
                   toast({
                     title: "Theme Changed",
                     description: "Switched to Professional theme",

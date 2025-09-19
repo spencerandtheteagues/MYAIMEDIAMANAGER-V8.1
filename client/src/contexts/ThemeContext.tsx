@@ -24,6 +24,14 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     applyTheme(theme);
   }, [theme]);
 
+  // Ensure theme is applied immediately on mount
+  useEffect(() => {
+    const currentTheme = getStoredTheme();
+    console.log('[ThemeContext] Initial theme setup:', currentTheme);
+    setThemeState(currentTheme);
+    applyTheme(currentTheme);
+  }, []);
+
   return (
     <ThemeContext.Provider value={{ theme, setTheme }}>
       {children}
