@@ -1060,7 +1060,8 @@ export default function CreateContent() {
                     />
                   </div>
 
-                  <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 transition-all duration-300 ${!showCustomizeOptions ? 'opacity-30 pointer-events-none select-none' : 'opacity-100'}`}>
+                  {/* AI Model Selection - Always Visible */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                     <div>
                       <Label htmlFor="imageModel">AI Model</Label>
                       <Select value={imageModel} onValueChange={setImageModel}>
@@ -1073,188 +1074,196 @@ export default function CreateContent() {
                         </SelectContent>
                       </Select>
                     </div>
-                    
-                    <div>
-                      <Label htmlFor="visualStyle">Visual Style</Label>
-                      <Select value={visualStyle} onValueChange={setVisualStyle}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="modern">Modern & Clean</SelectItem>
-                          <SelectItem value="vintage">Vintage & Retro</SelectItem>
-                          <SelectItem value="minimalist">Minimalist</SelectItem>
-                          <SelectItem value="bold">Bold & Vibrant</SelectItem>
-                          <SelectItem value="elegant">Elegant & Sophisticated</SelectItem>
-                          <SelectItem value="playful">Playful & Colorful</SelectItem>
-                          <SelectItem value="professional">Professional & Corporate</SelectItem>
-                          <SelectItem value="artistic">Artistic & Abstract</SelectItem>
-                          <SelectItem value="realistic">Photo-Realistic</SelectItem>
-                          <SelectItem value="cartoon">Cartoon & Animated</SelectItem>
-                          <SelectItem value="watercolor">Watercolor</SelectItem>
-                          <SelectItem value="sketch">Sketch & Line Art</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="colorScheme">Color Scheme</Label>
-                      <Input
-                        id="colorScheme"
-                        value={colorScheme}
-                        onChange={(e) => setColorScheme(e.target.value)}
-                        placeholder="e.g., Blue and gold, Earth tones"
-                        className="mt-1"
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="aspectRatio">
-                        <Monitor className="w-4 h-4 inline mr-1" />
-                        Aspect Ratio
-                      </Label>
-                      <Select value={aspectRatio} onValueChange={setAspectRatio}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="1:1">1:1 (Square)</SelectItem>
-                          <SelectItem value="4:3">4:3 (Standard)</SelectItem>
-                          <SelectItem value="16:9">16:9 (Widescreen)</SelectItem>
-                          <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
-                          <SelectItem value="21:9">21:9 (Ultrawide)</SelectItem>
-                          <SelectItem value="3:2">3:2 (Photo)</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label htmlFor="cameraAngle">
-                        <Camera className="w-4 h-4 inline mr-1" />
-                        Camera Angle
-                      </Label>
-                      <Select value={cameraAngle} onValueChange={setCameraAngle}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="eye-level">Eye Level</SelectItem>
-                          <SelectItem value="low-angle">Low Angle</SelectItem>
-                          <SelectItem value="high-angle">High Angle</SelectItem>
-                          <SelectItem value="birds-eye">Bird's Eye View</SelectItem>
-                          <SelectItem value="dutch-angle">Dutch Angle</SelectItem>
-                          <SelectItem value="close-up">Close-Up</SelectItem>
-                          <SelectItem value="wide-shot">Wide Shot</SelectItem>
-                          <SelectItem value="extreme-close-up">Extreme Close-Up</SelectItem>
-                          <SelectItem value="aerial">Aerial View</SelectItem>
-                        </SelectContent>
-                      </Select>
+                  {/* Visual Style Parameters - Controlled by Customize Toggle */}
+                  <div className={`space-y-4 transition-all duration-300 ${!showCustomizeOptions ? 'opacity-30 pointer-events-none select-none' : 'opacity-100'}`}>
+                    {/* First Row: Visual Style, Color Scheme, Aspect Ratio */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="visualStyle">Visual Style</Label>
+                        <Select value={visualStyle} onValueChange={setVisualStyle}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="modern">Modern & Clean</SelectItem>
+                            <SelectItem value="vintage">Vintage & Retro</SelectItem>
+                            <SelectItem value="minimalist">Minimalist</SelectItem>
+                            <SelectItem value="bold">Bold & Vibrant</SelectItem>
+                            <SelectItem value="elegant">Elegant & Sophisticated</SelectItem>
+                            <SelectItem value="playful">Playful & Colorful</SelectItem>
+                            <SelectItem value="professional">Professional & Corporate</SelectItem>
+                            <SelectItem value="artistic">Artistic & Abstract</SelectItem>
+                            <SelectItem value="realistic">Photo-Realistic</SelectItem>
+                            <SelectItem value="cartoon">Cartoon & Animated</SelectItem>
+                            <SelectItem value="watercolor">Watercolor</SelectItem>
+                            <SelectItem value="sketch">Sketch & Line Art</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="colorScheme">Color Scheme</Label>
+                        <Input
+                          id="colorScheme"
+                          value={colorScheme}
+                          onChange={(e) => setColorScheme(e.target.value)}
+                          placeholder="e.g., Blue and gold, Earth tones"
+                          className="mt-1"
+                        />
+                      </div>
+                      <div>
+                        <Label htmlFor="aspectRatio">
+                          <Monitor className="w-4 h-4 inline mr-1" />
+                          Aspect Ratio
+                        </Label>
+                        <Select value={aspectRatio} onValueChange={setAspectRatio}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="1:1">1:1 (Square)</SelectItem>
+                            <SelectItem value="4:3">4:3 (Standard)</SelectItem>
+                            <SelectItem value="16:9">16:9 (Widescreen)</SelectItem>
+                            <SelectItem value="9:16">9:16 (Portrait)</SelectItem>
+                            <SelectItem value="21:9">21:9 (Ultrawide)</SelectItem>
+                            <SelectItem value="3:2">3:2 (Photo)</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div>
-                      <Label htmlFor="environment">
-                        <Globe className="w-4 h-4 inline mr-1" />
-                        Environment
-                      </Label>
-                      <Select value={environment} onValueChange={setEnvironment}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="studio">Studio</SelectItem>
-                          <SelectItem value="outdoor">Outdoor</SelectItem>
-                          <SelectItem value="indoor">Indoor</SelectItem>
-                          <SelectItem value="urban">Urban</SelectItem>
-                          <SelectItem value="nature">Nature</SelectItem>
-                          <SelectItem value="abstract">Abstract</SelectItem>
-                          <SelectItem value="minimal">Minimal Background</SelectItem>
-                          <SelectItem value="office">Office</SelectItem>
-                          <SelectItem value="home">Home</SelectItem>
-                          <SelectItem value="industrial">Industrial</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="lighting">
-                        <Sun className="w-4 h-4 inline mr-1" />
-                        Lighting
-                      </Label>
-                      <Select value={lighting} onValueChange={setLighting}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="natural">Natural Light</SelectItem>
-                          <SelectItem value="soft">Soft Lighting</SelectItem>
-                          <SelectItem value="dramatic">Dramatic</SelectItem>
-                          <SelectItem value="golden-hour">Golden Hour</SelectItem>
-                          <SelectItem value="studio">Studio Lighting</SelectItem>
-                          <SelectItem value="neon">Neon</SelectItem>
-                          <SelectItem value="moody">Moody</SelectItem>
-                          <SelectItem value="backlit">Backlit</SelectItem>
-                          <SelectItem value="candlelight">Candlelight</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <Label htmlFor="mood">
-                        <Brush className="w-4 h-4 inline mr-1" />
-                        Mood
-                      </Label>
-                      <Select value={mood} onValueChange={setMood}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="bright">Bright & Cheerful</SelectItem>
-                          <SelectItem value="calm">Calm & Serene</SelectItem>
-                          <SelectItem value="energetic">Energetic</SelectItem>
-                          <SelectItem value="mysterious">Mysterious</SelectItem>
-                          <SelectItem value="romantic">Romantic</SelectItem>
-                          <SelectItem value="professional">Professional</SelectItem>
-                          <SelectItem value="luxurious">Luxurious</SelectItem>
-                          <SelectItem value="nostalgic">Nostalgic</SelectItem>
-                          <SelectItem value="futuristic">Futuristic</SelectItem>
-                        </SelectContent>
-                      </Select>
+                    {/* Second Row: Camera Angle, Environment, Lighting */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="cameraAngle">
+                          <Camera className="w-4 h-4 inline mr-1" />
+                          Camera Angle
+                        </Label>
+                        <Select value={cameraAngle} onValueChange={setCameraAngle}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="eye-level">Eye Level</SelectItem>
+                            <SelectItem value="low-angle">Low Angle</SelectItem>
+                            <SelectItem value="high-angle">High Angle</SelectItem>
+                            <SelectItem value="birds-eye">Bird's Eye View</SelectItem>
+                            <SelectItem value="dutch-angle">Dutch Angle</SelectItem>
+                            <SelectItem value="close-up">Close-Up</SelectItem>
+                            <SelectItem value="wide-shot">Wide Shot</SelectItem>
+                            <SelectItem value="extreme-close-up">Extreme Close-Up</SelectItem>
+                            <SelectItem value="aerial">Aerial View</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="environment">
+                          <Globe className="w-4 h-4 inline mr-1" />
+                          Environment
+                        </Label>
+                        <Select value={environment} onValueChange={setEnvironment}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="studio">Studio</SelectItem>
+                            <SelectItem value="outdoor">Outdoor</SelectItem>
+                            <SelectItem value="indoor">Indoor</SelectItem>
+                            <SelectItem value="urban">Urban</SelectItem>
+                            <SelectItem value="nature">Nature</SelectItem>
+                            <SelectItem value="abstract">Abstract</SelectItem>
+                            <SelectItem value="minimal">Minimal Background</SelectItem>
+                            <SelectItem value="office">Office</SelectItem>
+                            <SelectItem value="home">Home</SelectItem>
+                            <SelectItem value="industrial">Industrial</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="lighting">
+                          <Sun className="w-4 h-4 inline mr-1" />
+                          Lighting
+                        </Label>
+                        <Select value={lighting} onValueChange={setLighting}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="natural">Natural Light</SelectItem>
+                            <SelectItem value="soft">Soft Lighting</SelectItem>
+                            <SelectItem value="dramatic">Dramatic</SelectItem>
+                            <SelectItem value="golden-hour">Golden Hour</SelectItem>
+                            <SelectItem value="studio">Studio Lighting</SelectItem>
+                            <SelectItem value="neon">Neon</SelectItem>
+                            <SelectItem value="moody">Moody</SelectItem>
+                            <SelectItem value="backlit">Backlit</SelectItem>
+                            <SelectItem value="candlelight">Candlelight</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
-                    <div>
-                      <Label htmlFor="composition">Composition</Label>
-                      <Select value={composition} onValueChange={setComposition}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="rule-of-thirds">Rule of Thirds</SelectItem>
-                          <SelectItem value="centered">Centered</SelectItem>
-                          <SelectItem value="symmetrical">Symmetrical</SelectItem>
-                          <SelectItem value="asymmetrical">Asymmetrical</SelectItem>
-                          <SelectItem value="diagonal">Diagonal</SelectItem>
-                          <SelectItem value="golden-ratio">Golden Ratio</SelectItem>
-                          <SelectItem value="leading-lines">Leading Lines</SelectItem>
-                          <SelectItem value="framing">Framing</SelectItem>
-                        </SelectContent>
-                      </Select>
-                    </div>
-                    <div>
-                      <Label htmlFor="imageResolution">
-                        <Aperture className="w-4 h-4 inline mr-1" />
-                        Resolution
-                      </Label>
-                      <Select value={imageResolution} onValueChange={setImageResolution}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="720p">720p (HD)</SelectItem>
-                          <SelectItem value="1080p">1080p (Full HD)</SelectItem>
-                          <SelectItem value="2k">2K</SelectItem>
-                          <SelectItem value="4k">4K (Ultra HD)</SelectItem>
-                          <SelectItem value="8k">8K</SelectItem>
-                        </SelectContent>
-                      </Select>
+
+                    {/* Third Row: Mood, Composition, Resolution */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div>
+                        <Label htmlFor="mood">
+                          <Brush className="w-4 h-4 inline mr-1" />
+                          Mood
+                        </Label>
+                        <Select value={mood} onValueChange={setMood}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="bright">Bright & Cheerful</SelectItem>
+                            <SelectItem value="calm">Calm & Serene</SelectItem>
+                            <SelectItem value="energetic">Energetic</SelectItem>
+                            <SelectItem value="mysterious">Mysterious</SelectItem>
+                            <SelectItem value="romantic">Romantic</SelectItem>
+                            <SelectItem value="professional">Professional</SelectItem>
+                            <SelectItem value="luxurious">Luxurious</SelectItem>
+                            <SelectItem value="nostalgic">Nostalgic</SelectItem>
+                            <SelectItem value="futuristic">Futuristic</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="composition">Composition</Label>
+                        <Select value={composition} onValueChange={setComposition}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="rule-of-thirds">Rule of Thirds</SelectItem>
+                            <SelectItem value="centered">Centered</SelectItem>
+                            <SelectItem value="symmetrical">Symmetrical</SelectItem>
+                            <SelectItem value="asymmetrical">Asymmetrical</SelectItem>
+                            <SelectItem value="diagonal">Diagonal</SelectItem>
+                            <SelectItem value="golden-ratio">Golden Ratio</SelectItem>
+                            <SelectItem value="leading-lines">Leading Lines</SelectItem>
+                            <SelectItem value="framing">Framing</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div>
+                        <Label htmlFor="imageResolution">
+                          <Aperture className="w-4 h-4 inline mr-1" />
+                          Resolution
+                        </Label>
+                        <Select value={imageResolution} onValueChange={setImageResolution}>
+                          <SelectTrigger className="mt-1">
+                            <SelectValue />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="720p">720p (HD)</SelectItem>
+                            <SelectItem value="1080p">1080p (Full HD)</SelectItem>
+                            <SelectItem value="2k">2K</SelectItem>
+                            <SelectItem value="4k">4K (Ultra HD)</SelectItem>
+                            <SelectItem value="8k">8K</SelectItem>
+                          </SelectContent>
+                        </Select>
+                      </div>
                     </div>
                   </div>
 
