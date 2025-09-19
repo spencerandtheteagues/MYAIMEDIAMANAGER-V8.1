@@ -195,21 +195,57 @@ export function createScheduleRoutes(storage: any): Router {
   router.post("/api/schedule/:id/publish", async (req, res) => {
     try {
       const { id } = req.params;
-      
+      const userId = req.user?.claims?.sub || req.user?.id || "demo-user";
+
       const post = await storage.getPost(id);
       if (!post) {
         return res.status(404).json({ error: "Post not found" });
       }
 
-      // TODO: Actually publish to platform APIs
-      // For now, just update status
-      await storage.updatePost(id, {
-        status: "published",
-        publishedAt: new Date(),
-        updatedAt: new Date()
+      // Import publishing functionality
+      const { publishToSocialMedia } = await import('./socialMediaPublisher');
+
+      // Prepare media URLs
+      const mediaUrls = [post.imageUrl, post.videoUrl].filter(Boolean);
+
+      // Publish to all connected platforms
+      const publishResults = await publishToSocialMedia({
+        content: post.content,
+        platforms: post.platforms || ['instagram'],
+        mediaUrls,
+        userId,
+        postId: id
       });
 
-      res.json({ success: true, publishedAt: new Date() });
+      // Check if any publications succeeded
+      const successfulPosts = publishResults.filter(r => r.success);
+      const failedPosts = publishResults.filter(r => !r.success);
+
+      if (successfulPosts.length === 0) {
+        // All posts failed
+        return res.status(400).json({
+          error: "Failed to publish to any platform",
+          details: failedPosts.map(p => ({ platform: p.platform, error: p.error }))
+        });
+      }
+
+      // Update post status based on results
+      const status = failedPosts.length === 0 ? "published" : "partially_published";
+
+      await storage.updatePost(id, {
+        status,
+        publishedAt: new Date(),
+        updatedAt: new Date(),
+        publishResults: publishResults
+      });
+
+      res.json({
+        success: true,
+        publishedAt: new Date(),
+        results: publishResults,
+        successCount: successfulPosts.length,
+        failureCount: failedPosts.length
+      });
     } catch (error) {
       console.error("Error publishing post:", error);
       res.status(500).json({ error: "Failed to publish post" });
