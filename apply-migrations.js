@@ -195,10 +195,9 @@ async function main() {
 
     // Apply migrations in sequence - cleanup MUST run before constraints
     const migrations = [
+      { file: '0001_force_tier_cleanup.sql', name: 'CRITICAL: Force Tier Data Cleanup' },
       { file: '0002_trial_lite.sql', name: 'Trial System Enhancements' },
       { file: '0003_performance_indexes.sql', name: 'Performance Indexes (45+ critical indexes)' },
-      { file: '0003a_cleanup_tier_values.sql', name: 'Tier Values Data Cleanup' },
-      { file: '0004a_cleanup_tier_values.sql', name: 'Advanced Tier Values Cleanup' },
       { file: '0004_data_integrity_constraints.sql', name: 'Data Integrity Constraints (30+ business rules)' },
       { file: '0005_security_audit_tables.sql', name: 'Security Audit Tables & Triggers' }
     ];
