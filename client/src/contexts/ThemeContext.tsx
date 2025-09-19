@@ -16,6 +16,12 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     setThemeState(newTheme);
     setStoredTheme(newTheme);
     applyTheme(newTheme);
+
+    // Force re-render by triggering a small DOM update
+    setTimeout(() => {
+      const event = new CustomEvent('themechange', { detail: { theme: newTheme } });
+      window.dispatchEvent(event);
+    }, 100);
   };
 
   // Apply theme on mount and when it changes

@@ -37,14 +37,26 @@ export function applyTheme(theme: Theme): void {
   // Also apply to body for better compatibility
   document.body.setAttribute('data-theme', theme);
 
-  // Also update any theme-specific classes if needed
+  // Remove old theme classes and add new one
   document.documentElement.classList.remove('theme-neon-pink', 'theme-neon-blue', 'theme-professional');
   document.documentElement.classList.add(`theme-${theme}`);
 
-  // Force style recalculation
+  // Force immediate style recalculation and reflow
   const rootComputedStyle = getComputedStyle(document.documentElement);
-  const primaryColor = rootComputedStyle.getPropertyValue('--primary');
+  const primaryColor = rootComputedStyle.getPropertyValue('--primary').trim();
   console.log('[Theme] Applied theme, primary color:', primaryColor);
+
+  // Force all elements to recalculate styles by triggering reflow
+  document.body.style.display = 'none';
+  document.body.offsetHeight; // Trigger reflow
+  document.body.style.display = '';
+
+  // Double-check the theme was applied
+  setTimeout(() => {
+    const finalTheme = document.documentElement.getAttribute('data-theme');
+    const finalColor = getComputedStyle(document.documentElement).getPropertyValue('--primary').trim();
+    console.log('[Theme] Final verification - theme:', finalTheme, 'primary color:', finalColor);
+  }, 50);
 }
 
 export function initializeTheme(): Theme {
