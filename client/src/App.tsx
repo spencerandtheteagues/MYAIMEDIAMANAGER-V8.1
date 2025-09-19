@@ -102,7 +102,7 @@ function Router() {
   // If authenticated, show the main app with restriction dialog system
   return (
     <>
-      <div className="flex min-h-screen overflow-hidden bg-background">
+      <div className="flex min-h-screen overflow-hidden bg-background tech-grid">
         <TrialWelcomePopup />
         <NotificationPopup />
         

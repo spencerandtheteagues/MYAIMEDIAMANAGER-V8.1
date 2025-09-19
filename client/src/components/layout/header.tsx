@@ -163,7 +163,10 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
   const currentPage = pageData[location as keyof typeof pageData] || pageData["/"];
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
   const [theme, setTheme] = useState<'neon-pink' | 'neon-blue' | 'professional'>(() => {
-    return (localStorage.getItem('app-theme') as any) || 'neon-pink';
+    // Get theme from localStorage or default to neon-pink
+    const storedTheme = localStorage.getItem('app-theme') as 'neon-pink' | 'neon-blue' | 'professional';
+    const validThemes = ['neon-pink', 'neon-blue', 'professional'];
+    return validThemes.includes(storedTheme) ? storedTheme : 'neon-pink';
   });
   const { toast } = useToast();
   
@@ -199,8 +202,22 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
   const tierInfo = getTierDisplay(user?.tier);
 
   useEffect(() => {
-    document.documentElement.setAttribute('data-theme', theme);
+    console.log('Theme changing to:', theme);
+    // Remove any existing theme attributes first
+    const html = document.documentElement;
+    html.removeAttribute('data-theme');
+
+    // Force a repaint by triggering a reflow
+    html.offsetHeight;
+
+    // Set the new theme
+    html.setAttribute('data-theme', theme);
     localStorage.setItem('app-theme', theme);
+
+    // Force CSS recalculation
+    html.style.display = 'none';
+    html.offsetHeight; // Trigger reflow
+    html.style.display = '';
   }, [theme]);
 
   return (
@@ -259,7 +276,7 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" className="hidden sm:inline-flex items-center gap-2 px-3">
+                  <Button variant="ghost" className="inline-flex items-center gap-2 px-3">
                     <Palette className="h-5 w-5" />
                     <span className="text-sm">Theme</span>
                   </Button>
@@ -272,8 +289,11 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
             <DropdownMenuContent align="end" className="w-48">
               <DropdownMenuLabel>Choose Theme</DropdownMenuLabel>
               <DropdownMenuSeparator />
-              <DropdownMenuItem 
-                onClick={() => setTheme('neon-pink')}
+              <DropdownMenuItem
+                onClick={() => {
+                  console.log('Setting theme to neon-pink');
+                  setTheme('neon-pink');
+                }}
                 className="cursor-pointer"
               >
                 <div className="flex items-center justify-between w-full">
@@ -281,8 +301,11 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
                   {theme === 'neon-pink' && <div className="w-2 h-2 rounded-full bg-pink-500" />}
                 </div>
               </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => setTheme('neon-blue')}
+              <DropdownMenuItem
+                onClick={() => {
+                  console.log('Setting theme to neon-blue');
+                  setTheme('neon-blue');
+                }}
                 className="cursor-pointer"
               >
                 <div className="flex items-center justify-between w-full">
@@ -290,8 +313,11 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
                   {theme === 'neon-blue' && <div className="w-2 h-2 rounded-full bg-blue-500" />}
                 </div>
               </DropdownMenuItem>
-              <DropdownMenuItem 
-                onClick={() => setTheme('professional')}
+              <DropdownMenuItem
+                onClick={() => {
+                  console.log('Setting theme to professional');
+                  setTheme('professional');
+                }}
                 className="cursor-pointer"
               >
                 <div className="flex items-center justify-between w-full">

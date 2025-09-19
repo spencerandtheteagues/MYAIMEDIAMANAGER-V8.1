@@ -386,4 +386,34 @@
   .chart-bar {
     transition: height 0.3s ease-in-out;
   }
+
+  /* TikTok animation for spinning disc */
+  @keyframes spin-slow {
+    from {
+      transform: rotate(0deg);
+    }
+    to {
+      transform: rotate(360deg);
+    }
+  }
+
+  .animate-spin-slow {
+    animation: spin-slow 8s linear infinite;
+  }
+
+  /* TikTok marquee animation for music text */
+  @keyframes marquee {
+    0% {
+      transform: translateX(0);
+    }
+    100% {
+      transform: translateX(-100%);
+    }
+  }
+
+  .animate-marquee {
+    animation: marquee 10s linear infinite;
+    display: inline-block;
+    padding-left: 100%;
+  }
 }

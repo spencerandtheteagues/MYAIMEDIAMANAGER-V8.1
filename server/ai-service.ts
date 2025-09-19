@@ -239,6 +239,66 @@ Format: Write each post on a new line. Each must use a different hook and angle 
     }
   }
 
+  async generateCaption(mediaType: 'image' | 'video', mediaPrompt: string, platform: string, businessContext?: string): Promise<string> {
+    if (!genAI) {
+      throw new Error("AI service not configured. Please set GEMINI_API_KEY.");
+    }
+
+    const platformStyles: Record<string, string> = {
+      "Instagram": "Visual storytelling, aesthetic focus, community-driven. Use emojis strategically. Include relevant hashtags at the end.",
+      "Facebook": "Conversational, shareable, story-driven. Ask questions to spark engagement.",
+      "X (Twitter)": "Concise, witty, trendy. Maximum 280 characters. Use 1-2 hashtags max.",
+      "TikTok": "Trendy, entertaining, Gen-Z friendly. Reference sounds/challenges. Hook immediately.",
+      "LinkedIn": "Professional, insightful, value-driven. Share learnings or industry insights."
+    };
+
+    const captionPrompt = `You are a social media copywriter creating a caption for a ${mediaType} on ${platform}.
+
+Media Context: This ${mediaType} shows "${mediaPrompt}"
+${businessContext ? `Business Context: ${businessContext}` : ''}
+
+Platform Style: ${platformStyles[platform] || platformStyles["Instagram"]}
+
+Requirements:
+1. Create an engaging caption that complements the visual
+2. Include a hook in the first line
+3. Add value or emotion that enhances the ${mediaType}
+4. Include a clear call-to-action
+5. Match the platform's tone and best practices
+6. Keep it authentic and conversational
+${platform === 'Instagram' ? '7. End with 5-7 relevant hashtags' : ''}
+${platform === 'X (Twitter)' ? '7. Stay under 280 characters total' : ''}
+
+Write the caption directly without any explanations or labels:`;
+
+    try {
+      const model = genAI.getGenerativeModel({ model: "gemini-1.5-pro" });
+      const result = await model.generateContent({
+        contents: [{ role: "user", parts: [{ text: captionPrompt }] }],
+        generationConfig: {
+          temperature: 0.8,
+          maxOutputTokens: platform === 'X (Twitter)' ? 100 : 300
+        }
+      });
+
+      const caption = result.response.text() || "";
+      return caption.trim();
+    } catch (error) {
+      console.error("Caption generation error:", error);
+
+      // Fallback captions based on platform
+      const fallbacks: Record<string, string> = {
+        "Instagram": `Check out our latest creation! 🎨\n\n${mediaPrompt}\n\n#creative #content #socialmedia #business #marketing`,
+        "Facebook": `We're excited to share this with you! What do you think?\n\n${mediaPrompt}`,
+        "X (Twitter)": `New ${mediaType} alert! 🚨 ${mediaPrompt.substring(0, 50)}...`,
+        "TikTok": `POV: You just discovered something amazing 👀\n\n${mediaPrompt}`,
+        "LinkedIn": `Sharing our latest ${mediaType} that showcases ${mediaPrompt}. Thoughts?`
+      };
+
+      return fallbacks[platform] || fallbacks["Instagram"];
+    }
+  }
+
   async generateHashtags(content: string, platform: string): Promise<string[]> {
     if (!genAI) {
       throw new Error("AI service not configured. Please set GEMINI_API_KEY.");

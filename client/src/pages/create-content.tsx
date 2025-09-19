@@ -11,11 +11,12 @@ import { Badge } from "@/components/ui/badge";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { 
-  Bot, Bold, Italic, Link as LinkIcon, Image, Wand2, Target, Palette, 
+import {
+  Bot, Bold, Italic, Link as LinkIcon, Image, Wand2, Target, Palette,
   Building2, MessageSquare, Megaphone, Sparkles, Type, ImagePlus, Video,
   Camera, Globe, Brush, Sun, Upload, Play, Trash2, Send, Clock, Film,
-  Music, Mic, Aperture, Zap, Layers, Monitor, Eye, Copy, FileText, User as UserIcon
+  Music, Mic, Aperture, Zap, Layers, Monitor, Eye, Copy, FileText, User as UserIcon,
+  Settings
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { apiRequest } from "@/lib/queryClient";
@@ -53,6 +54,8 @@ export default function CreateContent() {
   const [additionalContext, setAdditionalContext] = useState("");
   
   // Image generation fields
+  const [showCustomizeOptions, setShowCustomizeOptions] = useState(false);
+  const [showVideoCustomizeOptions, setShowVideoCustomizeOptions] = useState(false);
   const [visualStyle, setVisualStyle] = useState("modern");
   const [colorScheme, setColorScheme] = useState("");
   const [imagePrompt, setImagePrompt] = useState("");
@@ -267,7 +270,15 @@ export default function CreateContent() {
         isAdvertisement,
         additionalContext,
         manualCaption: params.autoGenerateCaption === false ? params.manualCaption : undefined,
-        captionStyle: params.captionStyle
+        captionStyle: params.captionStyle,
+        // Send visual style parameters for AI enhancement
+        visualStyle,
+        colorScheme,
+        environment,
+        lighting,
+        mood,
+        cameraAngle,
+        composition
       });
       
       const data = await response.json();
@@ -370,7 +381,15 @@ export default function CreateContent() {
         isAdvertisement,
         additionalContext,
         manualCaption: params.autoGenerateCaption === false ? params.manualCaption : undefined,
-        captionStyle: params.captionStyle
+        captionStyle: params.captionStyle,
+        // Send visual style parameters for AI enhancement
+        visualStyle,
+        colorScheme,
+        environment,
+        lighting,
+        mood,
+        cameraAngle,
+        composition
       });
       const { operationName, caption } = await startResponse.json();
       
@@ -712,7 +731,7 @@ export default function CreateContent() {
   };
 
   return (
-    <div className="p-6 tech-grid">
+    <div className="p-6">
       <div className="max-w-7xl mx-auto">
         <div className="mb-6 flex justify-between items-start">
           <div>
@@ -1020,7 +1039,28 @@ export default function CreateContent() {
                     />
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  {/* Customize Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg border-2 border-primary/20">
+                    <div className="flex items-center gap-3">
+                      <Settings className="w-5 h-5 text-primary" />
+                      <div>
+                        <Label className="text-base font-semibold text-primary cursor-pointer" htmlFor="customize-toggle">
+                          🎨 CUSTOMIZE VISUAL DETAILS
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Fine-tune style, lighting, mood, camera angles & more
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      id="customize-toggle"
+                      checked={showCustomizeOptions}
+                      onCheckedChange={setShowCustomizeOptions}
+                      className="scale-125"
+                    />
+                  </div>
+
+                  <div className={`grid grid-cols-1 md:grid-cols-3 gap-4 transition-all duration-300 ${!showCustomizeOptions ? 'opacity-30 pointer-events-none select-none' : 'opacity-100'}`}>
                     <div>
                       <Label htmlFor="imageModel">AI Model</Label>
                       <Select value={imageModel} onValueChange={setImageModel}>
@@ -1401,7 +1441,28 @@ export default function CreateContent() {
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {/* Video Customize Toggle */}
+                  <div className="flex items-center justify-between p-4 bg-gradient-to-r from-primary/5 to-secondary/5 rounded-lg border-2 border-primary/20">
+                    <div className="flex items-center gap-3">
+                      <Settings className="w-5 h-5 text-primary" />
+                      <div>
+                        <Label className="text-base font-semibold text-primary cursor-pointer" htmlFor="video-customize-toggle">
+                          🎬 CUSTOMIZE VIDEO DETAILS
+                        </Label>
+                        <p className="text-xs text-muted-foreground mt-1">
+                          Fine-tune style, transitions, pacing, effects & more
+                        </p>
+                      </div>
+                    </div>
+                    <Switch
+                      id="video-customize-toggle"
+                      checked={showVideoCustomizeOptions}
+                      onCheckedChange={setShowVideoCustomizeOptions}
+                      className="scale-125"
+                    />
+                  </div>
+
+                  <div className={`grid grid-cols-1 md:grid-cols-2 gap-4 transition-all duration-300 ${!showVideoCustomizeOptions ? 'opacity-30 pointer-events-none select-none' : 'opacity-100'}`}>
                     <div>
                       <Label htmlFor="videoModel">
                         <Zap className="w-4 h-4 inline mr-1" />

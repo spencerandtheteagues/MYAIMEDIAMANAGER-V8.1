@@ -49,7 +49,7 @@ export default function Sidebar({ onNavigate }: SidebarProps = {}) {
   });
 
   return (
-    <aside className="w-64 shadow-lg flex flex-col bg-background border-r-4 border-primary/50">
+    <aside className="w-64 shadow-lg flex flex-col bg-background relative">
       <div className="p-6 border-b border-border">
         <Logo size="md" animated={true} />
       </div>
@@ -101,7 +101,10 @@ export default function Sidebar({ onNavigate }: SidebarProps = {}) {
           </Link>
         )}
       </nav>
-      
+
+      {/* Thick purple border under navigation */}
+      <div className="border-b-4 border-primary/50"></div>
+
       <div className="p-4 border-t border-border">
         <div className="flex items-center space-x-3">
           <UserAvatar user={user} />

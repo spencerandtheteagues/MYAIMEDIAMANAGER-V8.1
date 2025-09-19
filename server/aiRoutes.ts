@@ -154,7 +154,15 @@ router.post("/image",
           keyMessages: req.body.keyMessages,
           isAdvertisement: req.body.isAdvertisement,
           additionalContext: req.body.additionalContext,
-          subjectMatterPriority: true // Flag to indicate subject matter prioritization
+          subjectMatterPriority: true, // Flag to indicate subject matter prioritization
+          // Visual style parameters from frontend
+          visualStyle: req.body.visualStyle || 'modern',
+          colorScheme: req.body.colorScheme || '',
+          environment: req.body.environment || 'Studio',
+          lighting: req.body.lighting || 'Natural Light',
+          mood: req.body.mood || 'Bright & Cheerful',
+          cameraAngle: req.body.cameraAngle || 'Eye Level',
+          composition: req.body.composition || 'Rule of Thirds'
         }
       });
       
@@ -212,6 +220,49 @@ router.post("/image",
   }
 );
 
+// Caption generation for media
+router.post("/caption",
+  requireCredits("text"),
+  async (req, res) => {
+    try {
+      const { mediaType, mediaPrompt, platform, businessContext } = req.body;
+
+      if (!mediaType || !mediaPrompt || !platform) {
+        return res.status(400).json({
+          error: "Missing required fields: mediaType, mediaPrompt, platform"
+        });
+      }
+
+      // Import AI service
+      const { AIService } = await import("./ai-service");
+      const aiService = new AIService();
+
+      // Generate caption
+      const caption = await aiService.generateCaption(
+        mediaType,
+        mediaPrompt,
+        platform,
+        businessContext
+      );
+
+      // Deduct credits (caption generation costs 1 credit)
+      await deductCredits(res);
+
+      res.json({
+        success: true,
+        caption,
+        platform,
+        mediaType
+      });
+    } catch (error: any) {
+      console.error('Caption generation error:', error);
+      res.status(500).json({
+        error: error.message || 'Caption generation failed'
+      });
+    }
+  }
+);
+
 // Video generation with trial support
 router.post("/video/start",
   withTrialGuard("video"),
@@ -224,17 +275,25 @@ router.post("/video/start",
       
       // Enhanced prompt construction prioritizing subject matter for video
       let enhancedPrompt = prompt;
-      
+
+      // Extract visual style parameters from request
+      const visualStyle = req.body.visualStyle || 'modern';
+      const environment = req.body.environment || 'Studio';
+      const lighting = req.body.lighting || 'Natural Light';
+      const mood = req.body.mood || 'Bright & Cheerful';
+      const cameraAngle = req.body.cameraAngle || 'Eye Level';
+      const colorScheme = req.body.colorScheme || '';
+
       // If no explicit prompt provided, construct one prioritizing subject matter
       if (!prompt || prompt.includes('Cinematic close-up')) {
         const subjectMatter = req.body.productName || '';
         const businessName = req.body.businessName || '';
-        const videoStyle = req.body.videoStyle || 'professional';
-        
+        const videoStyle = req.body.videoStyle || visualStyle || 'professional';
+
         if (subjectMatter.trim()) {
           // Subject matter gets priority
           enhancedPrompt = `${videoStyle} cinematic close-up of ${subjectMatter} in slow motion`;
-          
+
           // Add business context as secondary
           if (businessName.trim()) {
             enhancedPrompt += `, featuring ${businessName}`;
@@ -244,6 +303,37 @@ router.post("/video/start",
           enhancedPrompt = `${videoStyle} cinematic close-up of ${businessName} in slow motion`;
         }
       }
+
+      // Enhance prompt with visual parameters
+      const visualEnhancements = [];
+
+      if (environment && environment !== 'Studio') {
+        visualEnhancements.push(`in ${environment.toLowerCase()} setting`);
+      }
+
+      if (lighting && lighting !== 'Natural Light') {
+        visualEnhancements.push(`with ${lighting.toLowerCase()} lighting`);
+      }
+
+      if (mood && mood !== 'Bright & Cheerful') {
+        visualEnhancements.push(`${mood.toLowerCase()} mood`);
+      }
+
+      if (cameraAngle && cameraAngle !== 'Eye Level') {
+        visualEnhancements.push(`${cameraAngle.toLowerCase()} camera angle`);
+      }
+
+      if (colorScheme) {
+        visualEnhancements.push(`${colorScheme} color scheme`);
+      }
+
+      // Add enhancements to prompt if any
+      if (visualEnhancements.length > 0) {
+        enhancedPrompt += `, ${visualEnhancements.join(', ')}`;
+      }
+
+      // Add general video quality enhancements
+      enhancedPrompt += ', cinematic quality, professional video production';
       
       // Start video generation
       const result = await startVideo({ 
