@@ -102,22 +102,22 @@ function Router() {
   // If authenticated, show the main app with restriction dialog system
   return (
     <>
-      <div className="flex min-h-screen overflow-hidden bg-background">
+      <div className="flex min-h-screen bg-background">
         <TrialWelcomePopup />
         <NotificationPopup />
-        
-        {/* Desktop Sidebar - hidden on mobile */}
-        <div className="hidden md:block">
+
+        {/* Desktop Sidebar - hidden on mobile, sticky positioning */}
+        <div className="hidden md:block flex-shrink-0">
           <Sidebar />
         </div>
-        
+
         {/* Mobile Sidebar Sheet */}
         <Sheet open={isMobileSidebarOpen} onOpenChange={setIsMobileSidebarOpen}>
           <SheetContent side="left" className="w-64 p-0">
             <Sidebar onNavigate={() => setIsMobileSidebarOpen(false)} />
           </SheetContent>
         </Sheet>
-        
+
         <main className="flex-1 min-w-0 overflow-y-auto tech-grid">
           <Header onMobileMenuClick={() => setIsMobileSidebarOpen(true)} />
           <div className="p-4 sm:p-6">

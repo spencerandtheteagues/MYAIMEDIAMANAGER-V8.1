@@ -423,4 +423,33 @@
     display: flex;
     align-items: center;
   }
+
+  /* Sticky sidebar support */
+  aside {
+    will-change: transform; /* Optimize for sticky positioning */
+  }
+
+  /* Ensure main content scrolls properly */
+  main {
+    max-height: 100vh;
+  }
+
+  /* Smooth scrolling for sidebar content when needed */
+  aside::-webkit-scrollbar {
+    width: 8px;
+  }
+
+  aside::-webkit-scrollbar-track {
+    background: hsl(var(--muted));
+    border-radius: 4px;
+  }
+
+  aside::-webkit-scrollbar-thumb {
+    background: hsl(var(--primary) / 0.3);
+    border-radius: 4px;
+  }
+
+  aside::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--primary) / 0.5);
+  }
 }

@@ -19,7 +19,6 @@ import { UserAvatar } from "@/components/ui/user-avatar";
 import { Logo } from "@/components/ui/logo";
 import { useQuery } from "@tanstack/react-query";
 import type { Post, User } from "@shared/schema";
-import { useEffect, useRef } from "react";
 
 const navigation = [
   { name: "Dashboard", href: "/", icon: LayoutDashboard },
@@ -40,7 +39,6 @@ interface SidebarProps {
 
 export default function Sidebar({ onNavigate }: SidebarProps = {}) {
   const [location] = useLocation();
-  const sidebarRef = useRef<HTMLElement>(null);
 
   const { data: user } = useQuery<User>({
     queryKey: ["/api/user"],
@@ -50,61 +48,9 @@ export default function Sidebar({ onNavigate }: SidebarProps = {}) {
     queryKey: ["/api/posts", "pending"],
   });
 
-  // Auto-scroll sidebar with main content
-  useEffect(() => {
-    let isScrolling = false;
-
-    const handleMainScroll = () => {
-      if (isScrolling) return;
-
-      const mainElement = document.querySelector('main');
-      const sidebarElement = sidebarRef.current;
-
-      if (mainElement && sidebarElement) {
-        // Calculate scroll percentage of main content
-        const mainScrollTop = mainElement.scrollTop;
-        const mainScrollHeight = mainElement.scrollHeight - mainElement.clientHeight;
-
-        // Avoid division by zero
-        if (mainScrollHeight <= 0) return;
-
-        const scrollPercentage = Math.min(1, Math.max(0, mainScrollTop / mainScrollHeight));
-
-        // Apply same scroll percentage to sidebar
-        const sidebarScrollHeight = sidebarElement.scrollHeight - sidebarElement.clientHeight;
-
-        // Only scroll if sidebar has scrollable content
-        if (sidebarScrollHeight > 0) {
-          const targetScrollTop = scrollPercentage * sidebarScrollHeight;
-
-          isScrolling = true;
-          sidebarElement.scrollTo({
-            top: targetScrollTop,
-            behavior: 'instant' // Changed to instant for better performance
-          });
-
-          // Reset flag after a short delay
-          setTimeout(() => {
-            isScrolling = false;
-          }, 10);
-        }
-      }
-    };
-
-    const mainElement = document.querySelector('main');
-    if (mainElement) {
-      mainElement.addEventListener('scroll', handleMainScroll, { passive: true });
-
-      return () => {
-        mainElement.removeEventListener('scroll', handleMainScroll);
-      };
-    }
-  }, []);
-
   return (
     <aside
-      ref={sidebarRef}
-      className="w-64 shadow-lg flex flex-col bg-background relative border-4 border-primary/50 rounded-lg m-3 overflow-y-auto max-h-screen"
+      className="w-64 shadow-lg flex flex-col bg-background border-4 border-primary/50 rounded-lg m-3 h-[calc(100vh-1.5rem)] sticky top-3 overflow-y-auto"
     >
       <div className="p-6 border-b border-border">
         <Logo size="md" animated={true} />
