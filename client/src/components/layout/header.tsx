@@ -202,7 +202,7 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
   const tierInfo = getTierDisplay(user?.tier);
 
   return (
-    <header className="md:pl-[296px] md:pr-6 pt-6 pb-3">
+    <header className="pt-6 pb-3">
       <div className="mx-6 bg-card rounded-2xl border-2 border-primary shadow-2xl shadow-primary/50 px-6 py-4 relative">
         <div className="absolute -inset-2 bg-gradient-to-r from-primary/20 via-primary/30 to-primary/20 rounded-2xl blur-lg -z-10"></div>
       <div className="flex items-center justify-between w-full">
