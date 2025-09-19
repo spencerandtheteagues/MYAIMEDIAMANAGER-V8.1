@@ -202,9 +202,11 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
   const tierInfo = getTierDisplay(user?.tier);
 
   return (
-    <header className="bg-card shadow-sm border-b border-border px-4 sm:px-6 py-3 md:ml-[272px]">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 sm:gap-4 flex-1">
+    <header className="bg-card shadow-sm border-b border-border py-3 md:ml-[272px]">
+      <div className="px-4 sm:px-6">
+      <div className="flex items-center justify-between w-full">
+        {/* Left side - Page title */}
+        <div className="flex items-center gap-2 sm:gap-4">
           {/* Mobile menu button - only visible on mobile */}
           {onMobileMenuClick && (
             <Button
@@ -223,7 +225,9 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
             <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">{currentPage.subtitle}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 sm:gap-4">
+
+        {/* Right side - All action items with proper spacing */}
+        <div className="flex items-center gap-4 sm:gap-6">
           {/* Credit Balance - responsive */}
           <div className="hidden sm:block">
             <CreditBalance 
@@ -261,9 +265,9 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
             <DropdownMenuTrigger asChild>
               <Tooltip>
                 <TooltipTrigger asChild>
-                  <Button variant="ghost" className="inline-flex items-center gap-2 px-3">
+                  <Button variant="ghost" className="inline-flex items-center gap-2 px-3 py-2">
                     <Palette className="h-5 w-5" />
-                    <span className="text-sm">Theme</span>
+                    <span className="text-sm hidden sm:inline">Theme</span>
                   </Button>
                 </TooltipTrigger>
                 <TooltipContent>
@@ -534,6 +538,7 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
+      </div>
       </div>
     </header>
   );
