@@ -5,7 +5,8 @@
 
 import { Router } from "express";
 import { z } from "zod";
-import { validateContentForPlatforms, getMinCharacterLimit, getPlatformPostingInfo } from "./platformLimits";
+import { validateContentForPlatforms, getMinCharacterLimit } from "./platformLimits";
+import { getPlatformPostingInfo } from "./socialMediaPublisher";
 
 export function createContentValidationRoutes(): Router {
   const router = Router();
