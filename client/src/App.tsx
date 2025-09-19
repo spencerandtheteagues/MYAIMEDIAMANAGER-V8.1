@@ -102,7 +102,7 @@ function Router() {
   // If authenticated, show the main app with restriction dialog system
   return (
     <>
-      <div className="flex min-h-screen overflow-hidden bg-background tech-grid">
+      <div className="flex min-h-screen overflow-hidden bg-background">
         <TrialWelcomePopup />
         <NotificationPopup />
         
@@ -120,7 +120,7 @@ function Router() {
         
         <main className="flex-1 min-w-0 overflow-y-auto">
           <Header onMobileMenuClick={() => setIsMobileSidebarOpen(true)} />
-          <div className="p-4 sm:p-6">
+          <div className="p-4 sm:p-6 tech-grid min-h-screen">
             <TrialCountdown />
             <Switch>
             <Route path="/" component={Dashboard} />
