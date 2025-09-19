@@ -119,7 +119,7 @@ function Router() {
           </SheetContent>
         </Sheet>
 
-        <main className="flex-1 min-w-0 overflow-y-auto tech-grid">
+        <main className="flex-1 min-w-0 overflow-y-auto tech-grid md:ml-[272px]">
           <Header onMobileMenuClick={() => setIsMobileSidebarOpen(true)} />
           <div className="p-4 sm:p-6">
             <TrialCountdown />
