@@ -50,7 +50,7 @@ export default function Sidebar({ onNavigate }: SidebarProps = {}) {
 
   return (
     <aside
-      className="w-64 shadow-lg flex flex-col bg-background border-4 border-primary/50 rounded-lg m-3 h-[calc(100vh-24px)] sticky top-3 overflow-y-auto"
+      className="w-64 shadow-lg flex flex-col bg-background border-4 border-primary/50 rounded-lg m-3 h-[calc(100vh-1.5rem+0.4rem)] fixed top-3 left-3 overflow-y-auto z-40"
     >
       <div className="p-6 border-b border-border">
         <Logo size="md" animated={true} />
@@ -103,6 +103,9 @@ export default function Sidebar({ onNavigate }: SidebarProps = {}) {
           </Link>
         )}
       </nav>
+
+      {/* Thin purple separator line */}
+      <div className="border-b border-primary/30 mx-4"></div>
 
       <div className="p-4">
         <div className="flex items-center space-x-3">

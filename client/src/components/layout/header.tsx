@@ -219,7 +219,7 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
             <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">{currentPage.subtitle}</p>
           </div>
         </div>
-        <div className="flex items-center gap-2 sm:gap-3">
+        <div className="flex items-center gap-4 sm:gap-6">
           {/* Credit Balance - responsive */}
           <div className="hidden sm:block">
             <CreditBalance 
@@ -268,8 +268,11 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
-                  console.log('[Header] Setting theme to neon-pink');
+                  console.log('[Header] Current theme:', theme, '- Setting theme to neon-pink');
                   setTheme('neon-pink');
+                  // Force DOM update
+                  document.documentElement.setAttribute('data-theme', 'neon-pink');
+                  console.log('[Header] Applied data-theme attribute:', document.documentElement.getAttribute('data-theme'));
                   // Force immediate visual feedback
                   toast({
                     title: "Theme Changed",
@@ -286,8 +289,11 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
-                  console.log('[Header] Setting theme to neon-blue');
+                  console.log('[Header] Current theme:', theme, '- Setting theme to neon-blue');
                   setTheme('neon-blue');
+                  // Force DOM update
+                  document.documentElement.setAttribute('data-theme', 'neon-blue');
+                  console.log('[Header] Applied data-theme attribute:', document.documentElement.getAttribute('data-theme'));
                   // Force immediate visual feedback
                   toast({
                     title: "Theme Changed",
@@ -460,12 +466,13 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
           </DropdownMenu>
 
           {/* User Account Dropdown - Positioned at far right */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative p-0 h-auto ml-2">
-                <UserAvatar user={user} className="w-10 h-10" />
-              </Button>
-            </DropdownMenuTrigger>
+          <div className="ml-auto">
+            <DropdownMenu>
+              <DropdownMenuTrigger asChild>
+                <Button variant="ghost" className="relative p-0 h-auto">
+                  <UserAvatar user={user} className="w-10 h-10" />
+                </Button>
+              </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
               <div className="px-2 py-3 border-b">
                 <p className="font-semibold">{user?.fullName || 'User'}</p>
@@ -518,7 +525,8 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
                 Logout
               </DropdownMenuItem>
             </DropdownMenuContent>
-          </DropdownMenu>
+            </DropdownMenu>
+          </div>
         </div>
       </div>
     </header>
