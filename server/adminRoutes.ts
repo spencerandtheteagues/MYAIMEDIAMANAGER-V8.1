@@ -234,10 +234,28 @@ router.patch("/users/:id", async (req, res) => {
     const adminId = (req as any).adminId;
     const { id } = req.params;
     const updates = req.body;
-    
+
     // Don't allow changing user ID
     delete updates.id;
-    
+
+    // Convert date strings to Date objects for timestamp fields
+    const dateFields = [
+      'trialStartedAt', 'trialEndsAt', 'trialStartDate', 'trialEndDate',
+      'lastActivityAt', 'pausedAt', 'createdAt', 'updatedAt',
+      'lastLoginAt', 'deletedAt', 'emailVerificationExpiry'
+    ];
+
+    for (const field of dateFields) {
+      if (updates[field] && typeof updates[field] === 'string') {
+        try {
+          updates[field] = new Date(updates[field]);
+        } catch (error) {
+          // If date parsing fails, remove the field from updates
+          delete updates[field];
+        }
+      }
+    }
+
     const updatedUser = await storage.updateUser(id, updates);
     if (!updatedUser) {
       return res.status(404).json({ message: "User not found" });
@@ -1359,6 +1377,70 @@ router.post("/force-password-reset/:userId", async (req, res) => {
     });
   } catch (error: any) {
     res.status(500).json({ message: "Error forcing password reset: " + error.message });
+  }
+});
+
+// Update all admin accounts to enterprise tier
+router.post("/update-admin-tiers", async (req, res) => {
+  try {
+    const adminUser = (req as any).adminUser;
+    const adminId = (req as any).adminId;
+
+    console.log('Admin tier update requested by:', adminUser?.email);
+
+    // Get all users
+    const allUsers = await storage.getAllUsers();
+
+    // Filter admin users
+    const adminUsers = allUsers.filter(user => user.role === 'admin');
+
+    console.log(`Found ${adminUsers.length} admin users`);
+
+    let updatedCount = 0;
+    const updates = [];
+
+    for (const admin of adminUsers) {
+      if (admin.tier !== 'enterprise') {
+        console.log(`Updating ${admin.fullName || admin.username} (${admin.email}) from ${admin.tier} to enterprise`);
+
+        await storage.updateUser(admin.id, {
+          tier: 'enterprise'
+        });
+
+        // Log admin action
+        await storage.logAdminAction({
+          adminUserId: adminId || null,
+          targetUserId: admin.id,
+          action: "update_admin_tier",
+          details: { oldTier: admin.tier, newTier: 'enterprise' },
+        });
+
+        updates.push({
+          id: admin.id,
+          name: admin.fullName || admin.username,
+          email: admin.email,
+          oldTier: admin.tier,
+          newTier: 'enterprise'
+        });
+
+        updatedCount++;
+      }
+    }
+
+    res.json({
+      success: true,
+      message: `Updated ${updatedCount} admin accounts to enterprise tier`,
+      totalAdmins: adminUsers.length,
+      updatedCount,
+      updates
+    });
+
+  } catch (error: any) {
+    console.error('Error updating admin tiers:', error);
+    res.status(500).json({
+      success: false,
+      message: "Error updating admin tiers: " + error.message
+    });
   }
 });
 
