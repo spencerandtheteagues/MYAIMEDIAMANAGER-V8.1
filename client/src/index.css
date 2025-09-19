@@ -193,6 +193,17 @@
   body {
     @apply font-sans antialiased bg-background text-foreground;
     font-family: var(--font-sans);
+    /* Smooth transitions for theme changes */
+    transition: background-color 0.3s ease, color 0.3s ease;
+  }
+
+  /* Apply transitions to commonly themed elements */
+  button, .card, .sidebar, .popover, .dropdown-menu-content,
+  input, textarea, select, .badge, .alert {
+    transition: background-color 0.3s ease,
+                color 0.3s ease,
+                border-color 0.3s ease,
+                box-shadow 0.3s ease;
   }
 
   h1, h2, h3, h4, h5, h6 {

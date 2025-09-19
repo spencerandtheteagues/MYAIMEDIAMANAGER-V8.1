@@ -43,6 +43,7 @@ import {
 import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useToast } from "@/hooks/use-toast";
+import { useTheme } from "@/contexts/ThemeContext";
 import type { User as UserType } from "@shared/schema";
 
 const pageData = {
@@ -162,12 +163,7 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
   const [location, setLocation] = useLocation();
   const currentPage = pageData[location as keyof typeof pageData] || pageData["/"];
   const [isQuickCreateOpen, setIsQuickCreateOpen] = useState(false);
-  const [theme, setTheme] = useState<'neon-pink' | 'neon-blue' | 'professional'>(() => {
-    // Get theme from localStorage or default to neon-pink
-    const storedTheme = localStorage.getItem('app-theme') as 'neon-pink' | 'neon-blue' | 'professional';
-    const validThemes = ['neon-pink', 'neon-blue', 'professional'];
-    return validThemes.includes(storedTheme) ? storedTheme : 'neon-pink';
-  });
+  const { theme, setTheme } = useTheme();
   const { toast } = useToast();
   
   const { data: user } = useQuery<UserType>({
@@ -200,12 +196,6 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
   };
   
   const tierInfo = getTierDisplay(user?.tier);
-
-  useEffect(() => {
-    console.log('Theme changing to:', theme);
-    document.documentElement.setAttribute('data-theme', theme);
-    localStorage.setItem('app-theme', theme);
-  }, [theme]);
 
   return (
     <header className="bg-card shadow-sm border-b border-border px-4 sm:px-6 py-3">
@@ -278,8 +268,14 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
               <DropdownMenuSeparator />
               <DropdownMenuItem
                 onClick={() => {
-                  console.log('Setting theme to neon-pink');
+                  console.log('[Header] Setting theme to neon-pink');
                   setTheme('neon-pink');
+                  // Force immediate visual feedback
+                  toast({
+                    title: "Theme Changed",
+                    description: "Switched to Neon Pink theme",
+                    duration: 2000,
+                  });
                 }}
                 className="cursor-pointer"
               >
@@ -290,8 +286,14 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
-                  console.log('Setting theme to neon-blue');
+                  console.log('[Header] Setting theme to neon-blue');
                   setTheme('neon-blue');
+                  // Force immediate visual feedback
+                  toast({
+                    title: "Theme Changed",
+                    description: "Switched to Neon Blue theme",
+                    duration: 2000,
+                  });
                 }}
                 className="cursor-pointer"
               >
@@ -302,8 +304,14 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() => {
-                  console.log('Setting theme to professional');
+                  console.log('[Header] Setting theme to professional');
                   setTheme('professional');
+                  // Force immediate visual feedback
+                  toast({
+                    title: "Theme Changed",
+                    description: "Switched to Professional theme",
+                    duration: 2000,
+                  });
                 }}
                 className="cursor-pointer"
               >

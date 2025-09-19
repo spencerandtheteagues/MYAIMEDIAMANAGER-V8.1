@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Theme Test</title>
+    <style>
+        /* Simplified theme CSS variables */
+        :root, [data-theme="neon-pink"] {
+            --primary: hsl(280, 100%, 60%);
+            --background: hsl(0, 0%, 0%);
+            --foreground: hsl(0, 0%, 90%);
+            --border: hsl(280, 50%, 20%);
+        }
+
+        [data-theme="neon-blue"] {
+            --primary: hsl(200, 100%, 60%);
+            --background: hsl(0, 0%, 0%);
+            --foreground: hsl(0, 0%, 90%);
+            --border: hsl(200, 50%, 20%);
+        }
+
+        [data-theme="professional"] {
+            --primary: hsl(160, 70%, 45%);
+            --background: hsl(210, 20%, 8%);
+            --foreground: hsl(0, 0%, 85%);
+            --border: hsl(210, 20%, 25%);
+        }
+
+        body {
+            background-color: var(--background);
+            color: var(--foreground);
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            transition: background-color 0.3s, color 0.3s;
+        }
+
+        button {
+            background-color: var(--primary);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+
+        button:hover {
+            opacity: 0.9;
+        }
+
+        .card {
+            border: 2px solid var(--border);
+            padding: 20px;
+            margin: 20px 0;
+            border-radius: 10px;
+            transition: border-color 0.3s;
+        }
+
+        .theme-info {
+            margin-top: 20px;
+            padding: 10px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>Theme Toggle Test</h1>
+
+    <div class="card">
+        <h2>Theme Selector</h2>
+        <button onclick="setTheme('neon-pink')">Neon Pink</button>
+        <button onclick="setTheme('neon-blue')">Neon Blue</button>
+        <button onclick="setTheme('professional')">Professional</button>
+    </div>
+
+    <div class="card">
+        <h2>Sample Content</h2>
+        <p>This is a test card to demonstrate theme changes. The colors should change when you select different themes above.</p>
+        <button>Primary Button</button>
+    </div>
+
+    <div class="theme-info">
+        <strong>Current Theme:</strong> <span id="current-theme">neon-pink</span><br>
+        <strong>localStorage Value:</strong> <span id="storage-value">-</span><br>
+        <strong>data-theme Attribute:</strong> <span id="data-theme">-</span>
+    </div>
+
+    <script>
+        // Initialize theme on load
+        function initializeTheme() {
+            const storedTheme = localStorage.getItem('app-theme') || 'neon-pink';
+            document.documentElement.setAttribute('data-theme', storedTheme);
+            updateThemeInfo(storedTheme);
+        }
+
+        // Set theme function
+        function setTheme(theme) {
+            console.log('Setting theme to:', theme);
+            document.documentElement.setAttribute('data-theme', theme);
+            localStorage.setItem('app-theme', theme);
+            updateThemeInfo(theme);
+        }
+
+        // Update theme information display
+        function updateThemeInfo(theme) {
+            document.getElementById('current-theme').textContent = theme;
+            document.getElementById('storage-value').textContent = localStorage.getItem('app-theme') || 'not set';
+            document.getElementById('data-theme').textContent = document.documentElement.getAttribute('data-theme') || 'not set';
+        }
+
+        // Initialize on page load
+        initializeTheme();
+    </script>
+</body>
+</html>
