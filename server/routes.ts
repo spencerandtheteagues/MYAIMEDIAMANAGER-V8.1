@@ -1641,12 +1641,11 @@ export async function registerRoutes(app: Express): Promise<Server> {
       } // Works in demo mode
       const { url, state, codeVerifier } = generateXAuthUrl(userId);
       
-      // In production, store codeVerifier securely (session/database)
-      // For now, we'll pass it back to the client
-      res.json({ 
-        authUrl: url, 
-        state,
-        codeVerifier // Client needs to store this for callback
+      // Code verifier is now stored server-side for security
+      console.log('Generated X.com OAuth URL for user:', userId);
+      res.json({
+        authUrl: url,
+        state
       });
     } catch (error) {
       res.status(500).json({ message: "Failed to generate auth URL" });
@@ -1657,17 +1656,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.get("/api/auth/x/callback", async (req: any, res) => {
     try {
       const { code, state } = req.query;
-      // In production, get codeVerifier from session
-      const codeVerifier = req.query.code_verifier as string;
-      
+
       if (!code || !state) {
         return res.status(400).json({ message: "Missing required parameters" });
       }
-      
+
+      console.log('X.com OAuth callback received:', { code: '***', state });
+
       const result = await handleXOAuthCallback(
         code as string,
-        state as string,
-        codeVerifier
+        state as string
       );
       
       if (result.success) {

@@ -89,7 +89,7 @@ export async function publishToSocialMedia(request: PublishRequest): Promise<Pub
 async function publishToX(content: string, mediaUrls: string[], userId: string): Promise<PublishResult> {
   try {
     // Get user's X platform connection
-    const platforms = await storage.getUserPlatforms(userId);
+    const platforms = await storage.getPlatformsByUserId(userId);
     const xPlatform = platforms.find(p =>
       p.name.toLowerCase().includes('x') ||
       p.name.toLowerCase().includes('twitter')
@@ -112,16 +112,45 @@ async function publishToX(content: string, mediaUrls: string[], userId: string):
       };
     }
 
-    const result = await postToXWithOAuth(xPlatform.accessToken, content);
+    console.log('Attempting to post to X for user:', userId, 'platform connected:', xPlatform.isConnected);
+
+    let result = await postToXWithOAuth(xPlatform.accessToken, content);
+
+    // If token expired, try to refresh it
+    if (!result.success && result.error?.includes('401') && xPlatform.refreshToken) {
+      console.log('X token expired, attempting refresh...');
+      try {
+        const { refreshXAccessToken } = await import('./x-oauth');
+        const refreshedTokens = await refreshXAccessToken(xPlatform.refreshToken);
+
+        // Update platform with new tokens
+        await storage.updatePlatform(xPlatform.id, {
+          accessToken: refreshedTokens.accessToken,
+          refreshToken: refreshedTokens.refreshToken,
+          metadata: {
+            ...xPlatform.metadata,
+            expiresAt: new Date(Date.now() + refreshedTokens.expiresIn * 1000).toISOString()
+          }
+        });
+
+        // Retry the post with new token
+        result = await postToXWithOAuth(refreshedTokens.accessToken, content);
+        console.log('Post retry after token refresh:', result.success);
+      } catch (refreshError) {
+        console.error('Failed to refresh X token:', refreshError);
+      }
+    }
 
     if (result.success) {
+      console.log('Successfully posted to X, tweet ID:', result.tweetId);
       return {
         platform: 'X',
         success: true,
         postId: result.tweetId,
-        url: result.tweetId ? `https://twitter.com/i/web/status/${result.tweetId}` : undefined
+        url: result.tweetId ? `https://x.com/i/web/status/${result.tweetId}` : undefined
       };
     } else {
+      console.error('Failed to post to X:', result.error);
       return {
         platform: 'X',
         success: false,

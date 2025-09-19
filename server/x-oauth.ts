@@ -20,7 +20,7 @@ const X_OAUTH_CONFIG = {
 };
 
 // Store OAuth states temporarily (in production, use Redis or database)
-const oauthStates = new Map<string, { userId: string; timestamp: number }>();
+const oauthStates = new Map<string, { userId: string; timestamp: number; codeVerifier: string }>();
 
 // Generate PKCE challenge
 function generatePKCEChallenge() {
@@ -38,11 +38,12 @@ function generatePKCEChallenge() {
 export function generateXAuthUrl(userId: string): { url: string; state: string; codeVerifier: string } {
   const state = crypto.randomBytes(32).toString('hex');
   const { verifier, challenge } = generatePKCEChallenge();
-  
+
   // Store state for verification
   oauthStates.set(state, {
     userId,
     timestamp: Date.now(),
+    codeVerifier: verifier,
   });
   
   // Clean up old states (older than 10 minutes)
@@ -188,7 +189,7 @@ export async function refreshXAccessToken(refreshToken: string): Promise<{
 export async function handleXOAuthCallback(
   code: string,
   state: string,
-  codeVerifier: string
+  codeVerifier?: string
 ): Promise<{ success: boolean; userId?: string; error?: string }> {
   try {
     // Verify state
@@ -197,25 +198,61 @@ export async function handleXOAuthCallback(
       return { success: false, error: 'Invalid state parameter' };
     }
     
+    // Use stored code verifier if not provided
+    const actualCodeVerifier = codeVerifier || stateData.codeVerifier;
+
     // Clean up state
     oauthStates.delete(state);
-    
+
     // Exchange code for tokens
-    const tokens = await exchangeCodeForTokens(code, codeVerifier);
-    
+    const tokens = await exchangeCodeForTokens(code, actualCodeVerifier);
+
     // Get user info
     const userInfo = await getXUserInfo(tokens.accessToken);
-    
-    // Store platform connection
-    await storage.createPlatform({
+
+    console.log('X.com OAuth success:', {
       userId: stateData.userId,
-      name: 'X (Twitter)',
-      icon: 'twitter',
-      color: '#1DA1F2',
-      isConnected: true,
-      accountId: userInfo.id,
-      accessToken: tokens.accessToken,
+      xUsername: userInfo.username,
+      xId: userInfo.id
     });
+
+    // Check if platform already exists for this user
+    const existingPlatforms = await storage.getPlatformsByUserId(stateData.userId);
+    const existingXPlatform = existingPlatforms.find(p => p.name === 'X (Twitter)' || p.icon === 'twitter');
+
+    if (existingXPlatform) {
+      // Update existing platform
+      await storage.updatePlatform(existingXPlatform.id, {
+        isConnected: true,
+        accountId: userInfo.id,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        metadata: {
+          username: userInfo.username,
+          name: userInfo.name,
+          expiresAt: new Date(Date.now() + tokens.expiresIn * 1000).toISOString()
+        }
+      });
+      console.log('Updated existing X platform connection');
+    } else {
+      // Store new platform connection
+      await storage.createPlatform({
+        userId: stateData.userId,
+        name: 'X (Twitter)',
+        icon: 'twitter',
+        color: '#1DA1F2',
+        isConnected: true,
+        accountId: userInfo.id,
+        accessToken: tokens.accessToken,
+        refreshToken: tokens.refreshToken,
+        metadata: {
+          username: userInfo.username,
+          name: userInfo.name,
+          expiresAt: new Date(Date.now() + tokens.expiresIn * 1000).toISOString()
+        }
+      });
+      console.log('Created new X platform connection');
+    }
     
     return { success: true, userId: stateData.userId };
   } catch (error: any) {
