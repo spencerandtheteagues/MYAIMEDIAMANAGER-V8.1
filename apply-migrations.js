@@ -51,10 +51,11 @@ async function applyMigration(pool, migrationFile, migrationName) {
     const migrationPath = path.join(__dirname, 'migrations', migrationFile);
     const sqlContent = await fs.readFile(migrationPath, 'utf-8');
 
-    // Split by semicolons but be careful with functions/procedures
+    // Split by semicolons but be careful with functions/procedures and DO blocks
     const statements = [];
     let currentStatement = '';
     let inFunction = false;
+    let inDoBlock = false;
 
     const lines = sqlContent.split('\n');
     for (const line of lines) {
@@ -66,13 +67,27 @@ async function applyMigration(pool, migrationFile, migrationName) {
         inFunction = true;
       }
 
+      // Detect DO block boundaries
+      if (upperLine.startsWith('DO $$')) {
+        inDoBlock = true;
+      }
+
       currentStatement += line + '\n';
 
+      // Handle end of function
       if (inFunction && upperLine.includes('$$ LANGUAGE')) {
         inFunction = false;
         statements.push(currentStatement.trim());
         currentStatement = '';
-      } else if (!inFunction && line.trim().endsWith(';')) {
+      }
+      // Handle end of DO block
+      else if (inDoBlock && upperLine.includes('END $$;')) {
+        inDoBlock = false;
+        statements.push(currentStatement.trim());
+        currentStatement = '';
+      }
+      // Handle regular statements
+      else if (!inFunction && !inDoBlock && line.trim().endsWith(';')) {
         statements.push(currentStatement.trim());
         currentStatement = '';
       }
@@ -178,9 +193,12 @@ async function main() {
     console.log(`${colors.green}✓ Connected to database${colors.reset}`);
     console.log(`  Server time: ${testResult.rows[0].current_time}`);
 
-    // Apply migrations in sequence
+    // Apply migrations in sequence - cleanup MUST run before constraints
     const migrations = [
+      { file: '0002_trial_lite.sql', name: 'Trial System Enhancements' },
       { file: '0003_performance_indexes.sql', name: 'Performance Indexes (45+ critical indexes)' },
+      { file: '0003a_cleanup_tier_values.sql', name: 'Tier Values Data Cleanup' },
+      { file: '0004a_cleanup_tier_values.sql', name: 'Advanced Tier Values Cleanup' },
       { file: '0004_data_integrity_constraints.sql', name: 'Data Integrity Constraints (30+ business rules)' },
       { file: '0005_security_audit_tables.sql', name: 'Security Audit Tables & Triggers' }
     ];
