@@ -202,8 +202,8 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
   const tierInfo = getTierDisplay(user?.tier);
 
   return (
-    <header className="bg-card shadow-sm border-b border-border py-3 md:ml-[280px]">
-      <div className="px-4 sm:px-6">
+    <header className="bg-card shadow-sm border-b border-border py-3 md:pl-[280px] md:pr-6">
+      <div className="px-4 sm:px-0">
       <div className="flex items-center justify-between w-full">
         {/* Left side - Page title */}
         <div className="flex items-center gap-2 sm:gap-4">
