@@ -202,9 +202,9 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
   const tierInfo = getTierDisplay(user?.tier);
 
   return (
-    <header className="bg-card shadow-sm border-b border-border px-4 sm:px-6 py-3">
+    <header className="bg-card shadow-sm border-b border-border px-4 sm:px-6 py-3 md:ml-[272px]">
       <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 sm:gap-4">
+        <div className="flex items-center gap-2 sm:gap-4 flex-1">
           {/* Mobile menu button - only visible on mobile */}
           {onMobileMenuClick && (
             <Button
@@ -218,12 +218,12 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
               <span className="sr-only">Open menu</span>
             </Button>
           )}
-          <div className="min-w-0 flex-1">
+          <div className="min-w-0">
             <h2 className="text-xl sm:text-2xl font-bold text-foreground truncate">{currentPage.title}</h2>
             <p className="text-xs sm:text-sm text-muted-foreground hidden sm:block">{currentPage.subtitle}</p>
           </div>
         </div>
-        <div className="flex items-center gap-4 sm:gap-6">
+        <div className="flex items-center gap-2 sm:gap-4">
           {/* Credit Balance - responsive */}
           <div className="hidden sm:block">
             <CreditBalance 
@@ -474,13 +474,12 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
           </DropdownMenu>
 
           {/* User Account Dropdown - Positioned at far right */}
-          <div className="ml-auto">
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="relative p-0 h-auto">
-                  <UserAvatar user={user} className="w-10 h-10" />
-                </Button>
-              </DropdownMenuTrigger>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative p-0 h-auto">
+                <UserAvatar user={user} className="w-10 h-10" />
+              </Button>
+            </DropdownMenuTrigger>
             <DropdownMenuContent align="end" className="w-64">
               <div className="px-2 py-3 border-b">
                 <p className="font-semibold">{user?.fullName || 'User'}</p>
@@ -533,8 +532,7 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
                 Logout
               </DropdownMenuItem>
             </DropdownMenuContent>
-            </DropdownMenu>
-          </div>
+          </DropdownMenu>
         </div>
       </div>
     </header>
