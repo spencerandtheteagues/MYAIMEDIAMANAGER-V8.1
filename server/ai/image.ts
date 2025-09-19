@@ -201,29 +201,30 @@ async function generateWithDALLE3(prompt: string, aspectRatio: string): Promise<
     "16:9": "1792x1024",
     "9:16": "1024x1792",
     "4:3": "1024x1024", // Closest supported
-    "3:4": "1024x1792"  // Closer to 3:4 ratio
+    "3:4": "1024x1792", // Closer to 3:4 ratio
+    "3:2": "1792x1024"  // Add 3:2 mapping for photo ratio
   };
 
   const size = sizeMap[aspectRatio] || "1024x1024";
 
   try {
-    // Clean and limit prompt for DALL-E 3
+    // Clean and limit prompt for DALL-E 3 (OpenAI recommends max 4000 chars)
     const cleanPrompt = prompt.length > 4000 ? prompt.substring(0, 4000) : prompt;
 
-    console.log(`DALL-E 3 Request - Size: ${size}, Prompt length: ${cleanPrompt.length}`);
-    console.log(`DALL-E 3 Prompt: ${cleanPrompt.substring(0, 200)}...`);
+    console.log(`🎨 DALL-E 3 Request - Size: ${size}, Prompt length: ${cleanPrompt.length}`);
+    console.log(`🎨 DALL-E 3 Prompt: ${cleanPrompt.substring(0, 200)}...`);
 
     const response = await openai.images.generate({
       model: "dall-e-3",
       prompt: cleanPrompt,
       n: 1,
       size: size,
-      quality: "hd",
+      quality: "standard", // Use standard instead of hd for faster/cheaper generation
       style: "vivid",
       response_format: "url"
     });
 
-    console.log(`DALL-E 3 Response received successfully`);
+    console.log(`✅ DALL-E 3 Response received successfully`);
 
     if (!response.data || response.data.length === 0) {
       throw new Error('No image returned from DALL-E 3');
@@ -234,39 +235,54 @@ async function generateWithDALLE3(prompt: string, aspectRatio: string): Promise<
       throw new Error('No image URL returned from DALL-E 3');
     }
 
-    // Download the image
-    const imageResponse = await fetch(imageUrl);
+    console.log(`📥 Downloading image from: ${imageUrl.substring(0, 50)}...`);
+
+    // Download the image with timeout
+    const imageResponse = await fetch(imageUrl, {
+      timeout: 30000 // 30 second timeout
+    });
+
     if (!imageResponse.ok) {
       throw new Error(`Failed to download generated image: ${imageResponse.status} ${imageResponse.statusText}`);
     }
 
     const arrayBuffer = await imageResponse.arrayBuffer();
-    return Buffer.from(arrayBuffer);
+    const buffer = Buffer.from(arrayBuffer);
+
+    console.log(`✅ Image downloaded successfully: ${buffer.length} bytes`);
+    return buffer;
 
   } catch (error: any) {
     // Enhanced error handling for OpenAI API errors
-    console.error('DALL-E 3 generation error:', {
+    console.error('❌ DALL-E 3 generation error:', {
       message: error.message,
       code: error.code,
       type: error.type,
       status: error.status,
-      promptLength: prompt.length
+      promptLength: prompt.length,
+      aspectRatio: aspectRatio,
+      size: size
     });
 
-    // Handle specific OpenAI errors
+    // Handle specific OpenAI errors with user-friendly messages
     if (error.code === 'content_policy_violation') {
-      throw new Error('DALL-E 3 content policy violation: The prompt contains content that violates OpenAI\'s usage policies');
+      throw new Error('DALL-E 3: Content policy violation - please modify your prompt to avoid restricted content');
     } else if (error.code === 'billing_hard_limit_reached') {
-      throw new Error('DALL-E 3 billing limit reached: Please check your OpenAI account billing');
+      throw new Error('DALL-E 3: Billing limit reached - please check your OpenAI account');
     } else if (error.code === 'rate_limit_exceeded') {
-      throw new Error('DALL-E 3 rate limit exceeded: Please try again in a moment');
+      throw new Error('DALL-E 3: Rate limit exceeded - please try again in a moment');
     } else if (error.status === 401) {
-      throw new Error('DALL-E 3 authentication failed: Invalid API key');
+      throw new Error('DALL-E 3: Invalid API key - please check configuration');
+    } else if (error.status === 429) {
+      throw new Error('DALL-E 3: Too many requests - please wait and try again');
     } else if (error.status === 500) {
-      throw new Error('DALL-E 3 server error: OpenAI service temporarily unavailable');
+      throw new Error('DALL-E 3: OpenAI server error - service temporarily unavailable');
+    } else if (error.name === 'TimeoutError' || error.message.includes('timeout')) {
+      throw new Error('DALL-E 3: Request timed out - please try again');
     }
 
-    throw new Error(`DALL-E 3 generation failed: ${error.message}`);
+    // Fallback error message with original error for debugging
+    throw new Error(`DALL-E 3 generation failed: ${error.message || 'Unknown error occurred'}`);
   }
 }
 
