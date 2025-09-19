@@ -88,16 +88,19 @@ const CREDIT_COSTS = {
 // Credit balance component with warnings
 function CreditBalance({ user, onBuyCredits }: { user: UserType | undefined; onBuyCredits: () => void }) {
   const credits = user?.credits || 0;
-  const isLow = credits < 10;
-  const isCritical = credits < 3;
-  
+  const isAdmin = user?.role === "admin";
+  const isLow = credits < 10 && !isAdmin;
+  const isCritical = credits < 3 && !isAdmin;
+
   const getStatusColor = () => {
+    if (isAdmin) return "bg-purple-500 text-white";
     if (isCritical) return "bg-red-500 text-white";
     if (isLow) return "bg-amber-500 text-white";
     return "bg-green-500 text-white";
   };
-  
+
   const getStatusIcon = () => {
+    if (isAdmin) return <Crown className="w-4 h-4" />;
     if (isCritical) return <AlertTriangle className="w-4 h-4" />;
     if (isLow) return <Zap className="w-4 h-4" />;
     return <Coins className="w-4 h-4" />;
@@ -107,7 +110,7 @@ function CreditBalance({ user, onBuyCredits }: { user: UserType | undefined; onB
     <Tooltip>
       <TooltipTrigger asChild>
         <Button
-          variant="ghost" 
+          variant="ghost"
           className={`px-3 py-2 h-auto ${getStatusColor()} hover:opacity-90 transition-all`}
           onClick={onBuyCredits}
           data-testid="button-credit-balance"
@@ -115,9 +118,9 @@ function CreditBalance({ user, onBuyCredits }: { user: UserType | undefined; onB
           <div className="flex items-center gap-2">
             {getStatusIcon()}
             <div className="text-sm font-medium">
-              {credits.toLocaleString()} Credits
+              {isAdmin ? "∞ Credits" : `${credits.toLocaleString()} Credits`}
             </div>
-            {isLow && (
+            {isLow && !isAdmin && (
               <div className="animate-pulse">
                 <ArrowUp className="w-3 h-3" />
               </div>
@@ -128,12 +131,13 @@ function CreditBalance({ user, onBuyCredits }: { user: UserType | undefined; onB
       <TooltipContent side="bottom" className="max-w-xs">
         <div className="space-y-2">
           <div className="font-semibold">
-            {isCritical ? "🚨 Critical: Running out of credits!" : 
-             isLow ? "⚠️ Warning: Low on credits" : 
+            {isAdmin ? "👑 Admin: Unlimited Credits!" :
+             isCritical ? "🚨 Critical: Running out of credits!" :
+             isLow ? "⚠️ Warning: Low on credits" :
              "✨ You're all set!"}
           </div>
           <div className="text-sm space-y-1">
-            <div>Current balance: <strong>{credits} credits</strong></div>
+            <div>Current balance: <strong>{isAdmin ? "∞" : credits} credits</strong></div>
             <Separator className="my-2" />
             <div className="text-xs opacity-80">
               <div>💬 Text posts: {CREDIT_COSTS.text} credit each</div>
@@ -142,7 +146,7 @@ function CreditBalance({ user, onBuyCredits }: { user: UserType | undefined; onB
               <div>🚀 14-day campaigns: {CREDIT_COSTS.campaign} credits</div>
             </div>
           </div>
-          {isLow && (
+          {isLow && !isAdmin && (
             <div className="pt-2 border-t">
               <div className="text-xs text-muted-foreground">
                 Click to buy more credits →
@@ -231,19 +235,23 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
           <div className="block sm:hidden">
             <Tooltip>
               <TooltipTrigger asChild>
-                <Button 
-                  variant="ghost" 
+                <Button
+                  variant="ghost"
                   size="sm"
                   onClick={() => setLocation('/billing')}
                   className="px-2"
                   data-testid="button-mobile-credits"
                 >
-                  <Coins className="h-4 w-4" />
-                  <span className="ml-1 text-sm font-bold">{user?.credits || 0}</span>
+                  {user?.role === "admin" ? <Crown className="h-4 w-4" /> : <Coins className="h-4 w-4" />}
+                  <span className="ml-1 text-sm font-bold">
+                    {user?.role === "admin" ? "∞" : user?.credits || 0}
+                  </span>
                 </Button>
               </TooltipTrigger>
               <TooltipContent>
-                <p>{user?.credits || 0} Credits - Tap to buy more</p>
+                <p>
+                  {user?.role === "admin" ? "∞ Credits - Admin" : `${user?.credits || 0} Credits - Tap to buy more`}
+                </p>
               </TooltipContent>
             </Tooltip>
           </div>
@@ -482,9 +490,9 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
                     {tierInfo.icon && <tierInfo.icon className="w-3 h-3 mr-1" />}
                     {tierInfo.name}
                   </Badge>
-                  {user?.credits && (
+                  {user?.credits !== undefined && (
                     <Badge variant="outline">
-                      {user.credits} Credits
+                      {user?.role === "admin" ? "∞ Credits" : `${user.credits} Credits`}
                     </Badge>
                   )}
                 </div>

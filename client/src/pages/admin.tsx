@@ -67,7 +67,7 @@ export default function AdminPanel() {
   // Get all users with enhanced info - auto-refresh every 5 seconds
   const { data: users = [], isLoading: usersLoading, refetch: refetchUsers } = useQuery<EnhancedUser[]>({
     queryKey: ["/api/admin/users"],
-    enabled: currentUser?.isAdmin === true,
+    enabled: currentUser?.role === "admin",
     refetchInterval: 5000, // Auto-refresh every 5 seconds
     refetchIntervalInBackground: true, // Continue refreshing even when tab is not focused
   });
@@ -75,7 +75,7 @@ export default function AdminPanel() {
   // Get admin stats - auto-refresh every 5 seconds
   const { data: stats, refetch: refetchStats } = useQuery<AdminStats>({
     queryKey: ["/api/admin/stats"],
-    enabled: currentUser?.isAdmin === true,
+    enabled: currentUser?.role === "admin",
     refetchInterval: 5000, // Auto-refresh every 5 seconds
     refetchIntervalInBackground: true,
   });
@@ -83,7 +83,7 @@ export default function AdminPanel() {
   // Get all transactions
   const { data: transactions = [], refetch: refetchTransactions } = useQuery<Transaction[]>({
     queryKey: ["/api/admin/transactions"],
-    enabled: currentUser?.isAdmin === true,
+    enabled: currentUser?.role === "admin",
     refetchInterval: 10000, // Auto-refresh every 10 seconds for transactions
   });
 
@@ -242,6 +242,8 @@ export default function AdminPanel() {
       toast({ title: "Admin status updated" });
       refetchUsers();
       refetchStats();
+      // Force refresh the current user query so sidebar updates instantly
+      queryClient.invalidateQueries({ queryKey: ["/api/user"] });
     },
     onError: (error: any) => {
       toast({
@@ -564,7 +566,7 @@ export default function AdminPanel() {
     }
   };
 
-  if (!currentUser?.isAdmin) {
+  if (currentUser?.role !== "admin") {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <Card className="max-w-md">
@@ -931,7 +933,7 @@ export default function AdminPanel() {
                         </TableCell>
                         <TableCell>
                           <Switch
-                            checked={user.isAdmin}
+                            checked={user.role === "admin"}
                             onCheckedChange={(checked) => {
                               toggleAdminMutation.mutate({ userId: user.id, isAdmin: checked });
                             }}

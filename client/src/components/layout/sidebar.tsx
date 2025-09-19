@@ -125,7 +125,7 @@ export default function Sidebar({ onNavigate }: SidebarProps = {}) {
               )}
             </div>
             <p className="text-xs text-gray-400 mt-0.5">
-              {user?.credits ? `${user.credits.toLocaleString()} credits` : ""}
+              {user?.role === "admin" ? "∞ credits" : user?.credits ? `${user.credits.toLocaleString()} credits` : ""}
             </p>
           </div>
         </div>
