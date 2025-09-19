@@ -50,7 +50,7 @@ export default function Sidebar({ onNavigate }: SidebarProps = {}) {
 
   return (
     <aside
-      className="w-64 shadow-lg flex flex-col bg-background border-4 border-primary/50 rounded-lg m-3 h-[calc(100vh-1.5rem+0.4rem)] fixed top-3 left-3 overflow-y-auto z-40"
+      className="w-64 shadow-lg flex flex-col bg-background border-4 border-primary/50 rounded-lg m-3 h-[calc(100vh-2rem)] fixed top-3 left-3 overflow-y-auto z-40"
     >
       <div className="p-6 border-b border-border">
         <Logo size="md" animated={true} />
