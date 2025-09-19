@@ -65,7 +65,7 @@ export default function Sidebar({ onNavigate }: SidebarProps = {}) {
                 className={cn(
                   "flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer",
                   isActive
-                    ? "bg-primary text-white shadow-lg shadow-primary/50 border border-primary"
+                    ? "bg-primary text-white shadow-lg shadow-primary/30 border border-primary relative before:absolute before:-inset-1 before:rounded-lg before:bg-primary/20 before:blur-sm before:-z-10"
                     : "text-gray-300 hover:bg-muted hover:text-white"
                 )}
                 onClick={onNavigate}
@@ -89,7 +89,7 @@ export default function Sidebar({ onNavigate }: SidebarProps = {}) {
               className={cn(
                 "flex items-center space-x-3 px-4 py-3 text-sm font-medium rounded-lg transition-colors cursor-pointer mt-2",
                 location === "/admin"
-                  ? "bg-primary text-white shadow-lg shadow-primary/50 border border-primary"
+                  ? "bg-primary text-white shadow-lg shadow-primary/30 border border-primary relative before:absolute before:-inset-1 before:rounded-lg before:bg-primary/20 before:blur-sm before:-z-10"
                   : "text-gray-300 hover:bg-muted hover:text-white"
               )}
               onClick={onNavigate}
