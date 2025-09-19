@@ -407,7 +407,7 @@ export default function Dashboard() {
             </Button>
 
             <Link href="/referrals">
-              <Button variant="ghost" className="w-full justify-between h-auto p-3 sm:p-4 bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/20 hover:from-amber-100 hover:to-orange-100 dark:hover:from-amber-900/30 dark:hover:to-orange-900/30 border border-amber-200 dark:border-amber-800">
+              <Button variant="ghost" className="w-full justify-between h-auto p-3 sm:p-4 bg-gradient-to-r from-amber-900/20 to-orange-900/20 hover:from-amber-900/30 hover:to-orange-900/30 border border-amber-800">
                 <div className="flex items-center space-x-2 sm:space-x-3">
                   <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-amber-500 to-orange-500 rounded-lg flex items-center justify-center">
                     <Gift className="text-white w-4 h-4 sm:w-5 sm:h-5" />
