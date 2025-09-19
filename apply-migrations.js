@@ -193,9 +193,9 @@ async function main() {
     console.log(`${colors.green}✓ Connected to database${colors.reset}`);
     console.log(`  Server time: ${testResult.rows[0].current_time}`);
 
-    // Apply migrations in sequence - cleanup MUST run before constraints
+    // Apply migrations in sequence - emergency cleanup FIRST
     const migrations = [
-      { file: '0001_force_tier_cleanup.sql', name: 'CRITICAL: Force Tier Data Cleanup' },
+      { file: '000_emergency_tier_fix.sql', name: 'EMERGENCY: Simple Tier Fix' },
       { file: '0002_trial_lite.sql', name: 'Trial System Enhancements' },
       { file: '0003_performance_indexes.sql', name: 'Performance Indexes (45+ critical indexes)' },
       { file: '0004_data_integrity_constraints.sql', name: 'Data Integrity Constraints (30+ business rules)' },
