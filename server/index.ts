@@ -112,7 +112,8 @@ app.use((req, res, next) => {
 
 (async () => {
   // Apply database migrations if in production
-  if (process.env.NODE_ENV === 'production') {
+  // TEMPORARILY DISABLED - database is already clean from direct fix
+  if (false && process.env.NODE_ENV === 'production') {
     try {
       console.log('🔄 Applying database migrations...');
       const { main: applyMigrations } = await import('./apply-migrations.js');
