@@ -49,11 +49,11 @@ export default function Sidebar({ onNavigate }: SidebarProps = {}) {
   });
 
   return (
-    <aside className="w-64 shadow-lg flex flex-col bg-background relative">
+    <aside className="w-64 shadow-lg flex flex-col bg-transparent relative h-full">
       <div className="p-6 border-b border-border">
         <Logo size="md" animated={true} />
       </div>
-      
+
       <nav className="flex-1 p-4 space-y-2">
         {navigation.map((item) => {
           const isActive = location === item.href || (item.href !== "/" && location.startsWith(item.href));
@@ -102,10 +102,7 @@ export default function Sidebar({ onNavigate }: SidebarProps = {}) {
         )}
       </nav>
 
-      {/* Thick purple border under navigation */}
-      <div className="border-b-4 border-primary/50"></div>
-
-      <div className="p-4">
+      <div className="sidebar-footer p-4">
         <div className="flex items-center space-x-3">
           <UserAvatar user={user} />
           <div className="flex-1">
