@@ -98,50 +98,53 @@ export default function Referrals() {
   return (
     <div className="p-6 max-w-7xl mx-auto">
       <div className="mb-8">
-        <h1 className="text-3xl font-bold text-foreground flex items-center gap-2">
-          <Gift className="w-8 h-8 text-primary" />
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent flex items-center gap-3">
+          <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center shadow-lg shadow-primary/50">
+            <Gift className="w-6 h-6 text-white" />
+          </div>
           Referral Program
         </h1>
-        <p className="text-muted-foreground mt-2">
+        <p className="text-muted-foreground mt-2 text-lg">
           Earn rewards by inviting friends to MyAiMediaMgr
         </p>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <Card className="lg:col-span-2">
+        <Card className="lg:col-span-2 bg-gradient-to-br from-background to-muted/20 border-2 border-primary/30 shadow-xl">
           <CardHeader>
-            <CardTitle>Your Referral Code</CardTitle>
+            <CardTitle className="text-xl font-bold">Your Referral Code</CardTitle>
             <CardDescription>Share this code or link with friends</CardDescription>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex gap-2">
-              <Input 
-                value={referralData?.referralCode || ''} 
-                readOnly 
-                className="font-mono text-lg font-bold"
+              <Input
+                value={referralData?.referralCode || ''}
+                readOnly
+                className="font-mono text-lg font-bold bg-background/80 border-primary/30"
               />
-              <Button 
+              <Button
                 onClick={handleCopyCode}
                 variant={copiedCode ? "default" : "outline"}
+                className={copiedCode ? "bg-gradient-to-r from-green-600 to-green-500" : "border-primary/50 hover:bg-primary/20"}
                 data-testid="button-copy-code"
               >
                 {copiedCode ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
                 {copiedCode ? "Copied" : "Copy"}
               </Button>
             </div>
-            
+
             <div className="flex gap-2">
-              <Button 
-                onClick={handleCopyLink} 
-                className="flex-1"
+              <Button
+                onClick={handleCopyLink}
+                className="flex-1 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 shadow-lg"
                 data-testid="button-share-link"
               >
                 <Gift className="w-4 h-4 mr-2" />
                 Copy Referral Link
               </Button>
-              <Button 
+              <Button
                 variant="outline"
-                className="flex-1"
+                className="flex-1 border-primary/50 hover:bg-primary/20"
                 data-testid="button-share-social"
               >
                 Share on Social Media
@@ -150,10 +153,10 @@ export default function Referrals() {
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-primary/10 to-accent/10">
+        <Card className="bg-gradient-to-br from-primary/20 to-accent/20 border-2 border-primary/30 shadow-xl hover:shadow-2xl transition-all duration-300">
           <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <TrendingUp className="w-5 h-5" />
+            <CardTitle className="flex items-center gap-2 text-lg">
+              <TrendingUp className="w-5 h-5 text-primary" />
               Your Stats
             </CardTitle>
           </CardHeader>
@@ -287,9 +290,9 @@ export default function Referrals() {
               <div className="space-y-2">
                 <div className="flex justify-between text-sm">
                   <span>Current Level Progress</span>
-                  <span className="font-bold">{referralData.currentTierProgress}/{referralData.nextMilestone}</span>
+                  <span className="font-bold">{referralData?.stats?.completedReferrals || 0}/25</span>
                 </div>
-                <Progress value={(referralData.currentTierProgress / referralData.nextMilestone) * 100} />
+                <Progress value={progressToFreeSubscription} />
               </div>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">

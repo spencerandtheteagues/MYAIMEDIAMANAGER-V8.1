@@ -92,19 +92,19 @@ export default function Dashboard() {
   });
   
   const { data: currentUser } = useQuery({
-    queryKey: ["/api/auth/me"],
+    queryKey: ["/api/user"],
   });
-  
+
   const { data: referralStats } = useQuery({
-    queryKey: ["/api/referrals/stats"],
+    queryKey: ["/api/referral/stats"],
     enabled: !!currentUser,
   });
 
   const isLoading = isLoadingDashboard || isLoadingPlatforms;
   const hasConnectedPlatforms = platforms.some(p => p.connected);
   
-  const referralLink = currentUser?.referralCode 
-    ? `https://myaimediamgr.com/auth?ref=${currentUser.referralCode}`
+  const referralLink = currentUser?.referralCode
+    ? `${window.location.origin}/auth?ref=${currentUser.referralCode}`
     : '';
     
   const handleCopyReferralLink = () => {
@@ -142,30 +142,32 @@ export default function Dashboard() {
     <div className="space-y-6">
       {/* Referral Program Section - PROMINENT DISPLAY */}
       {currentUser?.referralCode && (
-        <Card className="bg-black/40 border border-purple-600/50">
+        <Card className="bg-gradient-to-r from-purple-900/20 to-pink-900/20 border-2 border-primary/60 shadow-2xl shadow-primary/20 hover:shadow-primary/30 transition-all duration-300">
           <CardContent className="p-6">
             <div className="flex items-start justify-between gap-4">
               <div className="flex-1">
                 <div className="flex items-center gap-3 mb-3">
-                  <div className="w-10 h-10 bg-gradient-to-br from-purple-600 to-purple-500 rounded-lg flex items-center justify-center">
-                    <Gift className="w-5 h-5 text-white" />
+                  <div className="w-12 h-12 bg-gradient-to-br from-primary to-accent rounded-xl flex items-center justify-center shadow-lg shadow-primary/50">
+                    <Gift className="w-6 h-6 text-white" />
                   </div>
                   <div>
-                    <h3 className="text-lg font-semibold text-white">Refer Friends & Earn Credits</h3>
-                    <p className="text-sm text-zinc-400">Share your link and get 100 credits for each friend who joins!</p>
+                    <h3 className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+                      Refer Friends & Earn Credits
+                    </h3>
+                    <p className="text-sm text-muted-foreground">Share your link and get 100 credits for each friend who joins!</p>
                   </div>
                 </div>
-                
+
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 bg-black/60 rounded-lg px-3 py-2 border border-zinc-800">
-                      <p className="text-sm font-mono text-zinc-300 break-all">{referralLink}</p>
+                    <div className="flex-1 bg-background/80 backdrop-blur-sm rounded-lg px-4 py-3 border border-primary/30">
+                      <p className="text-sm font-mono text-foreground break-all">{referralLink}</p>
                     </div>
                     <Button
                       onClick={handleCopyReferralLink}
                       variant="default"
                       size="sm"
-                      className="min-w-[100px]"
+                      className="min-w-[100px] bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 shadow-lg"
                     >
                       {copiedReferral ? (
                         <>
@@ -182,16 +184,24 @@ export default function Dashboard() {
                   </div>
                   
                   {referralStats && (
-                    <div className="flex items-center gap-4 text-sm">
-                      <div className="flex items-center gap-1">
-                        <Users className="w-4 h-4 text-purple-400" />
-                        <span className="font-medium text-white">{referralStats.totalReferrals || 0}</span>
-                        <span className="text-zinc-400">friends referred</span>
+                    <div className="flex items-center gap-6 text-sm pt-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-primary/20 flex items-center justify-center">
+                          <Users className="w-4 h-4 text-primary" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-lg text-foreground">{referralStats.totalReferrals || 0}</span>
+                          <span className="text-xs text-muted-foreground block">Referrals</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-1">
-                        <TrendingUp className="w-4 h-4 text-green-400" />
-                        <span className="font-medium text-white">{referralStats.totalCreditsEarned || 0}</span>
-                        <span className="text-zinc-400">credits earned</span>
+                      <div className="flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-accent/20 flex items-center justify-center">
+                          <TrendingUp className="w-4 h-4 text-accent" />
+                        </div>
+                        <div>
+                          <span className="font-bold text-lg text-foreground">{referralStats.totalCreditsEarned || 0}</span>
+                          <span className="text-xs text-muted-foreground block">Credits Earned</span>
+                        </div>
                       </div>
                     </div>
                   )}

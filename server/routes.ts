@@ -372,7 +372,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
   app.use("/api/trial", trialRouter);
   
   // Wire up referral routes
-  app.use("/api/referrals", referralRoutes);
+  app.use("/api/referral", referralRoutes);
+  app.use("/api/referrals", referralRoutes); // Keep backward compatibility
   
   // Wire up schedule routes
   const { createScheduleRoutes } = await import("./scheduleRoutes");
@@ -420,11 +421,16 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       // Get the authenticated user
-      const user = await storage.getUser(userId);
+      let user = await storage.getUser(userId);
       if (!user) {
         return res.status(404).json({ message: "User not found" });
       }
-      
+
+      // Generate referral code if user doesn't have one
+      if (!user.referralCode) {
+        user = await storage.generateReferralCode(userId) || user;
+      }
+
       res.json(user);
     } catch (error) {
       console.error("Error getting user:", error);

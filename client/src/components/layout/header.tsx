@@ -324,68 +324,8 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
           </DropdownMenu>
 
           <NotificationsBell />
-          
-          {/* User Account Dropdown */}
-          <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button variant="ghost" className="relative p-0 h-auto">
-                <UserAvatar user={user} className="w-10 h-10" />
-              </Button>
-            </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-64">
-              <div className="px-2 py-3 border-b">
-                <p className="font-semibold">{user?.fullName || 'User'}</p>
-                <p className="text-sm text-muted-foreground">{user?.email}</p>
-                <div className="flex items-center gap-2 mt-2">
-                  <Badge variant="secondary" className={`${tierInfo.color} text-white`}>
-                    {tierInfo.icon && <tierInfo.icon className="w-3 h-3 mr-1" />}
-                    {tierInfo.name}
-                  </Badge>
-                  {user?.credits && (
-                    <Badge variant="outline">
-                      {user.credits} Credits
-                    </Badge>
-                  )}
-                </div>
-              </div>
-              
-              <DropdownMenuItem onClick={() => setLocation('/settings')} className="cursor-pointer">
-                <User className="w-4 h-4 mr-2" />
-                Account Settings
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={() => setLocation('/billing')} className="cursor-pointer">
-                <CreditCard className="w-4 h-4 mr-2" />
-                Billing & Upgrade
-                {user?.tier === 'free' && (
-                  <Badge variant="default" className="ml-auto bg-gradient-to-r from-purple-500 to-pink-500 text-white">
-                    Upgrade
-                  </Badge>
-                )}
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={() => setLocation('/referrals')} className="cursor-pointer">
-                <Gift className="w-4 h-4 mr-2" />
-                Referral Program
-                <Badge variant="outline" className="ml-auto">
-                  New!
-                </Badge>
-              </DropdownMenuItem>
-              
-              <DropdownMenuItem onClick={() => setLocation('/help')} className="cursor-pointer">
-                <HelpCircle className="w-4 h-4 mr-2" />
-                Help & Support
-              </DropdownMenuItem>
-              
-              <DropdownMenuSeparator />
-              
-              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
-                <LogOut className="w-4 h-4 mr-2" />
-                Logout
-              </DropdownMenuItem>
-            </DropdownMenuContent>
-          </DropdownMenu>
-          
+
+          {/* Quick Create Dropdown - Moved before User Account */}
           <DropdownMenu open={isQuickCreateOpen} onOpenChange={setIsQuickCreateOpen}>
             <DropdownMenuTrigger asChild>
               <Button className="bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 text-white shadow-lg transition-all hover:shadow-xl">
@@ -516,6 +456,67 @@ export default function Header({ onMobileMenuClick }: HeaderProps) {
                   </div>
                 </>
               )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* User Account Dropdown - Positioned at far right */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" className="relative p-0 h-auto ml-2">
+                <UserAvatar user={user} className="w-10 h-10" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-64">
+              <div className="px-2 py-3 border-b">
+                <p className="font-semibold">{user?.fullName || 'User'}</p>
+                <p className="text-sm text-muted-foreground">{user?.email}</p>
+                <div className="flex items-center gap-2 mt-2">
+                  <Badge variant="secondary" className={`${tierInfo.color} text-white`}>
+                    {tierInfo.icon && <tierInfo.icon className="w-3 h-3 mr-1" />}
+                    {tierInfo.name}
+                  </Badge>
+                  {user?.credits && (
+                    <Badge variant="outline">
+                      {user.credits} Credits
+                    </Badge>
+                  )}
+                </div>
+              </div>
+
+              <DropdownMenuItem onClick={() => setLocation('/settings')} className="cursor-pointer">
+                <User className="w-4 h-4 mr-2" />
+                Account Settings
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => setLocation('/billing')} className="cursor-pointer">
+                <CreditCard className="w-4 h-4 mr-2" />
+                Billing & Upgrade
+                {user?.tier === 'free' && (
+                  <Badge variant="default" className="ml-auto bg-gradient-to-r from-purple-500 to-pink-500 text-white">
+                    Upgrade
+                  </Badge>
+                )}
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => setLocation('/referrals')} className="cursor-pointer">
+                <Gift className="w-4 h-4 mr-2" />
+                Referral Program
+                <Badge variant="outline" className="ml-auto">
+                  New!
+                </Badge>
+              </DropdownMenuItem>
+
+              <DropdownMenuItem onClick={() => setLocation('/help')} className="cursor-pointer">
+                <HelpCircle className="w-4 h-4 mr-2" />
+                Help & Support
+              </DropdownMenuItem>
+
+              <DropdownMenuSeparator />
+
+              <DropdownMenuItem onClick={handleLogout} className="cursor-pointer text-red-600">
+                <LogOut className="w-4 h-4 mr-2" />
+                Logout
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
