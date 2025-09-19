@@ -61,7 +61,6 @@ export default function CreateContent() {
   const [lighting, setLighting] = useState("natural");
   const [mood, setMood] = useState("bright");
   const [composition, setComposition] = useState("rule-of-thirds");
-  const [objectFocus, setObjectFocus] = useState("");
   const [aspectRatio, setAspectRatio] = useState("16:9");
   const [imageResolution, setImageResolution] = useState("1080p");
   const [imageModel, setImageModel] = useState("gemini"); // Gemini Imagen 4 or OpenAI DALL-E 3
@@ -478,7 +477,6 @@ export default function CreateContent() {
     setAdditionalContext("");
     setImagePrompt("");
     setColorScheme("");
-    setObjectFocus("");
     setVideoScenes("");
     setVideoScript("");
     setGeneratedImage(null);
@@ -553,7 +551,6 @@ export default function CreateContent() {
         lighting,
         mood,
         composition,
-        objectFocus,
         aspectRatio,
         imageResolution,
         videoDuration,
@@ -616,7 +613,6 @@ export default function CreateContent() {
       lighting,
       mood,
       composition,
-      objectFocus,
       aspectRatio,
       resolution: imageResolution,
       imagePrompt,
@@ -1223,25 +1219,31 @@ export default function CreateContent() {
                   </div>
 
                   <div>
-                    <Label htmlFor="objectFocus">Object/Subject Focus</Label>
-                    <Input
-                      id="objectFocus"
-                      value={objectFocus}
-                      onChange={(e) => setObjectFocus(e.target.value)}
-                      placeholder="e.g., Coffee cup on wooden table, Person using laptop"
-                      className="mt-1"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="imagePrompt">Additional Image Instructions</Label>
+                    <Label htmlFor="imagePrompt" className="text-base font-medium">
+                      <Wand2 className="w-4 h-4 inline mr-2" />
+                      Describe Your Image
+                    </Label>
+                    <p className="text-sm text-muted-foreground mt-1 mb-2">
+                      Be as detailed as possible for best results. Describe what you want, where it's located, colors, lighting, mood, and style.
+                    </p>
                     <Textarea
                       id="imagePrompt"
                       value={imagePrompt}
                       onChange={(e) => setImagePrompt(e.target.value)}
-                      placeholder="Describe specific visual elements, props, backgrounds, textures, or any other details you want in the image..."
-                      className="mt-1 h-24"
+                      placeholder="Example: A steaming coffee cup on a rustic wooden table, morning sunlight streaming through a window, warm cozy atmosphere, shot from above, shallow depth of field, professional food photography style, earth tones..."
+                      className="mt-1 h-32 text-sm"
                     />
+                    <div className="mt-2 text-xs text-muted-foreground bg-muted/50 p-3 rounded-lg">
+                      <div className="font-medium mb-1">💡 Tips for better images:</div>
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-1">
+                        <div>• Include specific objects & settings</div>
+                        <div>• Mention colors & lighting</div>
+                        <div>• Describe the mood or atmosphere</div>
+                        <div>• Add camera angle details</div>
+                        <div>• Specify style (e.g. "professional photography")</div>
+                        <div>• Use descriptive adjectives</div>
+                      </div>
+                    </div>
                   </div>
 
                   {/* Caption Controls */}
