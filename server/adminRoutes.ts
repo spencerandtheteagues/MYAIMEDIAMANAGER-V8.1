@@ -601,8 +601,7 @@ router.post("/users/:id/update-password", async (req, res) => {
     }
     
     // Hash the password
-    const bcrypt = require("bcryptjs");
-    const hashedPassword = await bcrypt.hash(password, 10);
+    const hashedPassword = await hash(password, 10);
     
     const updatedUser = await storage.updateUserPassword(id, hashedPassword);
     if (!updatedUser) {
@@ -1384,8 +1383,7 @@ router.post("/force-password-reset/:userId", async (req, res) => {
 
     // Generate secure temporary password
     const tempPassword = Math.random().toString(36).slice(-12) + "!A1";
-    const bcrypt = require("bcryptjs");
-    const hashedPassword = await bcrypt.hash(tempPassword, 10);
+    const hashedPassword = await hash(tempPassword, 10);
 
     // Update user password and force password change on next login
     const updatedUser = await storage.updateUser(userId, {
