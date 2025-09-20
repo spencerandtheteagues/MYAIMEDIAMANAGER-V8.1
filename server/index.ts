@@ -6,6 +6,7 @@ import cookieParser from "cookie-parser";
 import { registerRoutes } from "./routes";
 import { setupVite, serveStatic, log } from "./vite";
 import stripeWebhook from "./stripe-webhook";
+import { setupWebSocket } from "./websocket";
 
 const app = express();
 
@@ -143,6 +144,9 @@ app.use((req, res, next) => {
     serveStatic(app);
   }
 
+  // Setup WebSocket for real-time messaging
+  setupWebSocket(server);
+
   // ALWAYS serve the app on the port specified in the environment variable PORT
   // Other ports are firewalled. Default to 5000 if not specified.
   // this serves both the API and the client.
@@ -154,5 +158,6 @@ app.use((req, res, next) => {
     reusePort: true,
   }, () => {
     log(`serving on port ${port}`);
+    log('WebSocket server ready for real-time messaging');
   });
 })();

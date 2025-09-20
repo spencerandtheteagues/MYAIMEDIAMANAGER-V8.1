@@ -1,6 +1,7 @@
 #!/usr/bin/env node
 
-const { Pool } = require('pg');
+const pkg = require('pg');
+const { Pool } = pkg;
 const fs = require('fs');
 const path = require('path');
 

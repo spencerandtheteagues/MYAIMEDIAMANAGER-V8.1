@@ -4,6 +4,7 @@ import { hash } from "bcryptjs";
 import { randomUUID } from "crypto";
 import Stripe from "stripe";
 import { isUserOnline } from "./middleware/activityTracker";
+import { sendMessageToUser, broadcastMessage } from "./websocket";
 
 const stripe = process.env.STRIPE_SECRET_KEY 
   ? new Stripe(process.env.STRIPE_SECRET_KEY, { apiVersion: "2025-08-27.basil" as any })
@@ -779,28 +780,48 @@ router.post("/users/:id/unpause", async (req, res) => {
   }
 });
 
-// Send message to user
+// Send message to user with real-time WebSocket delivery
 router.post("/users/:id/message", async (req, res) => {
   try {
     const adminId = (req as any).adminId;
     const { id } = req.params;
-    const { title, message, requiresPopup = true } = req.body;
-    
+    const { title, message, requiresPopup = true, priority = "medium" } = req.body;
+
     if (!title || !message) {
       return res.status(400).json({ message: "Title and message are required" });
     }
-    
+
+    // Store message in database
     const notification = await storage.sendMessageToUser(id, title, message, requiresPopup);
-    
+
+    // Send real-time message via WebSocket if user is connected
+    const realTimeMessage = {
+      type: 'admin_message',
+      id: notification.id,
+      title,
+      message,
+      priority,
+      requiresPopup,
+      timestamp: new Date().toISOString(),
+      adminId
+    };
+
+    const delivered = sendMessageToUser(id, realTimeMessage);
+
     // Log admin action
     await storage.logAdminAction({
       adminUserId: adminId || null,
       targetUserId: id,
       action: "send_message",
-      details: { title, message, requiresPopup },
+      details: { title, message, requiresPopup, priority, realTimeDelivered: delivered },
     });
-    
-    res.json({ message: "Message sent", notification });
+
+    res.json({
+      message: "Message sent",
+      notification,
+      realTimeDelivered: delivered,
+      userConnected: delivered
+    });
   } catch (error: any) {
     res.status(500).json({ message: "Error sending message: " + error.message });
   }
@@ -924,12 +945,22 @@ router.post("/send-urgent-message", async (req, res) => {
       adminId,
     });
 
-    // If user is online, trigger real-time notification
+    // Send real-time urgent message via WebSocket if user is connected
+    const realTimeUrgentMessage = {
+      type: 'urgent_message',
+      id: urgentMessage.id,
+      title,
+      message,
+      priority,
+      requiresPopup: true,
+      requiresAcknowledgment: priority === "critical",
+      timestamp: new Date().toISOString(),
+      expiresAt: urgentMessage.expiresAt,
+      adminId
+    };
+
+    const delivered = sendMessageToUser(userId, realTimeUrgentMessage);
     const isOnline = await isUserOnline(userId);
-    if (isOnline) {
-      // TODO: Implement WebSocket/SSE for real-time notifications
-      console.log(`User ${userId} is online - triggering real-time popup`);
-    }
 
     // Log admin action
     await storage.logAdminAction({
@@ -939,7 +970,12 @@ router.post("/send-urgent-message", async (req, res) => {
       details: { title, priority, expiresIn },
     });
 
-    res.json({ message: "Urgent message sent", urgentMessage, userOnline: isOnline });
+    res.json({
+      message: "Urgent message sent",
+      urgentMessage,
+      userOnline: isOnline,
+      realTimeDelivered: delivered
+    });
   } catch (error: any) {
     res.status(500).json({ message: "Error sending urgent message: " + error.message });
   }
@@ -968,7 +1004,7 @@ router.post("/broadcast-message", async (req, res) => {
 
     // Send message to all target users
     const messagePromises = users.map(async (user) => {
-      return storage.createUrgentMessage({
+      const dbMessage = await storage.createUrgentMessage({
         userId: user.id,
         title,
         message,
@@ -978,9 +1014,27 @@ router.post("/broadcast-message", async (req, res) => {
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000), // 7 days
         adminId,
       });
+
+      // Send real-time broadcast message via WebSocket
+      const realTimeBroadcastMessage = {
+        type: 'broadcast_message',
+        id: dbMessage.id,
+        title,
+        message,
+        priority,
+        requiresPopup: priority === "high" || priority === "critical",
+        requiresAcknowledgment: priority === "critical",
+        timestamp: new Date().toISOString(),
+        adminId,
+        broadcast: true
+      };
+
+      sendMessageToUser(user.id, realTimeBroadcastMessage);
+
+      return dbMessage;
     });
 
-    await Promise.all(messagePromises);
+    const sentMessages = await Promise.all(messagePromises);
 
     // Log admin action
     await storage.logAdminAction({
