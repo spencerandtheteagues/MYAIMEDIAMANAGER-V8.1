@@ -28,7 +28,7 @@ async function findOrCreateUserFromGoogle(profile: any) {
       tier: 'free',
       credits: 0, // No credits until trial selected
       accountStatus: 'active',
-      subscriptionStatus: 'inactive', // No trial until they select one
+      subscriptionStatus: 'trial', // Set to 'trial' as they need to select one
       needsTrialSelection: true, // NEW USERS MUST SELECT A TRIAL
       emailVerified: true, // Google OAuth users are pre-verified
       trialStartDate: null, // No trial until they select one
